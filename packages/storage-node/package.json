@@ -1,0 +1,18 @@
+{
+  "name": "@read-it-again/storage-node",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": "./src/index.ts",
+  "scripts": {
+    "build": "tsc -b",
+    "typecheck": "tsc -b --pretty false"
+  },
+  "dependencies": {
+    "@read-it-again/storage-schema": "workspace:*",
+    "better-sqlite3": "catalog:"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "latest"
+  }
+}

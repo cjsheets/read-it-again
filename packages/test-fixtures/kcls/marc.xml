@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<record xmlns="http://www.loc.gov/MARC21/slim">
+  <controlfield tag="001">101</controlfield>
+  <controlfield tag="008">260101s2025    wau    b      000 1 eng d</controlfield>
+  <datafield tag="020" ind1=" " ind2=" ">
+    <subfield code="a">9780000000101</subfield>
+  </datafield>
+  <datafield tag="245" ind1="1" ind2="4">
+    <subfield code="a">The Moonlit Kite</subfield>
+  </datafield>
+  <datafield tag="650" ind1=" " ind2="0">
+    <subfield code="a">Kites</subfield>
+    <subfield code="v">Juvenile fiction</subfield>
+  </datafield>
+</record>

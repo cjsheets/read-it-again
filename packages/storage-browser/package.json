@@ -1,0 +1,16 @@
+{
+  "name": "@read-it-again/storage-browser",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": "./src/index.ts",
+  "scripts": {
+    "build": "tsc -b && vite build",
+    "dev": "vite --port 4173",
+    "typecheck": "tsc -b --pretty false"
+  },
+  "dependencies": {
+    "@read-it-again/storage-schema": "workspace:*",
+    "@sqlite.org/sqlite-wasm": "catalog:"
+  }
+}

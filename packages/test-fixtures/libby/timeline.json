@@ -1,0 +1,47 @@
+[
+  {
+    "title": {
+      "text": "The Moonlit Kite",
+      "url": "https://example.invalid/title/edition-101",
+      "titleId": "edition-101"
+    },
+    "author": "Riley North",
+    "publisher": "Example House",
+    "isbn": "9780000000101",
+    "timestamp": 1786550400000,
+    "activity": "Borrowed",
+    "details": " 21 days ",
+    "library": {
+      "text": "Example Library",
+      "url": "https://example.invalid/library",
+      "key": "example"
+    },
+    "cover": {
+      "url": "https://example.invalid/cover/101.jpg",
+      "color": "#294C60",
+      "format": "ebook"
+    }
+  },
+  {
+    "title": {
+      "text": "Bear Counts the Stars",
+      "url": "https://example.invalid/title/edition-102",
+      "titleId": "edition-102"
+    },
+    "author": "Jordan Vale",
+    "publisher": "Example House",
+    "timestamp": 1786550500000,
+    "activity": "Borrowed",
+    "details": " 14 days ",
+    "library": {
+      "text": "Example Library",
+      "url": "https://example.invalid/library",
+      "key": "example"
+    },
+    "cover": {
+      "url": "https://example.invalid/cover/102.jpg",
+      "color": "#D9A441",
+      "format": "audiobook"
+    }
+  }
+]

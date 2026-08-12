@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+  <title>Example catalog results</title>
+  <entry>
+    <title>The Moonlit Kite</title>
+    <id>tag:example.invalid,2026:biblio-record_entry/101</id>
+    <category term="urn:isbn:9780000000101" />
+    <category term="urn:bibid:101" />
+  </entry>
+</feed>
+

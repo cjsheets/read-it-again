@@ -1,0 +1,8 @@
+{
+  "files": [],
+  "references": [
+    { "path": "packages/storage-schema" },
+    { "path": "packages/storage-node" },
+    { "path": "packages/storage-browser" }
+  ]
+}

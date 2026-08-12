@@ -1,0 +1,10 @@
+packages:
+  - apps/*
+  - packages/*
+
+allowBuilds:
+  better-sqlite3: true
+
+catalog:
+  '@sqlite.org/sqlite-wasm': ^3.50.4-build1
+  better-sqlite3: ^12.2.0
