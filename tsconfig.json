@@ -2,7 +2,10 @@
   "files": [],
   "references": [
     { "path": "packages/storage-schema" },
+    { "path": "packages/adapter-libby" },
+    { "path": "packages/application" },
     { "path": "packages/storage-node" },
-    { "path": "packages/storage-browser" }
+    { "path": "packages/storage-browser" },
+    { "path": "apps/web" }
   ]
 }

@@ -9,10 +9,17 @@ export default defineConfig({
     baseURL: 'http://127.0.0.1:4173',
     trace: 'on-first-retry',
   },
-  webServer: {
-    command: 'pnpm --filter @read-it-again/storage-browser dev --host 127.0.0.1',
-    url: 'http://127.0.0.1:4173',
-    reuseExistingServer: !process.env.CI,
-  },
+  webServer: [
+    {
+      command: 'pnpm --filter @read-it-again/storage-browser dev --host 127.0.0.1',
+      url: 'http://127.0.0.1:4173',
+      reuseExistingServer: !process.env.CI,
+    },
+    {
+      command: 'pnpm --filter @read-it-again/web dev --host 127.0.0.1',
+      url: 'http://127.0.0.1:4174',
+      reuseExistingServer: !process.env.CI,
+    },
+  ],
   projects: [{ name: 'chromium', use: { browserName: 'chromium' } }],
 });

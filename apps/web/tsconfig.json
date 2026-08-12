@@ -1,0 +1,16 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "outDir": "dist-types",
+    "rootDir": "src",
+    "tsBuildInfoFile": "dist-types/.tsbuildinfo"
+  },
+  "include": ["src/**/*.ts", "src/**/*.tsx"],
+  "references": [
+    { "path": "../../packages/adapter-libby" },
+    { "path": "../../packages/application" },
+    { "path": "../../packages/storage-browser" },
+    { "path": "../../packages/storage-schema" }
+  ]
+}

@@ -1,0 +1,19 @@
+{
+  "name": "@read-it-again/application",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": "./src/index.ts",
+  "scripts": {
+    "build": "tsc -b",
+    "typecheck": "tsc -b --pretty false"
+  },
+  "dependencies": {
+    "@read-it-again/adapter-libby": "workspace:*",
+    "@read-it-again/storage-schema": "workspace:*"
+  },
+  "devDependencies": {
+    "@read-it-again/storage-node": "workspace:*",
+    "@read-it-again/test-fixtures": "workspace:*"
+  }
+}

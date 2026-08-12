@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { runRepositoryConformance } from '@read-it-again/storage-schema';
+import { migrations, runRepositoryConformance } from '@read-it-again/storage-schema';
 import { NodeSqliteDatabase } from './database.js';
 
 describe('NodeSqliteDatabase', () => {
@@ -13,7 +13,7 @@ describe('NodeSqliteDatabase', () => {
     database = new NodeSqliteDatabase();
 
     await expect(runRepositoryConformance(database, 'native')).resolves.toEqual({
-      migrationCount: 1,
+      migrationCount: migrations.length,
       householdCount: 2,
     });
   });

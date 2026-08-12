@@ -1,0 +1,23 @@
+{
+  "name": "@read-it-again/web",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc -b && vite build",
+    "dev": "vite --port 4174",
+    "typecheck": "tsc -b --pretty false"
+  },
+  "dependencies": {
+    "@read-it-again/adapter-libby": "workspace:*",
+    "@read-it-again/application": "workspace:*",
+    "@read-it-again/storage-browser": "workspace:*",
+    "@read-it-again/storage-schema": "workspace:*",
+    "react": "latest",
+    "react-dom": "latest"
+  },
+  "devDependencies": {
+    "@types/react": "latest",
+    "@types/react-dom": "latest"
+  }
+}

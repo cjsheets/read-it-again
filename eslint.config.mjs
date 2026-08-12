@@ -4,12 +4,20 @@ import globals from 'globals';
 import tseslint from 'typescript-eslint';
 
 export default tseslint.config(
-  { ignores: ['**/dist/**', 'node_modules/**', 'playwright-report/**', 'test-results/**'] },
+  {
+    ignores: [
+      '**/dist/**',
+      '**/dist-types/**',
+      'node_modules/**',
+      'playwright-report/**',
+      'test-results/**',
+    ],
+  },
   eslint.configs.recommended,
   ...tseslint.configs.recommendedTypeChecked,
   prettier,
   {
-    files: ['**/*.ts'],
+    files: ['**/*.{ts,tsx}'],
     languageOptions: {
       globals: { ...globals.browser, ...globals.node, ...globals.worker },
       parserOptions: {

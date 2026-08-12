@@ -15,3 +15,17 @@ local-runtime dependency and must not appear in browser artifacts.
 
 Phase 0 implements only enough schema and repository behavior to prove that native SQLite
 and SQLite-WASM/OPFS can share migrations and observable repository semantics.
+
+## Import pipeline
+
+```text
+complete source snapshot
+  → adapter validation
+  → versioned normalization
+  → transactional snapshot/run/record storage
+  → unresolved import inbox
+```
+
+Validation precedes all writes. Identical snapshot content and identical source observations
+are deduplicated independently, while successful zero-change imports remain visible in the
+audit history.

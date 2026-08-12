@@ -14,3 +14,18 @@ export interface Database {
   query<T extends SqlRow>(sql: string, parameters?: SqlParameters): Promise<readonly T[]>;
   close(): Promise<void>;
 }
+
+export async function inTransaction<T>(
+  database: Database,
+  operation: () => Promise<T>,
+): Promise<T> {
+  await database.exec('BEGIN IMMEDIATE');
+  try {
+    const result = await operation();
+    await database.exec('COMMIT');
+    return result;
+  } catch (error) {
+    await database.exec('ROLLBACK');
+    throw error;
+  }
+}
