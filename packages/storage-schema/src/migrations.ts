@@ -421,6 +421,59 @@ export const migrations: readonly Migration[] = [
       ) STRICT, WITHOUT ROWID;
     `,
   },
+  {
+    version: 7,
+    name: 'deterministic_recommendations',
+    sql: `
+      CREATE TABLE recommendation_runs (
+        id TEXT PRIMARY KEY NOT NULL,
+        household_id TEXT NOT NULL REFERENCES households(id) ON DELETE CASCADE,
+        person_id TEXT NOT NULL REFERENCES people(id) ON DELETE CASCADE,
+        constraints_json TEXT NOT NULL,
+        seed_count INTEGER NOT NULL CHECK (seed_count >= 0),
+        candidate_count INTEGER NOT NULL CHECK (candidate_count >= 0),
+        algorithm_version TEXT NOT NULL,
+        generated_at TEXT NOT NULL
+      ) STRICT;
+
+      CREATE INDEX recommendation_runs_latest
+        ON recommendation_runs (person_id, generated_at DESC, id DESC);
+
+      CREATE TABLE recommendation_items (
+        id TEXT PRIMARY KEY NOT NULL,
+        recommendation_run_id TEXT NOT NULL REFERENCES recommendation_runs(id) ON DELETE CASCADE,
+        kind TEXT NOT NULL CHECK (kind IN ('discovery', 'read_again')),
+        rank INTEGER NOT NULL CHECK (rank > 0),
+        catalog_key TEXT NOT NULL,
+        work_id TEXT REFERENCES works(id),
+        title TEXT NOT NULL,
+        authors_json TEXT NOT NULL,
+        score REAL NOT NULL,
+        evidence_json TEXT NOT NULL,
+        components_json TEXT NOT NULL,
+        estimated_read_minutes INTEGER CHECK (estimated_read_minutes > 0),
+        metadata_json TEXT NOT NULL,
+        UNIQUE (recommendation_run_id, kind, rank),
+        UNIQUE (recommendation_run_id, kind, catalog_key)
+      ) STRICT;
+
+      CREATE TABLE holdings_cache (
+        catalog_key TEXT PRIMARY KEY NOT NULL,
+        system_available INTEGER NOT NULL CHECK (system_available >= 0),
+        system_total INTEGER NOT NULL CHECK (system_total >= 0),
+        branches_json TEXT NOT NULL,
+        source_url TEXT NOT NULL,
+        fetched_at TEXT NOT NULL,
+        expires_at TEXT NOT NULL
+      ) STRICT, WITHOUT ROWID;
+
+      CREATE TABLE recommendation_item_holdings (
+        recommendation_item_id TEXT PRIMARY KEY NOT NULL REFERENCES recommendation_items(id) ON DELETE CASCADE,
+        catalog_key TEXT NOT NULL REFERENCES holdings_cache(catalog_key),
+        observed_at TEXT NOT NULL
+      ) STRICT, WITHOUT ROWID;
+    `,
+  },
 ];
 
 export async function migrate(database: Database): Promise<void> {

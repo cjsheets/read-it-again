@@ -7,6 +7,7 @@ import type {
   AttributionTriageItem,
   ReadingModelView,
   ReadingTrait,
+  RecommendationView,
   ResolutionQueueItem,
 } from '@read-it-again/storage-schema';
 import { requestWorker } from './client.js';
@@ -19,6 +20,7 @@ interface InboxState {
   readonly resolutionQueue: readonly ResolutionQueueItem[];
   readonly attributionTriage: readonly AttributionTriageItem[];
   readonly readingModel: ReadingModelView;
+  readonly recommendations: RecommendationView;
 }
 
 function App() {
@@ -28,6 +30,7 @@ function App() {
     resolutionQueue: [],
     attributionTriage: [],
     readingModel: { checkouts: [], episodes: [], sessions: [], shelf: [] },
+    recommendations: { generatedAt: null, constraints: null, discovery: [], readAgain: [] },
   });
   const [status, setStatus] = useState('Opening your private bookshelf…');
   const [error, setError] = useState<readonly string[]>([]);
@@ -46,6 +49,7 @@ function App() {
         resolutionQueue: response.resolutionQueue,
         attributionTriage: response.attributionTriage,
         readingModel: response.readingModel,
+        recommendations: response.recommendations,
       });
       setStatus(
         response.inbox.records.length === 0 ? 'No books imported yet.' : 'Import inbox ready.',
@@ -77,6 +81,7 @@ function App() {
         resolutionQueue: response.resolutionQueue,
         attributionTriage: response.attributionTriage,
         readingModel: response.readingModel,
+        recommendations: response.recommendations,
       });
       setStatus(importSummary(response.result));
     } catch (caught) {
@@ -193,6 +198,11 @@ function App() {
         <ReadingDashboard model={inbox.readingModel} onChanged={applyReadingChange} />
       )}
 
+      {(inbox.recommendations.discovery.length > 0 ||
+        inbox.recommendations.readAgain.length > 0) && (
+        <RecommendationDashboard recommendations={inbox.recommendations} />
+      )}
+
       {inbox.runs.length > 0 && (
         <details>
           <summary>Import history ({inbox.runs.length})</summary>
@@ -228,6 +238,7 @@ function App() {
         resolutionQueue: response.resolutionQueue,
         attributionTriage: response.attributionTriage,
         readingModel: response.readingModel,
+        recommendations: response.recommendations,
       });
       setStatus('Resolution decision saved.');
     } else {
@@ -257,6 +268,7 @@ function App() {
         resolutionQueue: response.resolutionQueue,
         attributionTriage: response.attributionTriage,
         readingModel: response.readingModel,
+        recommendations: response.recommendations,
       });
       setStatus('Attribution correction saved.');
     } else setError(response.issues ?? [response.message]);
@@ -274,6 +286,7 @@ function App() {
         resolutionQueue: response.resolutionQueue,
         attributionTriage: response.attributionTriage,
         readingModel: response.readingModel,
+        recommendations: response.recommendations,
       });
       setStatus(request.type === 'assessWork' ? 'Assessment saved.' : 'Confirmed session saved.');
     } else setError(response.issues ?? [response.message]);
@@ -290,6 +303,74 @@ const TRAITS: readonly { readonly value: ReadingTrait; readonly label: string }[
   { value: 'vocabulary_stretch', label: 'Vocabulary' },
   { value: 'illustration_led', label: 'Illustration-led' },
 ];
+
+function RecommendationDashboard({
+  recommendations,
+}: {
+  readonly recommendations: RecommendationView;
+}) {
+  return (
+    <section className="recommendations" aria-labelledby="recommendations-title">
+      <div className="section-heading">
+        <div>
+          <p className="eyebrow">KCLS hold list</p>
+          <h2 id="recommendations-title">What to bring home next</h2>
+        </div>
+        {recommendations.generatedAt && (
+          <span className="count">
+            Checked {new Date(recommendations.generatedAt).toLocaleDateString()}
+          </span>
+        )}
+      </div>
+      <p className="model-note">
+        Deterministic suggestions from your household’s history. Availability is a cached KCLS
+        observation, not a reservation.
+      </p>
+      <div className="recommendation-columns">
+        <div>
+          <h3>Discover something new</h3>
+          <p className="model-note">Works already on the bookshelf are excluded.</p>
+          <RecommendationList items={recommendations.discovery} />
+        </div>
+        <div>
+          <h3>Read it again</h3>
+          <p className="model-note">Known favorites, kept separate from discovery.</p>
+          <RecommendationList items={recommendations.readAgain} />
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function RecommendationList({ items }: { readonly items: RecommendationView['discovery'] }) {
+  if (items.length === 0) return <p>No recommendations in this group.</p>;
+  return (
+    <ol className="recommendation-list">
+      {items.map((item) => (
+        <li key={item.catalogKey} className="recommendation-card">
+          <div className="recommendation-title">
+            <div>
+              <h4>{item.title}</h4>
+              <p>{item.authors.join(', ') || 'Unknown author'}</p>
+            </div>
+            <span className={item.holdings.systemAvailable > 0 ? 'available' : 'unavailable'}>
+              {item.holdings.systemAvailable} of {item.holdings.systemTotal} available
+            </span>
+          </div>
+          <ul className="recommendation-evidence">
+            {item.evidence.map((evidence) => (
+              <li key={evidence}>{evidence}</li>
+            ))}
+          </ul>
+          <p className="recommendation-meta">
+            {item.estimatedReadMinutes ? `~${item.estimatedReadMinutes} min · ` : ''}
+            KCLS record {item.catalogKey}
+          </p>
+        </li>
+      ))}
+    </ol>
+  );
+}
 
 function ReadingDashboard({
   model,

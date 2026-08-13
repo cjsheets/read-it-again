@@ -103,3 +103,17 @@ explicit household action
 Episodes and preference summaries are disposable projections rebuilt from immutable checkouts,
 current attribution, and work assessments. Reading sessions and assessments are user-authored
 base data. The UI labels all three separately and never treats a checkout as proof of reading.
+
+## Recommendation snapshots
+
+The application recommendation workflow extracts a recency-weighted profile from acquisition
+episodes, assessments, MARC subjects/genres/series, contributors, creators, and read-aloud traits.
+It asks the catalog adapter for KCLS candidates, filters and scores them deterministically, applies
+format, duration, juvenile-audience, author, and subject constraints, and asks for holdings only
+after ranking. Catalog calls remain sequential through the KCLS client.
+
+The result is persisted rather than recomputed while rendering. Each discovery or read-again item
+stores score components, plain-language evidence, its KCLS catalog key, and a holdings observation
+whose cache expires after 24 hours. No optional enrichment provider or LLM participates in the
+complete path. Browser code reads snapshots but does not perform live KCLS calls while the catalog
+lacks CORS permission.

@@ -44,6 +44,17 @@ export {
 } from './reading.js';
 export type { ReadingModelView, ReadingTrait } from './reading.js';
 export {
+  getFreshHoldings,
+  getRecommendations,
+  saveHoldings,
+  saveRecommendationRun,
+} from './recommendations.js';
+export type {
+  HoldingsView,
+  RecommendationItemView,
+  RecommendationView,
+} from './recommendations.js';
+export {
   acceptCandidate,
   acceptCachedResolution,
   createManualResolution,

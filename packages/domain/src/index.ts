@@ -25,6 +25,13 @@ export {
   DEFAULT_EPISODE_THRESHOLDS,
   preferenceScore,
 } from './reading-model.js';
+export { scoreDiscoveryCandidates } from './recommendation.js';
+export type {
+  PreferenceFeature,
+  RecommendationCandidate,
+  RecommendationConstraints,
+  ScoredRecommendation,
+} from './recommendation.js';
 export type {
   AcquisitionEpisodeDraft,
   AttributedCheckout,

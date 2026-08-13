@@ -15,7 +15,12 @@ import {
   rejectCase,
 } from '@read-it-again/application';
 import { openOpfsDatabase } from '@read-it-again/storage-browser';
-import { getReadingModel, listAttributionTriage, migrate } from '@read-it-again/storage-schema';
+import {
+  getReadingModel,
+  getRecommendations,
+  listAttributionTriage,
+  migrate,
+} from '@read-it-again/storage-schema';
 import type { WorkerRequest, WorkerResponse } from './protocol.js';
 
 const SOURCE_ACCOUNT_ID = 'default-libby-source';
@@ -50,6 +55,7 @@ async function handle(request: WorkerRequest): Promise<void> {
         resolutionQueue: resolution.queue,
         attributionTriage: await listAttributionTriage(database),
         readingModel: await rebuildReadingModel(database),
+        recommendations: await getRecommendations(database),
       } satisfies WorkerResponse);
       return;
     }
@@ -79,6 +85,7 @@ async function handle(request: WorkerRequest): Promise<void> {
       resolutionQueue: resolution.queue,
       attributionTriage: await listAttributionTriage(database),
       readingModel: await getReadingModel(database),
+      recommendations: await getRecommendations(database),
     } satisfies WorkerResponse);
   } catch (error) {
     worker.postMessage({

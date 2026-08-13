@@ -3,6 +3,7 @@ import type { Database } from '@read-it-again/storage-schema';
 import { parseOpenSearch } from './opensearch.js';
 import { parseMarcMetadata } from './marc.js';
 import type { CatalogMetadata } from '@read-it-again/domain';
+import { parseHoldings, type ParsedHoldings } from './holdings.js';
 
 export interface KclsCatalogClientOptions {
   readonly database: Database;
@@ -62,6 +63,19 @@ export class KclsCatalogClient {
     });
   }
 
+  getHoldings(bibid: string): Promise<ParsedHoldings & { readonly sourceUrl: string }> {
+    return this.enqueue(async () => {
+      const id = `tag::U2@bre/${bibid}{holdings_xml}`;
+      const url = new URL('https://w3.kcls.org/opac/extras/unapi');
+      url.searchParams.set('id', id);
+      url.searchParams.set('format', 'holdings_xml');
+      return {
+        ...parseHoldings(await this.fetchText(url.toString(), 24 * 60 * 60 * 1000)),
+        sourceUrl: url.toString(),
+      };
+    });
+  }
+
   private enqueue<T>(operation: () => Promise<T>): Promise<T> {
     const result = this.#tail.then(operation, operation);
     this.#tail = result.then(
@@ -71,7 +85,7 @@ export class KclsCatalogClient {
     return result;
   }
 
-  private async fetchText(url: string): Promise<string> {
+  private async fetchText(url: string, cacheTtlMs = this.#cacheTtlMs): Promise<string> {
     const cached = await this.#database.query<{ body: string; expires_at: string }>(
       'SELECT body, expires_at FROM catalog_http_cache WHERE request_key = ?',
       [url],
@@ -85,7 +99,10 @@ export class KclsCatalogClient {
       try {
         const response = await this.#fetch(url, {
           headers: {
-            Accept: url.includes('/supercat/') ? 'application/xml' : 'application/atom+xml',
+            Accept:
+              url.includes('/supercat/') || url.includes('format=holdings_xml')
+                ? 'application/xml'
+                : 'application/atom+xml',
             'User-Agent': 'Read-It-Again/0.1 (personal library client)',
           },
         });
@@ -96,7 +113,7 @@ export class KclsCatalogClient {
         }
         const body = await response.text();
         const fetchedAt = now.toISOString();
-        const expiresAt = new Date(now.getTime() + this.#cacheTtlMs).toISOString();
+        const expiresAt = new Date(now.getTime() + cacheTtlMs).toISOString();
         await this.#database.run(
           `INSERT INTO catalog_http_cache (request_key, status, content_type, body, fetched_at, expires_at)
            VALUES (?, ?, ?, ?, ?, ?)

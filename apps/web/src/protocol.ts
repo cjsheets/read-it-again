@@ -3,6 +3,7 @@ import type {
   AttributionTriageItem,
   ReadingModelView,
   ReadingTrait,
+  RecommendationView,
   ResolutionQueueItem,
 } from '@read-it-again/storage-schema';
 
@@ -77,6 +78,7 @@ export type WorkerResponse =
       readonly resolutionQueue: readonly ResolutionQueueItem[];
       readonly attributionTriage: readonly AttributionTriageItem[];
       readonly readingModel: ReadingModelView;
+      readonly recommendations: RecommendationView;
       readonly result?: ImportBatchResult;
     }
   | {

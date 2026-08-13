@@ -84,6 +84,23 @@ child engagement, adult tolerance, request-by-name, veto, estimated duration, an
 traits. A checkout observation, an acquisition episode, and a confirmed session are displayed
 as three distinct concepts.
 
+## Deterministic recommendations
+
+After resolution and enrichment, generate a KCLS-constrained hold list for a reader:
+
+```sh
+pnpm --filter @read-it-again/local-api recommend -- data/read-it-again.db reader-child
+```
+
+Set `MAX_READ_MINUTES=10` to apply a bedtime duration limit. Candidate searches are seeded from
+favored series, authors, illustrators, subjects, and genres. The engine excludes known and vetoed
+works from discovery, filters to juvenile-compatible formats, caps repeated authors and subjects,
+and records an explanation for every result. Known favorites appear separately under “read it
+again.” KCLS holdings are fetched sequentially only for the shortlist and cached for 24 hours.
+
+Live generation is local-runtime-only because KCLS does not currently permit browser CORS. The
+browser client can render a cached recommendation snapshot without any optional service or LLM.
+
 ## Architecture
 
 See [docs/architecture/README.md](docs/architecture/README.md) and the decision records in
