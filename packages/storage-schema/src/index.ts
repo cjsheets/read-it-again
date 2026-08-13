@@ -28,6 +28,14 @@ export {
   recordAcquisitionFailure,
 } from './attributions.js';
 export type { ExclusiveCardContext, ReaderShelfItem } from './attributions.js';
+export { getEffectiveMetadata, storeMetadataFacts } from './metadata.js';
+export {
+  getOverride,
+  listAttributionTriage,
+  saveAttributionOverride,
+  writeAttributionResult,
+} from './attribution-triage.js';
+export type { AttributionTriageItem } from './attribution-triage.js';
 export {
   acceptCandidate,
   acceptCachedResolution,

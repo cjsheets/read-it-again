@@ -369,6 +369,11 @@ export async function repointResolution(
       ],
     );
     await database.run(
+      `INSERT INTO derived_rebuilds (id, reason, import_record_id, created_at)
+       SELECT ?, 'resolution_repoint', import_record_id, ? FROM resolution_cases WHERE id = ?`,
+      [`${input.operationId}:rebuild`, input.now, input.caseId],
+    );
+    await database.run(
       `UPDATE resolution_cases SET status = 'resolved', updated_at = ? WHERE id = ?`,
       [input.now, input.caseId],
     );
@@ -385,6 +390,18 @@ export async function mergeWorks(
   },
 ): Promise<void> {
   await inTransaction(database, async () => {
+    await database.run(
+      `UPDATE attribution_overrides SET current = 0
+       WHERE scope = 'work' AND work_id = ? AND current = 1
+         AND EXISTS (SELECT 1 FROM attribution_overrides
+           WHERE scope = 'work' AND work_id = ? AND current = 1)`,
+      [input.mergedWorkId, input.survivorWorkId],
+    );
+    await database.run(
+      `UPDATE attribution_overrides SET work_id = ?
+       WHERE scope = 'work' AND work_id = ? AND current = 1`,
+      [input.survivorWorkId, input.mergedWorkId],
+    );
     await database.run('UPDATE editions SET work_id = ? WHERE work_id = ?', [
       input.survivorWorkId,
       input.mergedWorkId,
@@ -400,6 +417,11 @@ export async function mergeWorks(
     await database.run(
       `INSERT INTO identity_operations (id, kind, payload_json, created_at) VALUES (?, 'merge_work', ?, ?)`,
       [input.operationId, JSON.stringify(input), input.now],
+    );
+    await database.run(
+      `INSERT INTO derived_rebuilds (id, reason, work_id, created_at)
+       VALUES (?, 'work_merge', ?, ?)`,
+      [`${input.operationId}:rebuild`, input.survivorWorkId, input.now],
     );
   });
 }
@@ -427,6 +449,11 @@ export async function splitEditionToWork(
     await database.run(
       `INSERT INTO identity_operations (id, kind, payload_json, created_at) VALUES (?, 'split_work', ?, ?)`,
       [input.operationId, JSON.stringify(input), input.now],
+    );
+    await database.run(
+      `INSERT INTO derived_rebuilds (id, reason, work_id, created_at)
+       VALUES (?, 'work_split', ?, ?)`,
+      [`${input.operationId}:rebuild`, input.newWorkId, input.now],
     );
   });
 }

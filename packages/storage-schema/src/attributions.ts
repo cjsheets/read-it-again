@@ -143,13 +143,14 @@ export async function listReaderShelf(
   }>(
     `SELECT r.id AS import_record_id, e.work_id, d.edition_id, r.title, r.occurred_at,
             r.call_number, a.confidence, a.method
-     FROM attribution_decisions a
+     FROM attribution_results a
+     JOIN attribution_result_readers ar ON ar.attribution_result_id = a.id
      JOIN import_records r ON r.id = a.import_record_id
      JOIN resolution_cases c ON c.import_record_id = r.id
      JOIN resolution_decisions d ON d.resolution_case_id = c.id
        AND d.current = 1 AND d.action IN ('accept', 'repoint')
      JOIN editions e ON e.id = d.edition_id
-     WHERE a.current = 1 AND a.person_id = ?
+     WHERE a.current = 1 AND a.state = 'assigned' AND ar.person_id = ?
      ORDER BY r.occurred_at DESC, r.id`,
     [personId],
   );

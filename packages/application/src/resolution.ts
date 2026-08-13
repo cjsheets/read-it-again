@@ -18,6 +18,7 @@ import {
   type Database,
   type ResolutionQueueItem,
 } from '@read-it-again/storage-schema';
+import { recomputeAttributions } from './attribution.js';
 
 export interface CatalogPort {
   searchByIsbn(isbn: string): Promise<readonly CatalogCandidate[]>;
@@ -142,6 +143,7 @@ export async function prepareResolutionQueue(
     idFactory,
     now,
   });
+  await recomputeAttributions(database, { idFactory, now });
   return {
     casesCreated: rows.length,
     cacheHits,
@@ -183,6 +185,7 @@ export async function decideCandidate(
     cacheKey: cases[0].cache_key,
   });
   await applyExclusiveCardAttribution(database, { idFactory: id, now });
+  await recomputeAttributions(database, { idFactory: id, now });
 }
 
 export async function createManualWorkForCase(
@@ -203,6 +206,10 @@ export async function createManualWorkForCase(
     now: (options.now ?? (() => new Date()))().toISOString(),
   });
   await applyExclusiveCardAttribution(database, {
+    idFactory: id,
+    now: (options.now ?? (() => new Date()))().toISOString(),
+  });
+  await recomputeAttributions(database, {
     idFactory: id,
     now: (options.now ?? (() => new Date()))().toISOString(),
   });

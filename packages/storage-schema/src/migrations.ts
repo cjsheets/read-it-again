@@ -253,6 +253,95 @@ export const migrations: readonly Migration[] = [
       ) STRICT;
     `,
   },
+  {
+    version: 5,
+    name: 'enrichment_attribution_triage',
+    sql: `
+      CREATE TABLE metadata_facts (
+        id TEXT PRIMARY KEY NOT NULL,
+        entity_kind TEXT NOT NULL CHECK (entity_kind IN ('work', 'edition')),
+        entity_id TEXT NOT NULL,
+        field TEXT NOT NULL,
+        value_json TEXT NOT NULL,
+        source TEXT NOT NULL CHECK (source IN ('human', 'marc', 'openlibrary', 'google', 'hardcover')),
+        source_ref TEXT NOT NULL,
+        precedence INTEGER NOT NULL CHECK (precedence > 0),
+        fetched_at TEXT NOT NULL,
+        UNIQUE (entity_kind, entity_id, field, source, source_ref)
+      ) STRICT;
+
+      CREATE INDEX metadata_facts_effective
+        ON metadata_facts (entity_kind, entity_id, field, precedence DESC, fetched_at DESC);
+
+      CREATE TABLE attribution_results (
+        id TEXT PRIMARY KEY NOT NULL,
+        import_record_id TEXT NOT NULL REFERENCES import_records(id) ON DELETE CASCADE,
+        state TEXT NOT NULL CHECK (state IN ('assigned', 'excluded', 'review')),
+        method TEXT NOT NULL CHECK (method IN
+          ('checkout_override', 'work_override', 'exclusive_card', 'evidence_rules', 'unresolved')),
+        confidence REAL NOT NULL CHECK (confidence >= 0 AND confidence <= 1),
+        score REAL NOT NULL CHECK (score >= -1 AND score <= 1),
+        explanation TEXT NOT NULL,
+        algorithm_version TEXT NOT NULL,
+        supersedes_result_id TEXT REFERENCES attribution_results(id),
+        current INTEGER NOT NULL DEFAULT 1 CHECK (current IN (0, 1)),
+        created_at TEXT NOT NULL
+      ) STRICT;
+
+      CREATE UNIQUE INDEX attribution_results_current
+        ON attribution_results (import_record_id) WHERE current = 1;
+
+      CREATE INDEX attribution_results_triage
+        ON attribution_results (state, current, created_at);
+
+      CREATE TABLE attribution_result_readers (
+        attribution_result_id TEXT NOT NULL REFERENCES attribution_results(id) ON DELETE CASCADE,
+        person_id TEXT NOT NULL REFERENCES people(id) ON DELETE CASCADE,
+        PRIMARY KEY (attribution_result_id, person_id)
+      ) STRICT, WITHOUT ROWID;
+
+      CREATE TABLE attribution_evidence (
+        id TEXT PRIMARY KEY NOT NULL,
+        attribution_result_id TEXT NOT NULL REFERENCES attribution_results(id) ON DELETE CASCADE,
+        signal TEXT NOT NULL,
+        value TEXT NOT NULL,
+        weight REAL NOT NULL CHECK (weight >= -1 AND weight <= 1),
+        explanation TEXT NOT NULL
+      ) STRICT;
+
+      CREATE TABLE attribution_overrides (
+        id TEXT PRIMARY KEY NOT NULL,
+        scope TEXT NOT NULL CHECK (scope IN ('checkout', 'work')),
+        import_record_id TEXT REFERENCES import_records(id) ON DELETE CASCADE,
+        work_id TEXT REFERENCES works(id),
+        state TEXT NOT NULL CHECK (state IN ('assigned', 'excluded')),
+        note TEXT,
+        current INTEGER NOT NULL DEFAULT 1 CHECK (current IN (0, 1)),
+        created_at TEXT NOT NULL,
+        CHECK ((scope = 'checkout' AND import_record_id IS NOT NULL AND work_id IS NULL) OR
+               (scope = 'work' AND work_id IS NOT NULL AND import_record_id IS NULL))
+      ) STRICT;
+
+      CREATE UNIQUE INDEX attribution_overrides_checkout_current
+        ON attribution_overrides (import_record_id) WHERE scope = 'checkout' AND current = 1;
+      CREATE UNIQUE INDEX attribution_overrides_work_current
+        ON attribution_overrides (work_id) WHERE scope = 'work' AND current = 1;
+
+      CREATE TABLE attribution_override_readers (
+        override_id TEXT NOT NULL REFERENCES attribution_overrides(id) ON DELETE CASCADE,
+        person_id TEXT NOT NULL REFERENCES people(id) ON DELETE CASCADE,
+        PRIMARY KEY (override_id, person_id)
+      ) STRICT, WITHOUT ROWID;
+
+      CREATE TABLE derived_rebuilds (
+        id TEXT PRIMARY KEY NOT NULL,
+        reason TEXT NOT NULL,
+        work_id TEXT REFERENCES works(id),
+        import_record_id TEXT REFERENCES import_records(id) ON DELETE CASCADE,
+        created_at TEXT NOT NULL
+      ) STRICT;
+    `,
+  },
 ];
 
 export async function migrate(database: Database): Promise<void> {

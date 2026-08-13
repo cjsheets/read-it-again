@@ -4,6 +4,7 @@ import type {
   ImportBatchResult,
   ImportRecord,
   ImportRun,
+  AttributionTriageItem,
   ResolutionQueueItem,
 } from '@read-it-again/storage-schema';
 import { requestWorker } from './client.js';
@@ -13,10 +14,16 @@ interface InboxState {
   readonly records: readonly ImportRecord[];
   readonly runs: readonly ImportRun[];
   readonly resolutionQueue: readonly ResolutionQueueItem[];
+  readonly attributionTriage: readonly AttributionTriageItem[];
 }
 
 function App() {
-  const [inbox, setInbox] = useState<InboxState>({ records: [], runs: [], resolutionQueue: [] });
+  const [inbox, setInbox] = useState<InboxState>({
+    records: [],
+    runs: [],
+    resolutionQueue: [],
+    attributionTriage: [],
+  });
   const [status, setStatus] = useState('Opening your private bookshelf…');
   const [error, setError] = useState<readonly string[]>([]);
   const [busy, setBusy] = useState(true);
@@ -29,7 +36,11 @@ function App() {
     setBusy(true);
     const response = await requestWorker({ type: 'getInbox' });
     if (response.ok) {
-      setInbox({ ...response.inbox, resolutionQueue: response.resolutionQueue });
+      setInbox({
+        ...response.inbox,
+        resolutionQueue: response.resolutionQueue,
+        attributionTriage: response.attributionTriage,
+      });
       setStatus(
         response.inbox.records.length === 0 ? 'No books imported yet.' : 'Import inbox ready.',
       );
@@ -55,7 +66,11 @@ function App() {
         setStatus('Nothing was imported. Fix the file and try again.');
         return;
       }
-      setInbox({ ...response.inbox, resolutionQueue: response.resolutionQueue });
+      setInbox({
+        ...response.inbox,
+        resolutionQueue: response.resolutionQueue,
+        attributionTriage: response.attributionTriage,
+      });
       setStatus(importSummary(response.result));
     } catch (caught) {
       setError([caught instanceof Error ? caught.message : String(caught)]);
@@ -148,6 +163,25 @@ function App() {
         </section>
       )}
 
+      {inbox.attributionTriage.length > 0 && (
+        <section className="resolution" aria-labelledby="attribution-title">
+          <div className="section-heading">
+            <div>
+              <p className="eyebrow">Who was this for?</p>
+              <h2 id="attribution-title">Attribution review</h2>
+            </div>
+            <span className="count" data-testid="attribution-count">
+              {inbox.attributionTriage.length} pending
+            </span>
+          </div>
+          <ol className="resolution-list">
+            {inbox.attributionTriage.map((item) => (
+              <AttributionCard key={item.importRecordId} item={item} onChanged={applyAttribution} />
+            ))}
+          </ol>
+        </section>
+      )}
+
       {inbox.runs.length > 0 && (
         <details>
           <summary>Import history ({inbox.runs.length})</summary>
@@ -178,13 +212,113 @@ function App() {
     setBusy(true);
     const response = await requestWorker(request);
     if (response.ok) {
-      setInbox({ ...response.inbox, resolutionQueue: response.resolutionQueue });
+      setInbox({
+        ...response.inbox,
+        resolutionQueue: response.resolutionQueue,
+        attributionTriage: response.attributionTriage,
+      });
       setStatus('Resolution decision saved.');
     } else {
       setError(response.issues ?? [response.message]);
     }
     setBusy(false);
   }
+
+  async function applyAttribution(
+    item: AttributionTriageItem,
+    scope: 'checkout' | 'work',
+    state: 'assigned' | 'excluded',
+    readerIds: readonly string[],
+  ) {
+    setBusy(true);
+    const response = await requestWorker({
+      type: 'correctAttribution',
+      scope,
+      importRecordId: item.importRecordId,
+      workId: item.workId,
+      state,
+      readerIds,
+    });
+    if (response.ok) {
+      setInbox({
+        ...response.inbox,
+        resolutionQueue: response.resolutionQueue,
+        attributionTriage: response.attributionTriage,
+      });
+      setStatus('Attribution correction saved.');
+    } else setError(response.issues ?? [response.message]);
+    setBusy(false);
+  }
+}
+
+function AttributionCard({
+  item,
+  onChanged,
+}: {
+  readonly item: AttributionTriageItem;
+  readonly onChanged: (
+    item: AttributionTriageItem,
+    scope: 'checkout' | 'work',
+    state: 'assigned' | 'excluded',
+    readerIds: readonly string[],
+  ) => Promise<void>;
+}) {
+  return (
+    <li className="resolution-card">
+      <div>
+        <h3>{item.title}</h3>
+        <p>{item.explanation}</p>
+        <small>
+          {item.sourceLabel} · {new Date(item.occurredAt).toLocaleDateString()}
+        </small>
+      </div>
+      {item.evidence.length > 0 && (
+        <ul>
+          {item.evidence.map((evidence) => (
+            <li key={evidence.explanation}>{evidence.explanation}</li>
+          ))}
+        </ul>
+      )}
+      <div className="decision-actions">
+        {item.readers.map((reader) => (
+          <button
+            key={reader.id}
+            type="button"
+            onClick={() => void onChanged(item, 'checkout', 'assigned', [reader.id])}
+          >
+            For {reader.displayName}
+          </button>
+        ))}
+        {item.readers.length > 1 && (
+          <button
+            type="button"
+            onClick={() =>
+              void onChanged(
+                item,
+                'checkout',
+                'assigned',
+                item.readers.map(({ id }) => id),
+              )
+            }
+          >
+            For all children
+          </button>
+        )}
+        {item.readers.map((reader) => (
+          <button
+            key={`work-${reader.id}`}
+            type="button"
+            onClick={() => void onChanged(item, 'work', 'assigned', [reader.id])}
+          >
+            Always for {reader.displayName}
+          </button>
+        ))}
+        <button type="button" onClick={() => void onChanged(item, 'checkout', 'excluded', [])}>
+          Not for a child
+        </button>
+      </div>
+    </li>
+  );
 }
 
 function BookRow({ record }: { readonly record: ImportRecord }) {

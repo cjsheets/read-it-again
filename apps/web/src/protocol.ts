@@ -1,5 +1,5 @@
 import type { ImportBatchResult, ImportRecord, ImportRun } from '@read-it-again/storage-schema';
-import type { ResolutionQueueItem } from '@read-it-again/storage-schema';
+import type { AttributionTriageItem, ResolutionQueueItem } from '@read-it-again/storage-schema';
 
 export type WorkerRequest =
   | { readonly id: string; readonly type: 'getInbox' }
@@ -23,7 +23,16 @@ export type WorkerRequest =
       readonly authorsJson: string;
     }
   | { readonly id: string; readonly type: 'rejectCase'; readonly caseId: string }
-  | { readonly id: string; readonly type: 'deferCase'; readonly caseId: string };
+  | { readonly id: string; readonly type: 'deferCase'; readonly caseId: string }
+  | {
+      readonly id: string;
+      readonly type: 'correctAttribution';
+      readonly scope: 'checkout' | 'work';
+      readonly importRecordId: string;
+      readonly workId: string;
+      readonly state: 'assigned' | 'excluded';
+      readonly readerIds: readonly string[];
+    };
 
 export type WorkerRequestInput = WorkerRequest extends infer Request
   ? Request extends { readonly id: string }
@@ -40,6 +49,7 @@ export type WorkerResponse =
         readonly runs: readonly ImportRun[];
       };
       readonly resolutionQueue: readonly ResolutionQueueItem[];
+      readonly attributionTriage: readonly AttributionTriageItem[];
       readonly result?: ImportBatchResult;
     }
   | {

@@ -68,3 +68,22 @@ under algorithm version `bibliocommons:v1`.
 Attribution decisions are append-only. A later human correction supersedes the deterministic
 decision without erasing it, and rerunning deterministic attribution never overwrites a
 current correction.
+
+## Enrichment and attribution triage
+
+```text
+resolved KCLS edition
+  → cached MARC fetch
+  → per-field facts with deterministic source precedence
+  → checkout override
+  → work override
+  → exclusive-card owner
+  → explainable evidence rules
+  → assigned | excluded | review
+```
+
+MARC parsing extracts audience, juvenile headings, genre/form, contributors, pages, call
+number, summary, and series. Attribution outcomes are versioned and may reference multiple
+readers. Review cards present the actual evidence in plain language; corrections can target
+one checkout or every checkout resolved to a work. Corrections and identity operations produce
+rebuild markers, while source observations remain untouched.

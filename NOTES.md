@@ -2,15 +2,13 @@
 
 ## Re-entry
 
-- **Phase:** 3 — Physical history and deterministic attribution (implementation complete
-  2026-08-12; personal live-card run pending)
-- **Last state:** Strict saved-HTML parsing, selector-contract tests, isolated Playwright card
-  sessions, exhaustive pagination, explicit acquisition failures, versioned physical source
-  keys, exclusive child-card configuration, immutable attribution decisions, and reader-shelf
-  queries are implemented. The local-only dependency boundary keeps credentialed acquisition
-  out of the PWA. A fixture vertical slice reaches the child's shelf and reruns idempotently.
-- **Next action:** Run the importer with the household's authenticated child-card storage state,
-  review its resolution queue, and then begin Phase 4 attribution rules and triage.
+- **Phase:** 4 — Enrichment and attribution triage (complete 2026-08-13)
+- **Last state:** KCLS MARC enrichment, per-field provenance and precedence, tri-state
+  multi-reader attribution, explainable evidence, checkout/work overrides, browser triage, and
+  rebuild propagation are implemented. Phase 3's personal live-card acceptance run is still
+  pending a user-owned authenticated session.
+- **Next action:** Begin Phase 5 acquisition episodes and ratings after running the personal
+  import/enrichment workflow and reviewing the resulting queues.
 - **Source plan:** Obsidian `Efforts/Read It Again.md`
 - **Important constraint:** KCLS OpenSearch did not return CORS permission headers on
   2026-08-12. Browser-only catalog access is not currently viable.
@@ -39,3 +37,8 @@ Phase 3 result: strict BiblioCommons HTML parsing and the complete physical impo
 → exclusive-card attribution → reader-shelf path are covered. Playwright tests prove isolated
 card contexts, pagination to exhaustion, and login failure classification. A personal live-card
 run is intentionally not performed without a user-owned authenticated session.
+
+Phase 4 result: MARC fixtures cover audience, juvenile headings, genre/form, contributors,
+pages, call number, summary, and series. Tests prove deterministic fact precedence, conservative
+tri-state rules, multi-reader work overrides, checkout precedence, idempotent enrichment, and
+immutable source observations.

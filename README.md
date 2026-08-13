@@ -60,6 +60,7 @@ Returned” history and then resolve it:
 pnpm --filter @read-it-again/local-api import:bibliocommons -- \
   secrets/child-card.json data/read-it-again.db
 pnpm --filter @read-it-again/local-api resolve -- data/read-it-again.db
+pnpm --filter @read-it-again/local-api enrich -- data/read-it-again.db
 pnpm --filter @read-it-again/local-api shelf -- data/read-it-again.db reader-child
 ```
 
@@ -67,6 +68,10 @@ The importer creates a separate browser context per configured card, walks “Lo
 until it disappears, and fails instead of saving partial data when authentication,
 pagination, or selector validation fails. `CHILD_PERSON_NAME`, `CHILD_CARD_ID`, and the
 other `CHILD_*` environment variables customize the default exclusive-card identity.
+
+Enrichment fetches MARC once per resolved KCLS edition and recomputes attribution using
+explicit, explainable evidence. Ambiguous results appear in the browser attribution review;
+decisions may apply to one checkout or every checkout of a work.
 
 ## Architecture
 

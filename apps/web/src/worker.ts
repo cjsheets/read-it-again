@@ -3,6 +3,7 @@
 import { LibbySnapshotError } from '@read-it-again/adapter-libby';
 import {
   createManualWorkForCase,
+  correctAttribution,
   decideCandidate,
   deferCase,
   getImportInbox,
@@ -11,7 +12,7 @@ import {
   rejectCase,
 } from '@read-it-again/application';
 import { openOpfsDatabase } from '@read-it-again/storage-browser';
-import { migrate } from '@read-it-again/storage-schema';
+import { listAttributionTriage, migrate } from '@read-it-again/storage-schema';
 import type { WorkerRequest, WorkerResponse } from './protocol.js';
 
 const SOURCE_ACCOUNT_ID = 'default-libby-source';
@@ -44,6 +45,7 @@ async function handle(request: WorkerRequest): Promise<void> {
         result,
         inbox: await getImportInbox(database, SOURCE_ACCOUNT_ID),
         resolutionQueue: resolution.queue,
+        attributionTriage: await listAttributionTriage(database),
       } satisfies WorkerResponse);
       return;
     }
@@ -56,6 +58,8 @@ async function handle(request: WorkerRequest): Promise<void> {
       await rejectCase(database, request.caseId);
     } else if (request.type === 'deferCase') {
       await deferCase(database, request.caseId);
+    } else if (request.type === 'correctAttribution') {
+      await correctAttribution(database, request);
     }
 
     const resolution = await prepareResolutionQueue(database, emptyCatalog);
@@ -65,6 +69,7 @@ async function handle(request: WorkerRequest): Promise<void> {
       ok: true,
       inbox: await getImportInbox(database, SOURCE_ACCOUNT_ID),
       resolutionQueue: resolution.queue,
+      attributionTriage: await listAttributionTriage(database),
     } satisfies WorkerResponse);
   } catch (error) {
     worker.postMessage({

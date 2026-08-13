@@ -1,6 +1,8 @@
 import type { CatalogCandidate } from '@read-it-again/domain';
 import type { Database } from '@read-it-again/storage-schema';
 import { parseOpenSearch } from './opensearch.js';
+import { parseMarcMetadata } from './marc.js';
+import type { CatalogMetadata } from '@read-it-again/domain';
 
 export interface KclsCatalogClientOptions {
   readonly database: Database;
@@ -53,6 +55,13 @@ export class KclsCatalogClient {
     });
   }
 
+  getMarcMetadata(bibid: string): Promise<CatalogMetadata> {
+    return this.enqueue(async () => {
+      const url = `https://w3.kcls.org/opac/extras/supercat/retrieve/marcxml/record/${encodeURIComponent(bibid)}`;
+      return parseMarcMetadata(await this.fetchText(url));
+    });
+  }
+
   private enqueue<T>(operation: () => Promise<T>): Promise<T> {
     const result = this.#tail.then(operation, operation);
     this.#tail = result.then(
@@ -76,7 +85,7 @@ export class KclsCatalogClient {
       try {
         const response = await this.#fetch(url, {
           headers: {
-            Accept: 'application/atom+xml',
+            Accept: url.includes('/supercat/') ? 'application/xml' : 'application/atom+xml',
             'User-Agent': 'Read-It-Again/0.1 (personal library client)',
           },
         });
