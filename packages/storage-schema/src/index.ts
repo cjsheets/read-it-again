@@ -21,6 +21,14 @@ export type {
 export { migrate, migrations } from './migrations.js';
 export type { Migration } from './migrations.js';
 export {
+  applyExclusiveCardAttribution,
+  ensureExclusiveCardContext,
+  listReaderShelf,
+  overrideAttribution,
+  recordAcquisitionFailure,
+} from './attributions.js';
+export type { ExclusiveCardContext, ReaderShelfItem } from './attributions.js';
+export {
   acceptCandidate,
   acceptCachedResolution,
   createManualResolution,

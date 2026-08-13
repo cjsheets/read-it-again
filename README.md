@@ -1,8 +1,8 @@
 # Read It Again
 
-A local-first family bookshelf and read-aloud tracker. Phase 2 adds explainable KCLS record
-resolution, persistent caching, human decisions, and audited work/edition corrections to the
-private Libby import inbox.
+A local-first family bookshelf and read-aloud tracker. Phase 3 adds strict BiblioCommons
+physical-history ingestion, local-only browser acquisition, and deterministic attribution
+from an exclusive child's library card.
 
 ## Prerequisites
 
@@ -42,6 +42,31 @@ pnpm --filter @read-it-again/local-api resolve -- data/read-it-again.db
 KCLS requests are sequential, delayed for courtesy, retried with exponential backoff, and
 persistently cached. The resolver automatically accepts only clear matches; ambiguous or
 missing results remain in the resolution queue.
+
+## Local physical-history import
+
+Create an authenticated Playwright storage-state file by signing into BiblioCommons in the
+opened browser, then close that browser:
+
+```sh
+pnpm exec playwright codegen --save-storage=secrets/child-card.json \
+  https://kcls.bibliocommons.com/v2/print/recentlyreturned
+```
+
+Keep that session file private and outside version control. Import the full “Recently
+Returned” history and then resolve it:
+
+```sh
+pnpm --filter @read-it-again/local-api import:bibliocommons -- \
+  secrets/child-card.json data/read-it-again.db
+pnpm --filter @read-it-again/local-api resolve -- data/read-it-again.db
+pnpm --filter @read-it-again/local-api shelf -- data/read-it-again.db reader-child
+```
+
+The importer creates a separate browser context per configured card, walks “Load next 50”
+until it disappears, and fails instead of saving partial data when authentication,
+pagination, or selector validation fails. `CHILD_PERSON_NAME`, `CHILD_CARD_ID`, and the
+other `CHILD_*` environment variables customize the default exclusive-card identity.
 
 ## Architecture
 

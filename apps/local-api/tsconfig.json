@@ -8,8 +8,10 @@
   },
   "include": ["src/**/*.ts"],
   "references": [
+    { "path": "../../packages/adapter-bibliocommons" },
     { "path": "../../packages/adapter-kcls" },
     { "path": "../../packages/application" },
+    { "path": "../../packages/application-local" },
     { "path": "../../packages/storage-node" },
     { "path": "../../packages/storage-schema" }
   ]

@@ -8,6 +8,7 @@ import {
 import {
   acceptCachedResolution,
   acceptCandidate,
+  applyExclusiveCardAttribution,
   createManualResolution,
   deferResolution,
   ensureResolutionCase,
@@ -28,6 +29,7 @@ export interface PrepareResolutionResult {
   readonly cacheHits: number;
   readonly automaticallyResolved: number;
   readonly pending: number;
+  readonly deterministicallyAttributed: number;
   readonly queue: readonly ResolutionQueueItem[];
 }
 
@@ -37,6 +39,8 @@ interface ImportRow {
   readonly authors_json: string;
   readonly isbn: string | null;
   readonly source_format: string | null;
+  readonly call_number: string | null;
+  readonly source_kind: string;
 }
 
 export async function prepareResolutionQueue(
@@ -47,8 +51,9 @@ export async function prepareResolutionQueue(
   const idFactory = options.idFactory ?? (() => crypto.randomUUID());
   const now = (options.now ?? (() => new Date()))().toISOString();
   const rows = await database.query<ImportRow>(
-    `SELECT r.id, r.title, r.authors_json, r.isbn, r.source_format
-     FROM import_records r
+    `SELECT r.id, r.title, r.authors_json, r.isbn, r.source_format, r.call_number,
+            s.kind AS source_kind
+     FROM import_records r JOIN source_accounts s ON s.id = r.source_account_id
      LEFT JOIN resolution_cases c ON c.import_record_id = r.id
      WHERE c.id IS NULL ORDER BY r.occurred_at, r.id`,
   );
@@ -57,7 +62,13 @@ export async function prepareResolutionQueue(
 
   for (const row of rows) {
     const authors = parseAuthorDisplays(row.authors_json);
-    const cacheKey = resolutionCacheKey(row.title, authors, row.source_format ?? undefined);
+    const cacheKey = resolutionCacheKey(
+      row.source_kind,
+      row.title,
+      authors,
+      row.source_format ?? undefined,
+      row.call_number ?? undefined,
+    );
     const resolutionCase = await ensureResolutionCase(database, {
       id: idFactory(),
       importRecordId: row.id,
@@ -67,8 +78,8 @@ export async function prepareResolutionQueue(
     });
     const cache = await database.query<{ edition_id: string; confidence: number }>(
       `SELECT edition_id, confidence FROM resolution_cache
-       WHERE source_kind = 'libby' AND cache_key = ?`,
-      [cacheKey],
+       WHERE source_kind = ? AND cache_key = ?`,
+      [row.source_kind, cacheKey],
     );
     if (cache[0]) {
       await acceptCachedResolution(database, {
@@ -119,7 +130,7 @@ export async function prepareResolutionQueue(
         method: row.isbn && top.score.isbn === 1 ? 'isbn' : 'search',
         confidence: top.score.total,
         now,
-        sourceKind: 'libby',
+        sourceKind: row.source_kind,
         cacheKey,
       });
       automaticallyResolved += 1;
@@ -127,11 +138,16 @@ export async function prepareResolutionQueue(
   }
 
   const queue = await listResolutionQueue(database);
+  const deterministicallyAttributed = await applyExclusiveCardAttribution(database, {
+    idFactory,
+    now,
+  });
   return {
     casesCreated: rows.length,
     cacheHits,
     automaticallyResolved,
     pending: queue.length,
+    deterministicallyAttributed,
     queue,
   };
 }
@@ -144,8 +160,12 @@ export async function decideCandidate(
 ): Promise<void> {
   const id = options.idFactory ?? (() => crypto.randomUUID());
   const now = (options.now ?? (() => new Date()))().toISOString();
-  const cases = await database.query<{ cache_key: string }>(
-    'SELECT cache_key FROM resolution_cases WHERE id = ?',
+  const cases = await database.query<{ cache_key: string; source_kind: string }>(
+    `SELECT c.cache_key, s.kind AS source_kind
+     FROM resolution_cases c
+     JOIN import_records r ON r.id = c.import_record_id
+     JOIN source_accounts s ON s.id = r.source_account_id
+     WHERE c.id = ?`,
     [caseId],
   );
   if (!cases[0]) throw new Error('Resolution case does not exist');
@@ -159,9 +179,10 @@ export async function decideCandidate(
     method: 'human',
     confidence: 1,
     now,
-    sourceKind: 'libby',
+    sourceKind: cases[0].source_kind,
     cacheKey: cases[0].cache_key,
   });
+  await applyExclusiveCardAttribution(database, { idFactory: id, now });
 }
 
 export async function createManualWorkForCase(
@@ -179,6 +200,10 @@ export async function createManualWorkForCase(
     editionId: id(),
     title,
     authorsJson,
+    now: (options.now ?? (() => new Date()))().toISOString(),
+  });
+  await applyExclusiveCardAttribution(database, {
+    idFactory: id,
     now: (options.now ?? (() => new Date()))().toISOString(),
   });
 }
@@ -212,16 +237,17 @@ function hasDisplay(value: unknown): value is { readonly display: string } {
 }
 
 function resolutionCacheKey(
+  sourceKind: string,
   title: string,
   authors: readonly string[],
   format: string | undefined,
+  callNumber: string | undefined,
 ): string {
-  return [
-    'v1',
-    canonicalTitle(title),
-    authors.map(canonicalAuthor).sort().join('|'),
-    format ?? '',
-  ].join('::');
+  const shape =
+    sourceKind === 'bibliocommons'
+      ? [canonicalTitle(title), authors.map(canonicalAuthor).sort().join('|'), callNumber ?? '']
+      : [canonicalTitle(title), authors.map(canonicalAuthor).sort().join('|'), format ?? ''];
+  return ['v1', ...shape].join('::');
 }
 
 function deduplicateCandidates(

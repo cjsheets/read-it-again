@@ -5,7 +5,10 @@ dist-types/
 coverage/
 playwright-report/
 test-results/
+secrets/
+*.storage-state.json
 .DS_Store
 *.db
 *.db-shm
 *.db-wal
+*.tsbuildinfo

@@ -2,14 +2,15 @@
 
 ## Re-entry
 
-- **Phase:** 2 — Record-resolution vertical slice (complete 2026-08-12)
-- **Last state:** Canonical normalization, explainable candidate scoring, work/edition identity,
-  immutable resolution decisions, persistent resolution and HTTP caches, and audited merge,
-  split, and re-point operations are implemented. The local CLI imports Libby JSON and queries
-  KCLS sequentially with delay/backoff; the browser renders a human resolution queue with
-  accept, manual, reject, and defer actions. Live OpenSearch shape was verified against KCLS.
-- **Next action:** Begin Phase 3 with the saved-HTML BiblioCommons parser and selector-contract
-  fixtures before adding authenticated Playwright acquisition.
+- **Phase:** 3 — Physical history and deterministic attribution (implementation complete
+  2026-08-12; personal live-card run pending)
+- **Last state:** Strict saved-HTML parsing, selector-contract tests, isolated Playwright card
+  sessions, exhaustive pagination, explicit acquisition failures, versioned physical source
+  keys, exclusive child-card configuration, immutable attribution decisions, and reader-shelf
+  queries are implemented. The local-only dependency boundary keeps credentialed acquisition
+  out of the PWA. A fixture vertical slice reaches the child's shelf and reruns idempotently.
+- **Next action:** Run the importer with the household's authenticated child-card storage state,
+  review its resolution queue, and then begin Phase 4 attribution rules and triage.
 - **Source plan:** Obsidian `Efforts/Read It Again.md`
 - **Important constraint:** KCLS OpenSearch did not return CORS permission headers on
   2026-08-12. Browser-only catalog access is not currently viable.
@@ -33,3 +34,8 @@ human/manual decisions, and audited merge/split/re-point operations have determi
 A synthetic native vertical slice made three courteous live KCLS requests and left fictional
 zero-hit titles pending. A real “Gruffalo” probe verified repeated Atom IDs and Dublin Core
 identifier parsing.
+
+Phase 3 result: strict BiblioCommons HTML parsing and the complete physical import → resolution
+→ exclusive-card attribution → reader-shelf path are covered. Playwright tests prove isolated
+card contexts, pagination to exhaustion, and login failure classification. A personal live-card
+run is intentionally not performed without a user-owned authenticated session.

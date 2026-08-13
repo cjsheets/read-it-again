@@ -13,8 +13,9 @@ The user-owned local runtime can use all adapters. The client-only browser runti
 only file/manual ingestion and OPFS storage. Credentialed BiblioCommons acquisition is a
 local-runtime dependency and must not appear in browser artifacts.
 
-Phase 0 implements only enough schema and repository behavior to prove that native SQLite
-and SQLite-WASM/OPFS can share migrations and observable repository semantics.
+Native SQLite and SQLite-WASM/OPFS share migrations and observable repository semantics.
+The credentialed adapter and its orchestration live in `adapter-bibliocommons` and
+`application-local`; neither is reachable from the browser application's dependency graph.
 
 ## Import pipeline
 
@@ -45,3 +46,25 @@ import record
 Catalog traffic is local-runtime-only, sequential, backed off on retry, and cached in SQLite.
 The browser can display populated candidates and always supports manual resolution, rejection,
 and deferral without reaching KCLS directly.
+
+## Physical-history and attribution pipeline
+
+```text
+isolated authenticated card context
+  → walk all “Load next 50” pages
+  → strict selector-contract validation
+  → versioned physical source-key hash
+  → snapshot/run/record storage
+  → ordinary resolution pipeline
+  → exclusive card owner at confidence 1.0
+  → reader shelf
+```
+
+Login failure, session expiry, missing selectors, or stalled/incomplete pagination makes the
+acquisition fail. No partial page is imported. Physical source identity is
+`SHA-256(card, canonical title, canonical author, normalized call number, checkout date)`
+under algorithm version `bibliocommons:v1`.
+
+Attribution decisions are append-only. A later human correction supersedes the deterministic
+decision without erasing it, and rerunning deterministic attribution never overwrites a
+current correction.

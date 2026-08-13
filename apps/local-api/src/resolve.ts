@@ -24,6 +24,7 @@ try {
         casesCreated: result.casesCreated,
         cacheHits: result.cacheHits,
         automaticallyResolved: result.automaticallyResolved,
+        deterministicallyAttributed: result.deterministicallyAttributed,
         pending: result.pending,
       },
       null,

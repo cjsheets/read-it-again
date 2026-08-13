@@ -220,6 +220,39 @@ export const migrations: readonly Migration[] = [
       ) STRICT;
     `,
   },
+  {
+    version: 4,
+    name: 'physical_history_attribution',
+    sql: `
+      CREATE TABLE attribution_decisions (
+        id TEXT PRIMARY KEY NOT NULL,
+        import_record_id TEXT NOT NULL REFERENCES import_records(id) ON DELETE CASCADE,
+        person_id TEXT REFERENCES people(id) ON DELETE SET NULL,
+        method TEXT NOT NULL CHECK (method IN ('exclusive_card', 'override')),
+        confidence REAL NOT NULL CHECK (confidence >= 0 AND confidence <= 1),
+        supersedes_decision_id TEXT REFERENCES attribution_decisions(id),
+        current INTEGER NOT NULL DEFAULT 1 CHECK (current IN (0, 1)),
+        note TEXT,
+        created_at TEXT NOT NULL
+      ) STRICT;
+
+      CREATE UNIQUE INDEX attribution_decisions_current
+        ON attribution_decisions (import_record_id)
+        WHERE current = 1;
+
+      CREATE INDEX attribution_decisions_reader
+        ON attribution_decisions (person_id, current, created_at);
+
+      CREATE TABLE acquisition_failures (
+        id TEXT PRIMARY KEY NOT NULL,
+        source_account_id TEXT NOT NULL REFERENCES source_accounts(id) ON DELETE CASCADE,
+        reason TEXT NOT NULL CHECK (reason IN
+          ('login-required', 'session-expired', 'selector-contract', 'pagination-incomplete')),
+        message TEXT NOT NULL,
+        created_at TEXT NOT NULL
+      ) STRICT;
+    `,
+  },
 ];
 
 export async function migrate(database: Database): Promise<void> {

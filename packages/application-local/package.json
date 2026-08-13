@@ -1,0 +1,21 @@
+{
+  "name": "@read-it-again/application-local",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": "./src/index.ts",
+  "scripts": {
+    "build": "tsc -b",
+    "typecheck": "tsc -b --pretty false"
+  },
+  "dependencies": {
+    "@read-it-again/adapter-bibliocommons": "workspace:*",
+    "@read-it-again/application": "workspace:*",
+    "@read-it-again/domain": "workspace:*",
+    "@read-it-again/storage-schema": "workspace:*"
+  },
+  "devDependencies": {
+    "@read-it-again/storage-node": "workspace:*",
+    "@read-it-again/test-fixtures": "workspace:*"
+  }
+}
