@@ -5,9 +5,12 @@ import type {
   ImportRecord,
   ImportRun,
   AttributionTriageItem,
+  ReadingModelView,
+  ReadingTrait,
   ResolutionQueueItem,
 } from '@read-it-again/storage-schema';
 import { requestWorker } from './client.js';
+import type { WorkerRequestInput } from './protocol.js';
 import './styles.css';
 
 interface InboxState {
@@ -15,6 +18,7 @@ interface InboxState {
   readonly runs: readonly ImportRun[];
   readonly resolutionQueue: readonly ResolutionQueueItem[];
   readonly attributionTriage: readonly AttributionTriageItem[];
+  readonly readingModel: ReadingModelView;
 }
 
 function App() {
@@ -23,6 +27,7 @@ function App() {
     runs: [],
     resolutionQueue: [],
     attributionTriage: [],
+    readingModel: { checkouts: [], episodes: [], sessions: [], shelf: [] },
   });
   const [status, setStatus] = useState('Opening your private bookshelf…');
   const [error, setError] = useState<readonly string[]>([]);
@@ -40,6 +45,7 @@ function App() {
         ...response.inbox,
         resolutionQueue: response.resolutionQueue,
         attributionTriage: response.attributionTriage,
+        readingModel: response.readingModel,
       });
       setStatus(
         response.inbox.records.length === 0 ? 'No books imported yet.' : 'Import inbox ready.',
@@ -70,6 +76,7 @@ function App() {
         ...response.inbox,
         resolutionQueue: response.resolutionQueue,
         attributionTriage: response.attributionTriage,
+        readingModel: response.readingModel,
       });
       setStatus(importSummary(response.result));
     } catch (caught) {
@@ -182,6 +189,10 @@ function App() {
         </section>
       )}
 
+      {inbox.readingModel.shelf.length > 0 && (
+        <ReadingDashboard model={inbox.readingModel} onChanged={applyReadingChange} />
+      )}
+
       {inbox.runs.length > 0 && (
         <details>
           <summary>Import history ({inbox.runs.length})</summary>
@@ -216,6 +227,7 @@ function App() {
         ...response.inbox,
         resolutionQueue: response.resolutionQueue,
         attributionTriage: response.attributionTriage,
+        readingModel: response.readingModel,
       });
       setStatus('Resolution decision saved.');
     } else {
@@ -244,11 +256,257 @@ function App() {
         ...response.inbox,
         resolutionQueue: response.resolutionQueue,
         attributionTriage: response.attributionTriage,
+        readingModel: response.readingModel,
       });
       setStatus('Attribution correction saved.');
     } else setError(response.issues ?? [response.message]);
     setBusy(false);
   }
+
+  async function applyReadingChange(
+    request: Extract<WorkerRequestInput, { type: 'assessWork' | 'recordReadingSession' }>,
+  ) {
+    setBusy(true);
+    const response = await requestWorker(request);
+    if (response.ok) {
+      setInbox({
+        ...response.inbox,
+        resolutionQueue: response.resolutionQueue,
+        attributionTriage: response.attributionTriage,
+        readingModel: response.readingModel,
+      });
+      setStatus(request.type === 'assessWork' ? 'Assessment saved.' : 'Confirmed session saved.');
+    } else setError(response.issues ?? [response.message]);
+    setBusy(false);
+  }
+}
+
+const TRAITS: readonly { readonly value: ReadingTrait; readonly label: string }[] = [
+  { value: 'rhyme_meter', label: 'Rhyme & meter' },
+  { value: 'refrain_repetition', label: 'Refrain' },
+  { value: 'interactive', label: 'Interactive' },
+  { value: 'quiet_arc', label: 'Quiet arc' },
+  { value: 'humor', label: 'Humor' },
+  { value: 'vocabulary_stretch', label: 'Vocabulary' },
+  { value: 'illustration_led', label: 'Illustration-led' },
+];
+
+function ReadingDashboard({
+  model,
+  onChanged,
+}: {
+  readonly model: ReadingModelView;
+  readonly onChanged: (
+    request: Extract<WorkerRequestInput, { type: 'assessWork' | 'recordReadingSession' }>,
+  ) => Promise<void>;
+}) {
+  return (
+    <section className="reading-model" aria-labelledby="shelf-title">
+      <div className="section-heading">
+        <div>
+          <p className="eyebrow">Preference model</p>
+          <h2 id="shelf-title">Family bookshelf</h2>
+        </div>
+      </div>
+      <div className="shelf-grid">
+        {model.shelf.map((item) => (
+          <AssessmentCard
+            key={`${item.workId}:${item.personId}`}
+            item={item}
+            onChanged={onChanged}
+          />
+        ))}
+      </div>
+      <div className="reading-columns">
+        <div>
+          <h3>Acquisition episodes</h3>
+          <p className="model-note">Derived from checkout proximity; not confirmed readings.</p>
+          <ul>
+            {model.episodes.map((episode) => (
+              <li key={episode.id}>
+                <strong>{episode.title}</strong> · {episode.readerName}
+                <br />
+                <small>
+                  {episode.checkoutCount} checkout{episode.checkoutCount === 1 ? '' : 's'} ·{' '}
+                  {episode.recurrenceKind.replace('_', ' ')}
+                </small>
+              </li>
+            ))}
+          </ul>
+        </div>
+        <div>
+          <h3>Confirmed reading sessions</h3>
+          <p className="model-note">Only sessions a household member explicitly records.</p>
+          {model.sessions.length === 0 ? (
+            <p>No confirmed sessions yet.</p>
+          ) : (
+            <ul>
+              {model.sessions.map((session) => (
+                <li key={session.id}>
+                  <strong>{session.title}</strong> · {session.participantNames.join(', ')}
+                  <br />
+                  <small>
+                    {session.context} · {session.durationMinutes ?? '?'} min
+                  </small>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+        <div>
+          <h3>Checkout observations</h3>
+          <p className="model-note">Imported library facts; a checkout does not prove reading.</p>
+          <ul>
+            {model.checkouts.map((checkout) => (
+              <li key={checkout.id}>
+                <strong>{checkout.title}</strong> · {checkout.readers.join(', ')}
+                <br />
+                <small>{new Date(checkout.occurredAt).toLocaleDateString()}</small>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function AssessmentCard({
+  item,
+  onChanged,
+}: {
+  readonly item: ReadingModelView['shelf'][number];
+  readonly onChanged: (
+    request: Extract<WorkerRequestInput, { type: 'assessWork' | 'recordReadingSession' }>,
+  ) => Promise<void>;
+}) {
+  const [engagement, setEngagement] = useState(item.childEngagement ?? 2);
+  const [tolerance, setTolerance] = useState(item.adultTolerance ?? 2);
+  const [asks, setAsks] = useState(item.asksByName);
+  const [veto, setVeto] = useState(item.veto);
+  const [minutes, setMinutes] = useState(item.estimatedReadMinutes?.toString() ?? '');
+  const [traits, setTraits] = useState<readonly ReadingTrait[]>(item.traits);
+  return (
+    <article className="assessment-card">
+      <h3>{item.title}</h3>
+      <p>
+        {item.readerName} · {item.episodeCount} acquisition episode
+        {item.episodeCount === 1 ? '' : 's'}
+      </p>
+      <div className="quick-rating">
+        <RatingButtons label="Child engagement" value={engagement} onChange={setEngagement} />
+        <RatingButtons label="Adult tolerance" value={tolerance} onChange={setTolerance} />
+      </div>
+      <div className="trait-chips">
+        {TRAITS.map((trait) => (
+          <button
+            className={traits.includes(trait.value) ? 'selected' : ''}
+            type="button"
+            key={trait.value}
+            onClick={() =>
+              setTraits(
+                traits.includes(trait.value)
+                  ? traits.filter((value) => value !== trait.value)
+                  : [...traits, trait.value],
+              )
+            }
+          >
+            {trait.label}
+          </button>
+        ))}
+      </div>
+      <div className="assessment-options">
+        <label>
+          <input
+            type="checkbox"
+            checked={asks}
+            onChange={(event) => setAsks(event.target.checked)}
+          />{' '}
+          Asked by name
+        </label>
+        <label>
+          <input
+            type="checkbox"
+            checked={veto}
+            onChange={(event) => setVeto(event.target.checked)}
+          />{' '}
+          Veto
+        </label>
+        <label>
+          Minutes{' '}
+          <input
+            aria-label="Estimated read minutes"
+            type="number"
+            min="1"
+            max="180"
+            value={minutes}
+            onChange={(event) => setMinutes(event.target.value)}
+          />
+        </label>
+      </div>
+      <div className="decision-actions">
+        <button
+          type="button"
+          onClick={() =>
+            void onChanged({
+              type: 'assessWork',
+              workId: item.workId,
+              personId: item.personId,
+              childEngagement: engagement,
+              adultTolerance: tolerance,
+              asksByName: asks,
+              veto,
+              estimatedReadMinutes: minutes ? Number(minutes) : undefined,
+              traits,
+            })
+          }
+        >
+          Save assessment
+        </button>
+        <button
+          type="button"
+          onClick={() =>
+            void onChanged({
+              type: 'recordReadingSession',
+              householdId: 'default-household',
+              workId: item.workId,
+              participantIds: [item.personId],
+              durationMinutes: minutes ? Number(minutes) : undefined,
+              context: 'bedtime',
+            })
+          }
+        >
+          Read tonight
+        </button>
+      </div>
+    </article>
+  );
+}
+
+function RatingButtons({
+  label,
+  value,
+  onChange,
+}: {
+  readonly label: string;
+  readonly value: number;
+  readonly onChange: (value: number) => void;
+}) {
+  return (
+    <fieldset>
+      <legend>{label}</legend>
+      {[0, 1, 2, 3].map((score) => (
+        <button
+          aria-pressed={score === value}
+          type="button"
+          key={score}
+          onClick={() => onChange(score)}
+        >
+          {score}
+        </button>
+      ))}
+    </fieldset>
+  );
 }
 
 function AttributionCard({

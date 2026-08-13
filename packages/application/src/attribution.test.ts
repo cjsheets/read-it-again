@@ -81,7 +81,7 @@ describe('enrichment and attribution workflow', () => {
     expect(
       (await database.query<{ count: number }>('SELECT count(*) AS count FROM derived_rebuilds'))[0]
         ?.count,
-    ).toBe(2);
+    ).toBe(0);
     expect(
       (
         await database.query<{ raw_payload_json: string }>(
@@ -90,6 +90,11 @@ describe('enrichment and attribution workflow', () => {
         )
       )[0]?.raw_payload_json,
     ).toBe('{"immutable":true}');
+    expect(
+      await database.query<{ checkout_count: number }>(
+        'SELECT checkout_count FROM acquisition_episodes ORDER BY window_start',
+      ),
+    ).toEqual([{ checkout_count: 1 }, { checkout_count: 1 }]);
   });
 });
 

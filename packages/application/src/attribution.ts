@@ -62,6 +62,8 @@ export async function enrichResolvedCatalogRecords(
     });
   }
   const attributionResultsChanged = await recomputeAttributions(database, { idFactory, now });
+  const { rebuildReadingModel } = await import('./reading.js');
+  await rebuildReadingModel(database, { idFactory, now: () => new Date(now) });
   return {
     editionsEnriched: editions.length,
     attributionResultsChanged,
@@ -154,6 +156,8 @@ export async function correctAttribution(
   const now = (input.now ?? (() => new Date()))().toISOString();
   await saveAttributionOverride(database, { ...input, id: idFactory(), now });
   await recomputeAttributions(database, { idFactory, now });
+  const { rebuildReadingModel } = await import('./reading.js');
+  await rebuildReadingModel(database, { idFactory, now: () => new Date(now) });
 }
 
 export async function mergeWorksAndRecompute(
@@ -163,6 +167,11 @@ export async function mergeWorksAndRecompute(
 ): Promise<void> {
   await mergeWorks(database, input);
   await recomputeAttributions(database, { idFactory: options.idFactory, now: input.now });
+  const { rebuildReadingModel } = await import('./reading.js');
+  await rebuildReadingModel(database, {
+    idFactory: options.idFactory,
+    now: () => new Date(input.now),
+  });
 }
 
 export async function splitEditionAndRecompute(
@@ -172,6 +181,11 @@ export async function splitEditionAndRecompute(
 ): Promise<void> {
   await splitEditionToWork(database, input);
   await recomputeAttributions(database, { idFactory: options.idFactory, now: input.now });
+  const { rebuildReadingModel } = await import('./reading.js');
+  await rebuildReadingModel(database, {
+    idFactory: options.idFactory,
+    now: () => new Date(input.now),
+  });
 }
 
 export async function repointResolutionAndRecompute(
@@ -181,6 +195,11 @@ export async function repointResolutionAndRecompute(
 ): Promise<void> {
   await repointResolution(database, input);
   await recomputeAttributions(database, { idFactory: options.idFactory, now: input.now });
+  const { rebuildReadingModel } = await import('./reading.js');
+  await rebuildReadingModel(database, {
+    idFactory: options.idFactory,
+    now: () => new Date(input.now),
+  });
 }
 
 async function resolvedRows(database: Database): Promise<readonly ResolvedRow[]> {

@@ -19,6 +19,7 @@ import {
   type ResolutionQueueItem,
 } from '@read-it-again/storage-schema';
 import { recomputeAttributions } from './attribution.js';
+import { rebuildReadingModel } from './reading.js';
 
 export interface CatalogPort {
   searchByIsbn(isbn: string): Promise<readonly CatalogCandidate[]>;
@@ -144,6 +145,7 @@ export async function prepareResolutionQueue(
     now,
   });
   await recomputeAttributions(database, { idFactory, now });
+  await rebuildReadingModel(database, { idFactory, now: () => new Date(now) });
   return {
     casesCreated: rows.length,
     cacheHits,
@@ -186,6 +188,7 @@ export async function decideCandidate(
   });
   await applyExclusiveCardAttribution(database, { idFactory: id, now });
   await recomputeAttributions(database, { idFactory: id, now });
+  await rebuildReadingModel(database, { idFactory: id, now: () => new Date(now) });
 }
 
 export async function createManualWorkForCase(
@@ -196,6 +199,7 @@ export async function createManualWorkForCase(
   options: { readonly idFactory?: () => string; readonly now?: () => Date } = {},
 ): Promise<void> {
   const id = options.idFactory ?? (() => crypto.randomUUID());
+  const now = (options.now ?? (() => new Date()))().toISOString();
   await createManualResolution(database, {
     caseId,
     decisionId: id(),
@@ -203,16 +207,17 @@ export async function createManualWorkForCase(
     editionId: id(),
     title,
     authorsJson,
-    now: (options.now ?? (() => new Date()))().toISOString(),
+    now,
   });
   await applyExclusiveCardAttribution(database, {
     idFactory: id,
-    now: (options.now ?? (() => new Date()))().toISOString(),
+    now,
   });
   await recomputeAttributions(database, {
     idFactory: id,
-    now: (options.now ?? (() => new Date()))().toISOString(),
+    now,
   });
+  await rebuildReadingModel(database, { idFactory: id, now: () => new Date(now) });
 }
 
 export async function rejectCase(database: Database, caseId: string): Promise<void> {

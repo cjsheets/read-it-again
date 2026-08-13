@@ -17,3 +17,4 @@ export {
   splitEditionAndRecompute,
 } from './attribution.js';
 export type { EnrichmentCatalogPort } from './attribution.js';
+export { assessWork, rebuildReadingModel, recordReadingSession } from './reading.js';

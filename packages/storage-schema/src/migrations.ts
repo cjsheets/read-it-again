@@ -342,6 +342,85 @@ export const migrations: readonly Migration[] = [
       ) STRICT;
     `,
   },
+  {
+    version: 6,
+    name: 'reading_model_and_assessments',
+    sql: `
+      CREATE TABLE reading_model_config (
+        household_id TEXT PRIMARY KEY NOT NULL REFERENCES households(id) ON DELETE CASCADE,
+        merge_days INTEGER NOT NULL DEFAULT 7 CHECK (merge_days >= 0),
+        strong_repeat_days INTEGER NOT NULL DEFAULT 90 CHECK (strong_repeat_days > merge_days + 1),
+        algorithm_version TEXT NOT NULL DEFAULT 'episodes-v1',
+        updated_at TEXT NOT NULL
+      ) STRICT;
+
+      CREATE TABLE acquisition_episodes (
+        id TEXT PRIMARY KEY NOT NULL,
+        household_id TEXT NOT NULL REFERENCES households(id) ON DELETE CASCADE,
+        work_id TEXT NOT NULL REFERENCES works(id),
+        person_id TEXT NOT NULL REFERENCES people(id) ON DELETE CASCADE,
+        window_start TEXT NOT NULL,
+        window_end TEXT NOT NULL,
+        recurrence_kind TEXT NOT NULL CHECK (recurrence_kind IN ('initial', 'near_repeat', 'strong_repeat')),
+        checkout_count INTEGER NOT NULL CHECK (checkout_count > 0),
+        preference_weight REAL NOT NULL CHECK (preference_weight >= 0),
+        algorithm_version TEXT NOT NULL,
+        rebuilt_at TEXT NOT NULL
+      ) STRICT;
+
+      CREATE INDEX acquisition_episodes_reader
+        ON acquisition_episodes (person_id, window_start, work_id);
+
+      CREATE TABLE acquisition_episode_checkouts (
+        acquisition_episode_id TEXT NOT NULL REFERENCES acquisition_episodes(id) ON DELETE CASCADE,
+        import_record_id TEXT NOT NULL REFERENCES import_records(id) ON DELETE CASCADE,
+        PRIMARY KEY (acquisition_episode_id, import_record_id)
+      ) STRICT, WITHOUT ROWID;
+
+      CREATE TABLE reading_sessions (
+        id TEXT PRIMARY KEY NOT NULL,
+        household_id TEXT NOT NULL REFERENCES households(id) ON DELETE CASCADE,
+        work_id TEXT NOT NULL REFERENCES works(id),
+        occurred_at TEXT NOT NULL,
+        duration_minutes INTEGER CHECK (duration_minutes > 0 AND duration_minutes <= 1440),
+        context TEXT CHECK (context IN ('bedtime', 'daytime', 'travel', 'school', 'other')),
+        note TEXT,
+        created_at TEXT NOT NULL
+      ) STRICT;
+
+      CREATE TABLE reading_session_participants (
+        reading_session_id TEXT NOT NULL REFERENCES reading_sessions(id) ON DELETE CASCADE,
+        person_id TEXT NOT NULL REFERENCES people(id) ON DELETE CASCADE,
+        PRIMARY KEY (reading_session_id, person_id)
+      ) STRICT, WITHOUT ROWID;
+
+      CREATE TABLE work_assessments (
+        work_id TEXT NOT NULL REFERENCES works(id),
+        person_id TEXT NOT NULL REFERENCES people(id) ON DELETE CASCADE,
+        child_engagement INTEGER CHECK (child_engagement BETWEEN 0 AND 3),
+        adult_tolerance INTEGER CHECK (adult_tolerance BETWEEN 0 AND 3),
+        asks_by_name INTEGER NOT NULL DEFAULT 0 CHECK (asks_by_name IN (0, 1)),
+        veto INTEGER NOT NULL DEFAULT 0 CHECK (veto IN (0, 1)),
+        estimated_read_minutes INTEGER CHECK (estimated_read_minutes > 0 AND estimated_read_minutes <= 180),
+        traits_json TEXT NOT NULL DEFAULT '[]',
+        note TEXT,
+        updated_at TEXT NOT NULL,
+        PRIMARY KEY (work_id, person_id)
+      ) STRICT, WITHOUT ROWID;
+
+      CREATE TABLE preference_summaries (
+        work_id TEXT NOT NULL REFERENCES works(id),
+        person_id TEXT NOT NULL REFERENCES people(id) ON DELETE CASCADE,
+        episode_count INTEGER NOT NULL CHECK (episode_count >= 0),
+        strong_repeat_count INTEGER NOT NULL CHECK (strong_repeat_count >= 0),
+        near_repeat_count INTEGER NOT NULL CHECK (near_repeat_count >= 0),
+        preference_score REAL NOT NULL CHECK (preference_score >= 0),
+        algorithm_version TEXT NOT NULL,
+        rebuilt_at TEXT NOT NULL,
+        PRIMARY KEY (work_id, person_id)
+      ) STRICT, WITHOUT ROWID;
+    `,
+  },
 ];
 
 export async function migrate(database: Database): Promise<void> {

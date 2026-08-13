@@ -37,6 +37,13 @@ export {
 } from './attribution-triage.js';
 export type { AttributionTriageItem } from './attribution-triage.js';
 export {
+  getReadingModel,
+  READING_TRAITS,
+  saveReadingSession,
+  saveWorkAssessment,
+} from './reading.js';
+export type { ReadingModelView, ReadingTrait } from './reading.js';
+export {
   acceptCandidate,
   acceptCachedResolution,
   createManualResolution,

@@ -87,3 +87,19 @@ number, summary, and series. Attribution outcomes are versioned and may referenc
 readers. Review cards present the actual evidence in plain language; corrections can target
 one checkout or every checkout resolved to a work. Corrections and identity operations produce
 rebuild markers, while source observations remain untouched.
+
+## Reading model
+
+```text
+assigned checkout observations
+  → configurable seven-day clustering
+  → initial | 8–89-day near repeat | 90+-day strong repeat
+  → reader/work preference summary
+
+explicit household action
+  → confirmed reading session with participants, duration, and context
+```
+
+Episodes and preference summaries are disposable projections rebuilt from immutable checkouts,
+current attribution, and work assessments. Reading sessions and assessments are user-authored
+base data. The UI labels all three separately and never treats a checkout as proof of reading.

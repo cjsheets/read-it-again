@@ -2,6 +2,7 @@
 
 import { LibbySnapshotError } from '@read-it-again/adapter-libby';
 import {
+  assessWork,
   createManualWorkForCase,
   correctAttribution,
   decideCandidate,
@@ -9,10 +10,12 @@ import {
   getImportInbox,
   importLibbySnapshot,
   prepareResolutionQueue,
+  rebuildReadingModel,
+  recordReadingSession,
   rejectCase,
 } from '@read-it-again/application';
 import { openOpfsDatabase } from '@read-it-again/storage-browser';
-import { listAttributionTriage, migrate } from '@read-it-again/storage-schema';
+import { getReadingModel, listAttributionTriage, migrate } from '@read-it-again/storage-schema';
 import type { WorkerRequest, WorkerResponse } from './protocol.js';
 
 const SOURCE_ACCOUNT_ID = 'default-libby-source';
@@ -46,6 +49,7 @@ async function handle(request: WorkerRequest): Promise<void> {
         inbox: await getImportInbox(database, SOURCE_ACCOUNT_ID),
         resolutionQueue: resolution.queue,
         attributionTriage: await listAttributionTriage(database),
+        readingModel: await rebuildReadingModel(database),
       } satisfies WorkerResponse);
       return;
     }
@@ -60,6 +64,10 @@ async function handle(request: WorkerRequest): Promise<void> {
       await deferCase(database, request.caseId);
     } else if (request.type === 'correctAttribution') {
       await correctAttribution(database, request);
+    } else if (request.type === 'assessWork') {
+      await assessWork(database, request);
+    } else if (request.type === 'recordReadingSession') {
+      await recordReadingSession(database, request);
     }
 
     const resolution = await prepareResolutionQueue(database, emptyCatalog);
@@ -70,6 +78,7 @@ async function handle(request: WorkerRequest): Promise<void> {
       inbox: await getImportInbox(database, SOURCE_ACCOUNT_ID),
       resolutionQueue: resolution.queue,
       attributionTriage: await listAttributionTriage(database),
+      readingModel: await getReadingModel(database),
     } satisfies WorkerResponse);
   } catch (error) {
     worker.postMessage({

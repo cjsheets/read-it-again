@@ -20,3 +20,14 @@ export type {
   AttributionState,
 } from './attribution.js';
 export type { CatalogMetadata, MarcContributor, MarcSeries } from './metadata.js';
+export {
+  clusterAcquisitionEpisodes,
+  DEFAULT_EPISODE_THRESHOLDS,
+  preferenceScore,
+} from './reading-model.js';
+export type {
+  AcquisitionEpisodeDraft,
+  AttributedCheckout,
+  EpisodeThresholds,
+  RecurrenceKind,
+} from './reading-model.js';

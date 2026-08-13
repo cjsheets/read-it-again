@@ -73,6 +73,17 @@ Enrichment fetches MARC once per resolved KCLS edition and recomputes attributio
 explicit, explainable evidence. Ambiguous results appear in the browser attribution review;
 decisions may apply to one checkout or every checkout of a work.
 
+## Reading model
+
+Attributed checkouts are clustered into rebuildable acquisition episodes: observations within
+seven days merge, 8–89-day returns are reduced-weight near repeats, and 90+ days are strong
+recurrence. These are preference signals, not claims that a reading occurred.
+
+The family bookshelf separately supports explicit reading sessions and quick assessments:
+child engagement, adult tolerance, request-by-name, veto, estimated duration, and read-aloud
+traits. A checkout observation, an acquisition episode, and a confirmed session are displayed
+as three distinct concepts.
+
 ## Architecture
 
 See [docs/architecture/README.md](docs/architecture/README.md) and the decision records in

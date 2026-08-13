@@ -2,13 +2,12 @@
 
 ## Re-entry
 
-- **Phase:** 4 — Enrichment and attribution triage (complete 2026-08-13)
-- **Last state:** KCLS MARC enrichment, per-field provenance and precedence, tri-state
-  multi-reader attribution, explainable evidence, checkout/work overrides, browser triage, and
-  rebuild propagation are implemented. Phase 3's personal live-card acceptance run is still
+- **Phase:** 5 — Reading model and ratings (complete 2026-08-13)
+- **Last state:** Configurable acquisition-episode clustering, recurrence weighting, explicit
+  reading sessions, fast work/reader assessments, read-aloud traits, preference rebuilding, and
+  three-way UI separation are implemented. Phase 3's personal live-card acceptance run remains
   pending a user-owned authenticated session.
-- **Next action:** Begin Phase 5 acquisition episodes and ratings after running the personal
-  import/enrichment workflow and reviewing the resulting queues.
+- **Next action:** Run the personal workflow and begin Phase 6 deterministic KCLS recommendations.
 - **Source plan:** Obsidian `Efforts/Read It Again.md`
 - **Important constraint:** KCLS OpenSearch did not return CORS permission headers on
   2026-08-12. Browser-only catalog access is not currently viable.
@@ -42,3 +41,8 @@ Phase 4 result: MARC fixtures cover audience, juvenile headings, genre/form, con
 pages, call number, summary, and series. Tests prove deterministic fact precedence, conservative
 tri-state rules, multi-reader work overrides, checkout precedence, idempotent enrichment, and
 immutable source observations.
+
+Phase 5 result: tests lock seven-day merging, 8–89-day reduced-weight near repeats, 90+-day
+strong recurrence, configurable/idempotent rebuilding, confirmed session participants and
+context, two-dial assessments, request-by-name, veto, duration, and all seven read-aloud traits.
+Attribution correction tests prove episode and preference projections rebuild immediately.
