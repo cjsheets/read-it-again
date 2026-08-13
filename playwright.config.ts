@@ -20,6 +20,12 @@ export default defineConfig({
       url: 'http://127.0.0.1:4174',
       reuseExistingServer: !process.env.CI,
     },
+    {
+      command:
+        'pnpm --filter @read-it-again/web build && pnpm --filter @read-it-again/web exec vite preview --port 4175 --host 127.0.0.1',
+      url: 'http://127.0.0.1:4175',
+      reuseExistingServer: !process.env.CI,
+    },
   ],
   projects: [{ name: 'chromium', use: { browserName: 'chromium' } }],
 });

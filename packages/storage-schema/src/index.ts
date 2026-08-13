@@ -6,6 +6,7 @@ export { createHousehold, listHouseholds } from './households.js';
 export type { Household } from './households.js';
 export {
   ensureDefaultImportContext,
+  ensureImportContext,
   importNormalizedRecords,
   listImportRecords,
   listImportRuns,

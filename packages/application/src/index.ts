@@ -20,3 +20,5 @@ export type { EnrichmentCatalogPort } from './attribution.js';
 export { assessWork, rebuildReadingModel, recordReadingSession } from './reading.js';
 export { generateRecommendations } from './recommendations.js';
 export type { GenerateRecommendationsInput, RecommendationCatalogPort } from './recommendations.js';
+export { getHouseholdImportInbox, importCsvSnapshot, importManualBook } from './browser-imports.js';
+export { exportEncryptedArchive, importEncryptedArchive } from './archive.js';

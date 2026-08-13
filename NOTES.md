@@ -2,12 +2,13 @@
 
 ## Re-entry
 
-- **Phase:** 6 — Deterministic recommendations (complete 2026-08-13)
-- **Last state:** KCLS-seeded discovery and read-again lists, deterministic feature scoring,
-  juvenile/format/duration/diversity constraints, explainable snapshots, sequential shortlist
-  holdings, and 24-hour availability caching are implemented. Phase 3's personal live-card
-  acceptance run remains pending a user-owned authenticated session.
-- **Next action:** Run the personal workflow and begin Phase 7 client-only PWA packaging.
+- **Phase:** 7 — Client-only PWA (complete 2026-08-13)
+- **Last state:** The production PWA supports Libby/CSV/manual input, manual resolution, OPFS shelf
+  use, ratings, encrypted logical archive transfer, imported catalog/recommendation caches, full
+  asset precaching, CSP/isolation headers, and automated source/artifact boundary scans. Phase 3's
+  personal live-card acceptance run remains pending a user-owned authenticated session.
+- **Next action:** Deploy the static artifact with its required headers and begin Phase 8 probes
+  and durability hardening.
 - **Source plan:** Obsidian `Efforts/Read It Again.md`
 - **Important constraint:** KCLS OpenSearch did not return CORS permission headers on
   2026-08-12. Browser-only catalog access is not currently viable.
@@ -52,3 +53,9 @@ recency-weighted series/creator/subject/genre/trait scoring, author and subject 
 separate discovery/read-again output, human-readable evidence, sequential top-set holdings, and
 24-hour availability reuse. Live catalog generation remains local-runtime-only; optional services
 and LLMs are absent from the complete path.
+
+Phase 7 result: generic CSV and manual/ISBN workflows share the normalized provenance pipeline;
+AES-256-GCM archives round-trip logical data and reject wrong passphrases without writes; the
+production PWA registers a manifest/service worker and reloads offline with OPFS state intact.
+CI scans source and emitted assets for forbidden local-only dependencies, patron/catalog hosts,
+storage-state hooks, and card configuration, and validates CSP plus static isolation headers.

@@ -4,6 +4,7 @@
     { "path": "packages/domain" },
     { "path": "packages/storage-schema" },
     { "path": "packages/adapter-libby" },
+    { "path": "packages/adapter-csv" },
     { "path": "packages/adapter-bibliocommons" },
     { "path": "packages/adapter-kcls" },
     { "path": "packages/application" },

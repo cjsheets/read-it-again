@@ -1,5 +1,6 @@
 /// <reference lib="webworker" />
 
+import { CsvImportError } from '@read-it-again/adapter-csv';
 import { LibbySnapshotError } from '@read-it-again/adapter-libby';
 import {
   assessWork,
@@ -7,8 +8,12 @@ import {
   correctAttribution,
   decideCandidate,
   deferCase,
-  getImportInbox,
+  exportEncryptedArchive,
+  getHouseholdImportInbox,
+  importCsvSnapshot,
+  importEncryptedArchive,
   importLibbySnapshot,
+  importManualBook,
   prepareResolutionQueue,
   rebuildReadingModel,
   recordReadingSession,
@@ -24,11 +29,27 @@ import {
 import type { WorkerRequest, WorkerResponse } from './protocol.js';
 
 const SOURCE_ACCOUNT_ID = 'default-libby-source';
+const CSV_SOURCE_ACCOUNT_ID = 'default-csv-source';
+const MANUAL_SOURCE_ACCOUNT_ID = 'default-manual-source';
 const HOUSEHOLD_ID = 'default-household';
 const worker = self as unknown as DedicatedWorkerGlobalScope;
 
 const databasePromise = openOpfsDatabase('/read-it-again.sqlite3').then(async (database) => {
   await migrate(database);
+  const now = new Date().toISOString();
+  await database.run('INSERT OR IGNORE INTO households (id, name, created_at) VALUES (?, ?, ?)', [
+    HOUSEHOLD_ID,
+    'My Household',
+    now,
+  ]);
+  await database.run(
+    'INSERT OR IGNORE INTO people (id, household_id, display_name, created_at) VALUES (?, ?, ?, ?)',
+    ['default-reader', HOUSEHOLD_ID, 'Child', now],
+  );
+  await database.run(
+    "INSERT OR IGNORE INTO reader_profiles (person_id, kind, created_at) VALUES (?, 'child', ?)",
+    ['default-reader', now],
+  );
   return database;
 });
 
@@ -51,13 +72,63 @@ async function handle(request: WorkerRequest): Promise<void> {
         id: request.id,
         ok: true,
         result,
-        inbox: await getImportInbox(database, SOURCE_ACCOUNT_ID),
+        inbox: await getHouseholdImportInbox(database),
         resolutionQueue: resolution.queue,
         attributionTriage: await listAttributionTriage(database),
         readingModel: await rebuildReadingModel(database),
         recommendations: await getRecommendations(database),
       } satisfies WorkerResponse);
       return;
+    }
+
+    if (request.type === 'importCsv') {
+      const result = await importCsvSnapshot(database, {
+        rawText: request.rawText,
+        fileName: request.fileName,
+        sourceAccountId: CSV_SOURCE_ACCOUNT_ID,
+        householdId: HOUSEHOLD_ID,
+      });
+      const resolution = await prepareResolutionQueue(database, emptyCatalog);
+      worker.postMessage({
+        id: request.id,
+        ok: true,
+        result,
+        inbox: await getHouseholdImportInbox(database),
+        resolutionQueue: resolution.queue,
+        attributionTriage: await listAttributionTriage(database),
+        readingModel: await getReadingModel(database),
+        recommendations: await getRecommendations(database),
+      } satisfies WorkerResponse);
+      return;
+    }
+
+    if (request.type === 'importManual') {
+      const manual = await importManualBook(database, {
+        ...request,
+        sourceAccountId: MANUAL_SOURCE_ACCOUNT_ID,
+        householdId: HOUSEHOLD_ID,
+      });
+      await correctAttribution(database, {
+        scope: 'work',
+        workId: manual.workId,
+        state: 'assigned',
+        readerIds: ['default-reader'],
+      });
+    } else if (request.type === 'exportArchive') {
+      const archiveText = await exportEncryptedArchive(database, request.passphrase);
+      worker.postMessage({
+        id: request.id,
+        ok: true,
+        archiveText,
+        inbox: await getHouseholdImportInbox(database),
+        resolutionQueue: (await prepareResolutionQueue(database, emptyCatalog)).queue,
+        attributionTriage: await listAttributionTriage(database),
+        readingModel: await getReadingModel(database),
+        recommendations: await getRecommendations(database),
+      } satisfies WorkerResponse);
+      return;
+    } else if (request.type === 'importArchive') {
+      await importEncryptedArchive(database, request.encryptedText, request.passphrase);
     }
 
     if (request.type === 'acceptCandidate') {
@@ -81,7 +152,7 @@ async function handle(request: WorkerRequest): Promise<void> {
     worker.postMessage({
       id: request.id,
       ok: true,
-      inbox: await getImportInbox(database, SOURCE_ACCOUNT_ID),
+      inbox: await getHouseholdImportInbox(database),
       resolutionQueue: resolution.queue,
       attributionTriage: await listAttributionTriage(database),
       readingModel: await getReadingModel(database),
@@ -92,7 +163,10 @@ async function handle(request: WorkerRequest): Promise<void> {
       id: request.id,
       ok: false,
       message: error instanceof Error ? error.message : String(error),
-      issues: error instanceof LibbySnapshotError ? error.issues : undefined,
+      issues:
+        error instanceof LibbySnapshotError || error instanceof CsvImportError
+          ? error.issues
+          : undefined,
     } satisfies WorkerResponse);
   }
 }

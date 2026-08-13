@@ -93,6 +93,9 @@ importers:
 
   apps/web:
     dependencies:
+      '@read-it-again/adapter-csv':
+        specifier: workspace:*
+        version: link:../../packages/adapter-csv
       '@read-it-again/adapter-libby':
         specifier: workspace:*
         version: link:../../packages/adapter-libby
@@ -132,6 +135,12 @@ importers:
         specifier: workspace:*
         version: link:../test-fixtures
 
+  packages/adapter-csv:
+    dependencies:
+      '@read-it-again/storage-schema':
+        specifier: workspace:*
+        version: link:../storage-schema
+
   packages/adapter-kcls:
     dependencies:
       '@read-it-again/domain':
@@ -166,6 +175,9 @@ importers:
 
   packages/application:
     dependencies:
+      '@read-it-again/adapter-csv':
+        specifier: workspace:*
+        version: link:../adapter-csv
       '@read-it-again/adapter-libby':
         specifier: workspace:*
         version: link:../adapter-libby

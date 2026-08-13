@@ -17,6 +17,27 @@ export type WorkerRequest =
     }
   | {
       readonly id: string;
+      readonly type: 'importCsv';
+      readonly rawText: string;
+      readonly fileName: string;
+    }
+  | {
+      readonly id: string;
+      readonly type: 'importManual';
+      readonly title: string;
+      readonly author?: string;
+      readonly isbn?: string;
+      readonly format?: string;
+    }
+  | { readonly id: string; readonly type: 'exportArchive'; readonly passphrase: string }
+  | {
+      readonly id: string;
+      readonly type: 'importArchive';
+      readonly encryptedText: string;
+      readonly passphrase: string;
+    }
+  | {
+      readonly id: string;
       readonly type: 'acceptCandidate';
       readonly caseId: string;
       readonly candidateId: string;
@@ -80,6 +101,7 @@ export type WorkerResponse =
       readonly readingModel: ReadingModelView;
       readonly recommendations: RecommendationView;
       readonly result?: ImportBatchResult;
+      readonly archiveText?: string;
     }
   | {
       readonly id: string;

@@ -42,6 +42,7 @@ export interface ReadingModelView {
     readonly participantNames: readonly string[];
   }[];
   readonly shelf: readonly {
+    readonly householdId: string;
     readonly workId: string;
     readonly title: string;
     readonly personId: string;
@@ -176,6 +177,7 @@ export async function getReadingModel(database: Database): Promise<ReadingModelV
     `SELECT s.id, w.canonical_title AS title, s.work_id, s.occurred_at, s.duration_minutes, s.context, group_concat(p.display_name, '|||') AS participant_names FROM reading_sessions s JOIN works w ON w.id = s.work_id LEFT JOIN reading_session_participants sp ON sp.reading_session_id = s.id LEFT JOIN people p ON p.id = sp.person_id GROUP BY s.id ORDER BY s.occurred_at DESC, s.id`,
   );
   const shelfRows = await database.query<{
+    household_id: string;
     work_id: string;
     title: string;
     person_id: string;
@@ -189,7 +191,7 @@ export async function getReadingModel(database: Database): Promise<ReadingModelV
     estimated_read_minutes: number | null;
     traits_json: string | null;
   }>(
-    `SELECT s.work_id, w.canonical_title AS title, s.person_id, p.display_name AS reader_name, s.episode_count, s.preference_score, a.child_engagement, a.adult_tolerance, a.asks_by_name, a.veto, a.estimated_read_minutes, a.traits_json FROM preference_summaries s JOIN works w ON w.id = s.work_id JOIN people p ON p.id = s.person_id LEFT JOIN work_assessments a ON a.work_id = s.work_id AND a.person_id = s.person_id ORDER BY s.preference_score DESC, w.canonical_title`,
+    `SELECT p.household_id, s.work_id, w.canonical_title AS title, s.person_id, p.display_name AS reader_name, s.episode_count, s.preference_score, a.child_engagement, a.adult_tolerance, a.asks_by_name, a.veto, a.estimated_read_minutes, a.traits_json FROM preference_summaries s JOIN works w ON w.id = s.work_id JOIN people p ON p.id = s.person_id LEFT JOIN work_assessments a ON a.work_id = s.work_id AND a.person_id = s.person_id ORDER BY s.preference_score DESC, w.canonical_title`,
   );
   return {
     checkouts: checkoutRows.map((row) => ({
@@ -221,6 +223,7 @@ export async function getReadingModel(database: Database): Promise<ReadingModelV
       participantNames: splitNames(row.participant_names),
     })),
     shelf: shelfRows.map((row) => ({
+      householdId: row.household_id,
       workId: row.work_id,
       title: row.title,
       personId: row.person_id,

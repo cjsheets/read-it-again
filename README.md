@@ -101,6 +101,25 @@ again.” KCLS holdings are fetched sequentially only for the shortlist and cach
 Live generation is local-runtime-only because KCLS does not currently permit browser CORS. The
 browser client can render a cached recommendation snapshot without any optional service or LLM.
 
+## Installable client-only PWA
+
+The browser build is an installable offline application backed by SQLite-WASM/OPFS. It supports
+Libby JSON files, generic CSV files with common title/author/ISBN/date/format headers, manual or
+ISBN entry, manual resolution, bookshelf ratings, and cached recommendation display. It contains
+no BiblioCommons acquisition, credential handling, or live KCLS client.
+
+Bookshelf archives are encrypted in the browser with AES-256-GCM using a passphrase-derived key.
+Use at least 12 characters and store the passphrase separately; it cannot be recovered. Archives
+carry the logical shared schema, including resolved catalog and recommendation caches, so they are
+also the bridge from the full local runtime to the static client.
+
+Static hosting must apply the headers in `apps/web/public/_headers`, especially COOP/COEP for
+SQLite-WASM and the same-origin CSP. Automatic KCLS resolution remains available only through the
+local runtime until KCLS exposes a CORS-compatible catalog endpoint.
+
+`pnpm check:web-boundary` scans both source dependencies and the built PWA for forbidden local-only
+modules, patron/catalog hostnames, and credential configuration.
+
 ## Architecture
 
 See [docs/architecture/README.md](docs/architecture/README.md) and the decision records in

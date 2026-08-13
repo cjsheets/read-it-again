@@ -8,6 +8,7 @@
   },
   "include": ["src/**/*.ts"],
   "references": [
+    { "path": "../adapter-csv" },
     { "path": "../adapter-libby" },
     { "path": "../domain" },
     { "path": "../storage-schema" },

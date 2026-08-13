@@ -9,6 +9,7 @@
     "typecheck": "tsc -b --pretty false"
   },
   "dependencies": {
+    "@read-it-again/adapter-csv": "workspace:*",
     "@read-it-again/adapter-libby": "workspace:*",
     "@read-it-again/application": "workspace:*",
     "@read-it-again/storage-browser": "workspace:*",

@@ -69,17 +69,42 @@ export async function ensureDefaultImportContext(
   context: DefaultImportContext,
   now: string,
 ): Promise<void> {
+  return ensureImportContext(database, {
+    ...context,
+    kind: 'libby',
+    label: 'Libby Timeline',
+    retentionHorizon: 'years:6',
+    now,
+  });
+}
+
+export async function ensureImportContext(
+  database: Database,
+  input: DefaultImportContext & {
+    readonly kind: 'libby' | 'csv' | 'manual';
+    readonly label: string;
+    readonly retentionHorizon?: string;
+    readonly now: string;
+  },
+): Promise<void> {
   await inTransaction(database, async () => {
     await database.run('INSERT OR IGNORE INTO households (id, name, created_at) VALUES (?, ?, ?)', [
-      context.householdId,
+      input.householdId,
       'My Household',
-      now,
+      input.now,
     ]);
     await database.run(
       `INSERT OR IGNORE INTO source_accounts
        (id, household_id, kind, label, retention_horizon, config_json, created_at)
-       VALUES (?, ?, 'libby', 'Libby Timeline', 'years:6', '{}', ?)`,
-      [context.sourceAccountId, context.householdId, now],
+       VALUES (?, ?, ?, ?, ?, '{}', ?)`,
+      [
+        input.sourceAccountId,
+        input.householdId,
+        input.kind,
+        input.label,
+        input.retentionHorizon ?? null,
+        input.now,
+      ],
     );
   });
 }
@@ -186,7 +211,7 @@ export async function importNormalizedRecords(
 
 export async function listImportRecords(
   database: Database,
-  sourceAccountId: string,
+  sourceAccountId?: string,
 ): Promise<readonly ImportRecord[]> {
   const rows = await database.query<{
     id: string;
@@ -199,9 +224,9 @@ export async function listImportRecords(
   }>(
     `SELECT id, title, authors_json, source_format, isbn, occurred_at, source_key
      FROM import_records
-     WHERE source_account_id = ?
+     ${sourceAccountId ? 'WHERE source_account_id = ?' : ''}
      ORDER BY occurred_at DESC, id`,
-    [sourceAccountId],
+    sourceAccountId ? [sourceAccountId] : [],
   );
   return rows.map((row) => ({
     id: row.id,
@@ -216,7 +241,7 @@ export async function listImportRecords(
 
 export async function listImportRuns(
   database: Database,
-  sourceAccountId: string,
+  sourceAccountId?: string,
 ): Promise<readonly ImportRun[]> {
   const rows = await database.query<{
     id: string;
@@ -228,9 +253,9 @@ export async function listImportRuns(
   }>(
     `SELECT r.id, r.rows_seen, r.rows_new, r.rows_ignored, r.finished_at, r.file_name
      FROM import_runs r
-     WHERE r.source_account_id = ?
+     ${sourceAccountId ? 'WHERE r.source_account_id = ?' : ''}
      ORDER BY r.finished_at DESC, r.id DESC`,
-    [sourceAccountId],
+    sourceAccountId ? [sourceAccountId] : [],
   );
   return rows.map((row) => ({
     id: row.id,

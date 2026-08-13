@@ -1,0 +1,17 @@
+{
+  "name": "Read It Again",
+  "short_name": "Read Again",
+  "description": "A private, local-first family read-aloud bookshelf.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f6f1e8",
+  "theme_color": "#24473b",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

@@ -35,6 +35,7 @@ function App() {
   const [status, setStatus] = useState('Opening your private bookshelf…');
   const [error, setError] = useState<readonly string[]>([]);
   const [busy, setBusy] = useState(true);
+  const [archivePassphrase, setArchivePassphrase] = useState('');
 
   useEffect(() => {
     void refreshInbox();
@@ -100,6 +101,13 @@ function App() {
         <p className="lede">Import a Libby timeline snapshot. It stays in this browser.</p>
       </header>
 
+      <aside className="capability-note">
+        <strong>Client-only and private by construction.</strong> This installed app works offline
+        and stores data in this browser. It cannot sign in to BiblioCommons or automatically query
+        KCLS while KCLS blocks browser access; use manual resolution or import an encrypted archive
+        created by the local runtime.
+      </aside>
+
       <section className="import-panel" aria-labelledby="import-title">
         <div>
           <h2 id="import-title">Libby timeline</h2>
@@ -119,6 +127,67 @@ function App() {
             }}
           />
         </label>
+      </section>
+
+      <section className="browser-tools" aria-labelledby="browser-tools-title">
+        <div className="section-heading">
+          <div>
+            <p className="eyebrow">Offline inputs</p>
+            <h2 id="browser-tools-title">Add or transfer books</h2>
+          </div>
+        </div>
+        <div className="tool-grid">
+          <article>
+            <h3>Generic CSV</h3>
+            <p>Recognizes title, author, ISBN, date, and format columns.</p>
+            <label className={busy ? 'file-button disabled' : 'file-button'}>
+              <span>Choose CSV file</span>
+              <input
+                data-testid="csv-file"
+                type="file"
+                accept="text/csv,.csv"
+                disabled={busy}
+                onChange={(event) => {
+                  const file = event.currentTarget.files?.[0];
+                  if (file) void importCsvFile(file);
+                  event.currentTarget.value = '';
+                }}
+              />
+            </label>
+          </article>
+          <ManualBookForm busy={busy} onSubmit={importManual} />
+          <article>
+            <h3>Encrypted archive</h3>
+            <p>Use a memorable passphrase of at least 12 characters. It is never stored.</p>
+            <input
+              aria-label="Archive passphrase"
+              type="password"
+              minLength={12}
+              autoComplete="new-password"
+              value={archivePassphrase}
+              onChange={(event) => setArchivePassphrase(event.target.value)}
+            />
+            <div className="archive-actions">
+              <button type="button" disabled={busy} onClick={() => void exportArchive()}>
+                Export encrypted backup
+              </button>
+              <label className={busy ? 'file-button disabled' : 'file-button'}>
+                <span>Import archive</span>
+                <input
+                  data-testid="archive-file"
+                  type="file"
+                  accept="application/json,.ria-archive"
+                  disabled={busy}
+                  onChange={(event) => {
+                    const file = event.currentTarget.files?.[0];
+                    if (file) void importArchiveFile(file);
+                    event.currentTarget.value = '';
+                  }}
+                />
+              </label>
+            </div>
+          </article>
+        </div>
       </section>
 
       <p className="status" role="status" data-testid="import-status">
@@ -292,6 +361,127 @@ function App() {
     } else setError(response.issues ?? [response.message]);
     setBusy(false);
   }
+
+  async function importCsvFile(file: File) {
+    await applyBrowserOperation(
+      { type: 'importCsv', rawText: await file.text(), fileName: file.name },
+      'CSV import complete.',
+    );
+  }
+
+  async function importManual(input: { title: string; author?: string; isbn?: string }) {
+    await applyBrowserOperation({ type: 'importManual', ...input, format: 'book' }, 'Book added.');
+  }
+
+  async function exportArchive() {
+    setBusy(true);
+    setError([]);
+    const response = await requestWorker({ type: 'exportArchive', passphrase: archivePassphrase });
+    if (response.ok && response.archiveText) {
+      downloadText(
+        response.archiveText,
+        `read-it-again-${new Date().toISOString().slice(0, 10)}.ria-archive`,
+      );
+      setStatus('Encrypted archive downloaded. Keep its passphrase separately.');
+    } else if (!response.ok) {
+      setError(response.issues ?? [response.message]);
+      setStatus('Archive export failed.');
+    }
+    setBusy(false);
+  }
+
+  async function importArchiveFile(file: File) {
+    await applyBrowserOperation(
+      { type: 'importArchive', encryptedText: await file.text(), passphrase: archivePassphrase },
+      'Encrypted archive restored.',
+    );
+  }
+
+  async function applyBrowserOperation(
+    request: Extract<WorkerRequestInput, { type: 'importCsv' | 'importManual' | 'importArchive' }>,
+    success: string,
+  ) {
+    setBusy(true);
+    setError([]);
+    const response = await requestWorker(request);
+    if (response.ok) {
+      setInbox({
+        ...response.inbox,
+        resolutionQueue: response.resolutionQueue,
+        attributionTriage: response.attributionTriage,
+        readingModel: response.readingModel,
+        recommendations: response.recommendations,
+      });
+      setStatus(request.type === 'importCsv' ? importSummary(response.result) : success);
+    } else {
+      setError(response.issues ?? [response.message]);
+      setStatus('Nothing was changed.');
+    }
+    setBusy(false);
+  }
+}
+
+function ManualBookForm({
+  busy,
+  onSubmit,
+}: {
+  readonly busy: boolean;
+  readonly onSubmit: (input: { title: string; author?: string; isbn?: string }) => Promise<void>;
+}) {
+  const [title, setTitle] = useState('');
+  const [author, setAuthor] = useState('');
+  const [isbn, setIsbn] = useState('');
+  return (
+    <article>
+      <h3>Manual or ISBN</h3>
+      <form
+        className="manual-form"
+        onSubmit={(event) => {
+          event.preventDefault();
+          void onSubmit({ title, author: author || undefined, isbn: isbn || undefined }).then(
+            () => {
+              setTitle('');
+              setAuthor('');
+              setIsbn('');
+            },
+          );
+        }}
+      >
+        <input
+          aria-label="Book title"
+          placeholder="Title"
+          required
+          value={title}
+          onChange={(event) => setTitle(event.target.value)}
+        />
+        <input
+          aria-label="Book author"
+          placeholder="Author (optional)"
+          value={author}
+          onChange={(event) => setAuthor(event.target.value)}
+        />
+        <input
+          aria-label="Book ISBN"
+          placeholder="ISBN (optional)"
+          inputMode="numeric"
+          value={isbn}
+          onChange={(event) => setIsbn(event.target.value)}
+        />
+        <button type="submit" disabled={busy}>
+          Add to bookshelf
+        </button>
+      </form>
+    </article>
+  );
+}
+
+function downloadText(value: string, fileName: string): void {
+  const url = URL.createObjectURL(new Blob([value], { type: 'application/json' }));
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = fileName;
+  link.click();
+  URL.revokeObjectURL(url);
 }
 
 const TRAITS: readonly { readonly value: ReadingTrait; readonly label: string }[] = [
@@ -549,7 +739,7 @@ function AssessmentCard({
           onClick={() =>
             void onChanged({
               type: 'recordReadingSession',
-              householdId: 'default-household',
+              householdId: item.householdId,
               workId: item.workId,
               participantIds: [item.personId],
               durationMinutes: minutes ? Number(minutes) : undefined,
@@ -779,3 +969,10 @@ createRoot(root).render(
     <App />
   </StrictMode>,
 );
+
+if ('serviceWorker' in navigator) {
+  window.addEventListener(
+    'load',
+    () => void navigator.serviceWorker.register('/service-worker.js'),
+  );
+}

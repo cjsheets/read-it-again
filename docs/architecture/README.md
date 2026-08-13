@@ -117,3 +117,21 @@ stores score components, plain-language evidence, its KCLS catalog key, and a ho
 whose cache expires after 24 hours. No optional enrichment provider or LLM participates in the
 complete path. Browser code reads snapshots but does not perform live KCLS calls while the catalog
 lacks CORS permission.
+
+## Client-only PWA and archive transfer
+
+The PWA composes the shared application and schema packages with SQLite-WASM/OPFS, Libby and CSV
+file parsers, and manual entry. Its package graph excludes KCLS, BiblioCommons, and local
+orchestration. A build-time scanner repeats that assertion against source manifests and emitted
+assets, including hostnames and credential-related identifiers.
+
+The service worker walks the built asset graph from `index.html` and precaches JavaScript workers,
+SQLite WASM/proxy assets, CSS, the manifest, and icon. Browser acceptance testing loads the
+production build, persists a manual book in OPFS, disables networking, reloads, and verifies the
+shelf remains usable. Static-host headers provide cross-origin isolation for SQLite-WASM and a
+same-origin-only CSP.
+
+Archive transfer uses a versioned logical-row format inside authenticated AES-256-GCM encryption.
+PBKDF2-SHA-256 derives the key from a never-persisted passphrase and random salt. Decryption and
+shape/version checks precede a transactional replacement, so wrong keys and malformed archives
+write nothing. Catalog and recommendation snapshots travel inside the same encrypted artifact.

@@ -8,6 +8,7 @@
   },
   "include": ["src/**/*.ts", "src/**/*.tsx"],
   "references": [
+    { "path": "../../packages/adapter-csv" },
     { "path": "../../packages/adapter-libby" },
     { "path": "../../packages/application" },
     { "path": "../../packages/storage-browser" },
