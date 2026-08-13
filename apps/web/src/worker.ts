@@ -1,7 +1,15 @@
 /// <reference lib="webworker" />
 
 import { LibbySnapshotError } from '@read-it-again/adapter-libby';
-import { getImportInbox, importLibbySnapshot } from '@read-it-again/application';
+import {
+  createManualWorkForCase,
+  decideCandidate,
+  deferCase,
+  getImportInbox,
+  importLibbySnapshot,
+  prepareResolutionQueue,
+  rejectCase,
+} from '@read-it-again/application';
 import { openOpfsDatabase } from '@read-it-again/storage-browser';
 import { migrate } from '@read-it-again/storage-schema';
 import type { WorkerRequest, WorkerResponse } from './protocol.js';
@@ -29,19 +37,34 @@ async function handle(request: WorkerRequest): Promise<void> {
         sourceAccountId: SOURCE_ACCOUNT_ID,
         householdId: HOUSEHOLD_ID,
       });
+      const resolution = await prepareResolutionQueue(database, emptyCatalog);
       worker.postMessage({
         id: request.id,
         ok: true,
         result,
         inbox: await getImportInbox(database, SOURCE_ACCOUNT_ID),
+        resolutionQueue: resolution.queue,
       } satisfies WorkerResponse);
       return;
     }
+
+    if (request.type === 'acceptCandidate') {
+      await decideCandidate(database, request.caseId, request.candidateId);
+    } else if (request.type === 'manualResolve') {
+      await createManualWorkForCase(database, request.caseId, request.title, request.authorsJson);
+    } else if (request.type === 'rejectCase') {
+      await rejectCase(database, request.caseId);
+    } else if (request.type === 'deferCase') {
+      await deferCase(database, request.caseId);
+    }
+
+    const resolution = await prepareResolutionQueue(database, emptyCatalog);
 
     worker.postMessage({
       id: request.id,
       ok: true,
       inbox: await getImportInbox(database, SOURCE_ACCOUNT_ID),
+      resolutionQueue: resolution.queue,
     } satisfies WorkerResponse);
   } catch (error) {
     worker.postMessage({
@@ -52,3 +75,8 @@ async function handle(request: WorkerRequest): Promise<void> {
     } satisfies WorkerResponse);
   }
 }
+
+const emptyCatalog = {
+  searchByIsbn: async () => [],
+  searchByTitleAuthor: async () => [],
+};

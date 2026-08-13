@@ -7,6 +7,7 @@ history, credentials, bearer URLs, patron identifiers, or real checkout records.
 - `bibliocommons/recently-returned.html` models stable print-view selectors.
 - `kcls/opensearch.xml` models a minimal Atom result with ISBN and bib ID.
 - `kcls/marc.xml` models the MARC fields needed by later enrichment work.
+- `resolution/golden.json` is the first human-reviewable scoring regression case.
 
 When source schemas change, add a new fixture instead of silently editing away the old
 contract. Fixtures must remain synthetic or deliberately redacted.

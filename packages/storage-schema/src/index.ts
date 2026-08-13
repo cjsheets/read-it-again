@@ -20,3 +20,17 @@ export type {
 } from './imports.js';
 export { migrate, migrations } from './migrations.js';
 export type { Migration } from './migrations.js';
+export {
+  acceptCandidate,
+  acceptCachedResolution,
+  createManualResolution,
+  deferResolution,
+  ensureResolutionCase,
+  listResolutionQueue,
+  mergeWorks,
+  rejectResolution,
+  replaceResolutionCandidates,
+  repointResolution,
+  splitEditionToWork,
+} from './resolutions.js';
+export type { CandidateDraft, ResolutionCase, ResolutionQueueItem } from './resolutions.js';

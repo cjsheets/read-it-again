@@ -8,9 +8,9 @@
   },
   "include": ["src/**/*.ts"],
   "references": [
-    { "path": "../adapter-libby" },
-    { "path": "../domain" },
-    { "path": "../storage-schema" },
-    { "path": "../storage-node" }
+    { "path": "../../packages/adapter-kcls" },
+    { "path": "../../packages/application" },
+    { "path": "../../packages/storage-node" },
+    { "path": "../../packages/storage-schema" }
   ]
 }

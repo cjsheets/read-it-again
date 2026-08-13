@@ -3,9 +3,11 @@
   <title>Example catalog results</title>
   <entry>
     <title>The Moonlit Kite</title>
-    <id>tag:example.invalid,2026:biblio-record_entry/101</id>
-    <category term="urn:isbn:9780000000101" />
-    <category term="urn:bibid:101" />
+    <id>urn:tcn:synthetic101</id>
+    <author><name>North, Riley,author.(SYNTHETIC)1</name></author>
+    <category term="Picture books." />
+    <identifier>URN:ISBN:9780000000101</identifier>
+    <identifier>URN:BIBID:101</identifier>
+    <id>tag:example.invalid,2026:biblio-record_entry/101/-</id>
   </entry>
 </feed>
-

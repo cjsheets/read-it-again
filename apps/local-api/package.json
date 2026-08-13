@@ -1,0 +1,21 @@
+{
+  "name": "@read-it-again/local-api",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc -b",
+    "import:libby": "tsx src/import-libby.ts",
+    "resolve": "tsx src/resolve.ts",
+    "typecheck": "tsc -b --pretty false"
+  },
+  "dependencies": {
+    "@read-it-again/adapter-kcls": "workspace:*",
+    "@read-it-again/application": "workspace:*",
+    "@read-it-again/storage-node": "workspace:*",
+    "@read-it-again/storage-schema": "workspace:*"
+  },
+  "devDependencies": {
+    "tsx": "latest"
+  }
+}

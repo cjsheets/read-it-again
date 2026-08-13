@@ -29,3 +29,19 @@ complete source snapshot
 Validation precedes all writes. Identical snapshot content and identical source observations
 are deduplicated independently, while successful zero-change imports remain visible in the
 audit history.
+
+## Resolution pipeline
+
+```text
+import record
+  → resolution cache
+  → ISBN catalog search
+  → normalized title + author search
+  → scored candidates (top score + runner-up margin)
+  → automatic decision or human queue
+  → edition → local work
+```
+
+Catalog traffic is local-runtime-only, sequential, backed off on retry, and cached in SQLite.
+The browser can display populated candidates and always supports manual resolution, rejection,
+and deferral without reaching KCLS directly.

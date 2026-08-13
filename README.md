@@ -1,7 +1,8 @@
 # Read It Again
 
-A local-first family bookshelf and read-aloud tracker. Phase 1 provides a private browser
-import inbox for validated Libby Timeline JSON snapshots.
+A local-first family bookshelf and read-aloud tracker. Phase 2 adds explainable KCLS record
+resolution, persistent caching, human decisions, and audited work/edition corrections to the
+private Libby import inbox.
 
 ## Prerequisites
 
@@ -26,6 +27,21 @@ pnpm --filter @read-it-again/web dev
 ```
 
 The client stores snapshots and normalized inbox records in SQLite through browser OPFS.
+
+## Local catalog resolution
+
+Build the workspace, import a Libby snapshot into a native database, then resolve it against
+the public KCLS catalog:
+
+```sh
+pnpm build
+pnpm --filter @read-it-again/local-api import:libby -- timeline.json data/read-it-again.db
+pnpm --filter @read-it-again/local-api resolve -- data/read-it-again.db
+```
+
+KCLS requests are sequential, delayed for courtesy, retried with exponential backoff, and
+persistently cached. The resolver automatically accepts only clear matches; ambiguous or
+missing results remain in the resolution queue.
 
 ## Architecture
 

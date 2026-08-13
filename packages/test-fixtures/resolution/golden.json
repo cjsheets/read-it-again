@@ -1,0 +1,30 @@
+{
+  "input": {
+    "title": "The Moonlit Kite",
+    "authorDisplays": ["Riley North"],
+    "isbn": "9780000000101",
+    "format": "ebook"
+  },
+  "candidates": [
+    {
+      "catalogKey": "101",
+      "title": "The Moonlit Kite",
+      "authorDisplays": ["North, Riley"],
+      "isbns": ["9780000000101"],
+      "format": "ebook",
+      "publishedYear": 2025,
+      "juvenile": true
+    },
+    {
+      "catalogKey": "999",
+      "title": "Kite Moon",
+      "authorDisplays": ["Taylor Reed"],
+      "isbns": [],
+      "format": "book",
+      "publishedYear": 1998,
+      "juvenile": false
+    }
+  ],
+  "expectedTopCatalogKey": "101",
+  "expectedAutomatic": true
+}

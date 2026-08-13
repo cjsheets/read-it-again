@@ -1,16 +1,22 @@
 import { StrictMode, useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import type { ImportBatchResult, ImportRecord, ImportRun } from '@read-it-again/storage-schema';
+import type {
+  ImportBatchResult,
+  ImportRecord,
+  ImportRun,
+  ResolutionQueueItem,
+} from '@read-it-again/storage-schema';
 import { requestWorker } from './client.js';
 import './styles.css';
 
 interface InboxState {
   readonly records: readonly ImportRecord[];
   readonly runs: readonly ImportRun[];
+  readonly resolutionQueue: readonly ResolutionQueueItem[];
 }
 
 function App() {
-  const [inbox, setInbox] = useState<InboxState>({ records: [], runs: [] });
+  const [inbox, setInbox] = useState<InboxState>({ records: [], runs: [], resolutionQueue: [] });
   const [status, setStatus] = useState('Opening your private bookshelf…');
   const [error, setError] = useState<readonly string[]>([]);
   const [busy, setBusy] = useState(true);
@@ -23,7 +29,7 @@ function App() {
     setBusy(true);
     const response = await requestWorker({ type: 'getInbox' });
     if (response.ok) {
-      setInbox(response.inbox);
+      setInbox({ ...response.inbox, resolutionQueue: response.resolutionQueue });
       setStatus(
         response.inbox.records.length === 0 ? 'No books imported yet.' : 'Import inbox ready.',
       );
@@ -49,7 +55,7 @@ function App() {
         setStatus('Nothing was imported. Fix the file and try again.');
         return;
       }
-      setInbox(response.inbox);
+      setInbox({ ...response.inbox, resolutionQueue: response.resolutionQueue });
       setStatus(importSummary(response.result));
     } catch (caught) {
       setError([caught instanceof Error ? caught.message : String(caught)]);
@@ -123,6 +129,25 @@ function App() {
         )}
       </section>
 
+      {inbox.resolutionQueue.length > 0 && (
+        <section className="resolution" aria-labelledby="resolution-title">
+          <div className="section-heading">
+            <div>
+              <p className="eyebrow">Needs a decision</p>
+              <h2 id="resolution-title">Resolution queue</h2>
+            </div>
+            <span className="count" data-testid="resolution-count">
+              {inbox.resolutionQueue.length} pending
+            </span>
+          </div>
+          <ol className="resolution-list">
+            {inbox.resolutionQueue.map((item) => (
+              <ResolutionCard key={item.caseId} item={item} onChanged={applyDecision} />
+            ))}
+          </ol>
+        </section>
+      )}
+
       {inbox.runs.length > 0 && (
         <details>
           <summary>Import history ({inbox.runs.length})</summary>
@@ -137,6 +162,29 @@ function App() {
       )}
     </main>
   );
+
+  async function applyDecision(
+    request:
+      | { readonly type: 'acceptCandidate'; readonly caseId: string; readonly candidateId: string }
+      | {
+          readonly type: 'manualResolve';
+          readonly caseId: string;
+          readonly title: string;
+          readonly authorsJson: string;
+        }
+      | { readonly type: 'rejectCase'; readonly caseId: string }
+      | { readonly type: 'deferCase'; readonly caseId: string },
+  ) {
+    setBusy(true);
+    const response = await requestWorker(request);
+    if (response.ok) {
+      setInbox({ ...response.inbox, resolutionQueue: response.resolutionQueue });
+      setStatus('Resolution decision saved.');
+    } else {
+      setError(response.issues ?? [response.message]);
+    }
+    setBusy(false);
+  }
 }
 
 function BookRow({ record }: { readonly record: ImportRecord }) {
@@ -156,6 +204,93 @@ function BookRow({ record }: { readonly record: ImportRecord }) {
       </div>
     </li>
   );
+}
+
+function ResolutionCard({
+  item,
+  onChanged,
+}: {
+  readonly item: ResolutionQueueItem;
+  readonly onChanged: (
+    request:
+      | { readonly type: 'acceptCandidate'; readonly caseId: string; readonly candidateId: string }
+      | {
+          readonly type: 'manualResolve';
+          readonly caseId: string;
+          readonly title: string;
+          readonly authorsJson: string;
+        }
+      | { readonly type: 'rejectCase'; readonly caseId: string }
+      | { readonly type: 'deferCase'; readonly caseId: string },
+  ) => Promise<void>;
+}) {
+  return (
+    <li className="resolution-card">
+      <div>
+        <h3>{item.title}</h3>
+        <p>{authorText(item.authorsJson)}</p>
+      </div>
+      {item.candidates.length > 0 && (
+        <div className="candidates">
+          {item.candidates.map((candidate) => {
+            const snapshot = JSON.parse(candidate.snapshotJson) as {
+              title: string;
+              authorDisplays: string[];
+            };
+            return (
+              <button
+                key={candidate.id}
+                type="button"
+                onClick={() =>
+                  void onChanged({
+                    type: 'acceptCandidate',
+                    caseId: item.caseId,
+                    candidateId: candidate.id,
+                  })
+                }
+              >
+                <strong>{snapshot.title}</strong>
+                <span>{snapshot.authorDisplays.join(', ') || 'Unknown author'}</span>
+                <small>{Math.round(candidate.totalScore * 100)}% match</small>
+              </button>
+            );
+          })}
+        </div>
+      )}
+      <div className="decision-actions">
+        <button
+          type="button"
+          onClick={() =>
+            void onChanged({
+              type: 'manualResolve',
+              caseId: item.caseId,
+              title: item.title,
+              authorsJson: item.authorsJson,
+            })
+          }
+        >
+          Use source details
+        </button>
+        <button
+          type="button"
+          onClick={() => void onChanged({ type: 'deferCase', caseId: item.caseId })}
+        >
+          Defer
+        </button>
+        <button
+          type="button"
+          onClick={() => void onChanged({ type: 'rejectCase', caseId: item.caseId })}
+        >
+          Not a book
+        </button>
+      </div>
+    </li>
+  );
+}
+
+function authorText(authorsJson: string): string {
+  const authors = JSON.parse(authorsJson) as { readonly display: string }[];
+  return authors.map(({ display }) => display).join(', ');
 }
 
 function importSummary(result: ImportBatchResult | undefined): string {

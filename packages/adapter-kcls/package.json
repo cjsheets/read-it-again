@@ -1,5 +1,5 @@
 {
-  "name": "@read-it-again/application",
+  "name": "@read-it-again/adapter-kcls",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -9,9 +9,9 @@
     "typecheck": "tsc -b --pretty false"
   },
   "dependencies": {
-    "@read-it-again/adapter-libby": "workspace:*",
     "@read-it-again/domain": "workspace:*",
-    "@read-it-again/storage-schema": "workspace:*"
+    "@read-it-again/storage-schema": "workspace:*",
+    "fast-xml-parser": "catalog:"
   },
   "devDependencies": {
     "@read-it-again/storage-node": "workspace:*",

@@ -2,10 +2,13 @@
   "files": [],
   "references": [
     { "path": "packages/storage-schema" },
+    { "path": "packages/domain" },
     { "path": "packages/adapter-libby" },
+    { "path": "packages/adapter-kcls" },
     { "path": "packages/application" },
     { "path": "packages/storage-node" },
     { "path": "packages/storage-browser" },
+    { "path": "apps/local-api" },
     { "path": "apps/web" }
   ]
 }

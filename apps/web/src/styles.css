@@ -181,6 +181,69 @@ details {
   margin-top: 32px;
   color: #655f55;
 }
+.resolution {
+  margin-top: 56px;
+}
+.resolution-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 14px;
+}
+.resolution-card {
+  background: #fffdf8;
+  border: 1px solid #ded5c7;
+  border-radius: 14px;
+  padding: 20px;
+}
+.resolution-card p {
+  color: #6b645a;
+  margin-bottom: 14px;
+}
+.candidates {
+  display: grid;
+  gap: 8px;
+  margin: 14px 0;
+}
+.candidates button {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  text-align: left;
+  gap: 3px 12px;
+  border: 1px solid #c9d7cd;
+  background: #edf4ef;
+  border-radius: 10px;
+  padding: 12px;
+  cursor: pointer;
+}
+.candidates span {
+  color: #655f55;
+}
+.candidates small {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  align-self: center;
+  color: #24473b;
+}
+.decision-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.decision-actions button {
+  border: 1px solid #b9afa1;
+  background: transparent;
+  border-radius: 999px;
+  padding: 8px 12px;
+  cursor: pointer;
+  color: #4f493f;
+}
+.decision-actions button:first-child {
+  border-color: #24473b;
+  color: #24473b;
+  font-weight: 700;
+}
 summary {
   cursor: pointer;
   font-weight: 700;
