@@ -3,12 +3,12 @@
 ## Re-entry
 
 - **Phase:** 7 — Client-only PWA (complete 2026-08-13)
-- **Last state:** The production PWA supports Libby/CSV/manual input, manual resolution, OPFS shelf
-  use, ratings, encrypted logical archive transfer, imported catalog/recommendation caches, full
-  asset precaching, CSP/isolation headers, and automated source/artifact boundary scans. Phase 3's
-  personal live-card acceptance run remains pending a user-owned authenticated session.
-- **Next action:** Deploy the static artifact with its required headers and begin Phase 8 probes
-  and durability hardening.
+- **Last state:** The production PWA is complete, and the local workflow now has a unified
+  `pnpm bookshelf` CLI for setup/login, one-command sync, status, recommendation refresh, and
+  encrypted PWA-compatible backup. Phase 3's personal live-card acceptance run remains pending a
+  user-owned authenticated session.
+- **Next action:** Run `pnpm bookshelf setup` with the personal child card, then `pnpm bookshelf
+sync`; deploy the static artifact with its required headers after validating archive transfer.
 - **Source plan:** Obsidian `Efforts/Read It Again.md`
 - **Important constraint:** KCLS OpenSearch did not return CORS permission headers on
   2026-08-12. Browser-only catalog access is not currently viable.
@@ -59,3 +59,8 @@ AES-256-GCM archives round-trip logical data and reject wrong passphrases withou
 production PWA registers a manifest/service worker and reloads offline with OPFS state intact.
 CI scans source and emitted assets for forbidden local-only dependencies, patron/catalog hosts,
 storage-state hooks, and card configuration, and validates CSP plus static isolation headers.
+
+Post-Phase 7 accessibility result: the recurring local workflow is reduced from five internal
+package commands to `pnpm bookshelf sync`. Interactive setup stores versioned non-secret config,
+login saves its authenticated state only under the ignored `secrets/` directory, status exposes
+freshness and review counts, and backup writes an encrypted archive compatible with the PWA.

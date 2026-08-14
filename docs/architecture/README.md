@@ -17,6 +17,12 @@ Native SQLite and SQLite-WASM/OPFS share migrations and observable repository se
 The credentialed adapter and its orchestration live in `adapter-bibliocommons` and
 `application-local`; neither is reachable from the browser application's dependency graph.
 
+The `pnpm bookshelf` command is the human-facing composition root for the local runtime. Its
+versioned JSON configuration names the reader, exclusive card, private Playwright session, and
+native database. `sync` invokes acquisition, resolution, enrichment/model rebuilding, and
+recommendation APIs in one process while reporting stage results and remaining review counts.
+The older stage-specific commands remain diagnostic entry points rather than the primary workflow.
+
 ## Import pipeline
 
 ```text

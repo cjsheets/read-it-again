@@ -4,6 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "bookshelf": "tsx src/bookshelf.ts",
     "build": "tsc -b",
     "import:bibliocommons": "tsx src/import-bibliocommons.ts",
     "import:libby": "tsx src/import-libby.ts",

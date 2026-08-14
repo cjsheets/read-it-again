@@ -8,6 +8,7 @@
     "node": ">=22.0.0"
   },
   "scripts": {
+    "bookshelf": "pnpm --filter @read-it-again/local-api bookshelf --",
     "build": "pnpm -r --if-present build",
     "check:web-boundary": "node scripts/check-web-boundary.mjs",
     "check": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test && pnpm build && pnpm check:web-boundary",

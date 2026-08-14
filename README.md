@@ -1,8 +1,7 @@
 # Read It Again
 
-A local-first family bookshelf and read-aloud tracker. Phase 3 adds strict BiblioCommons
-physical-history ingestion, local-only browser acquisition, and deterministic attribution
-from an exclusive child's library card.
+A local-first family bookshelf and read-aloud tracker with physical-history ingestion,
+explainable attribution, a reading model, deterministic recommendations, and an offline PWA.
 
 ## Prerequisites
 
@@ -28,6 +27,40 @@ pnpm --filter @read-it-again/web dev
 
 The client stores snapshots and normalized inbox records in SQLite through browser OPFS.
 
+## Personal bookshelf quick start
+
+Configure a reader and sign in to KCLS in the browser that opens:
+
+```sh
+pnpm bookshelf setup
+```
+
+After setup, the normal recurring workflow is one command:
+
+```sh
+pnpm bookshelf sync
+```
+
+`sync` imports the complete BiblioCommons “Recently Returned” history, resolves catalog records,
+enriches metadata, rebuilds the reading model, and generates recommendations. It reports new
+records and any resolution or attribution reviews that remain. Configuration is stored in
+`data/bookshelf.json`; the reusable authenticated browser session stays under the ignored
+`secrets/` directory.
+
+Useful supporting commands are:
+
+```sh
+pnpm bookshelf status
+pnpm bookshelf login       # refresh an expired library session
+pnpm bookshelf recommend   # regenerate without importing
+pnpm bookshelf backup      # encrypted archive for the PWA
+pnpm bookshelf help
+```
+
+The backup passphrase is entered without terminal echo and must contain at least 12 characters.
+Backups default to the ignored `backups/` directory. Set `BOOKSHELF_BACKUP_PASSPHRASE` only for
+non-interactive backup automation, using an appropriate secret manager.
+
 ## Local catalog resolution
 
 Build the workspace, import a Libby snapshot into a native database, then resolve it against
@@ -43,10 +76,11 @@ KCLS requests are sequential, delayed for courtesy, retried with exponential bac
 persistently cached. The resolver automatically accepts only clear matches; ambiguous or
 missing results remain in the resolution queue.
 
-## Local physical-history import
+## Advanced physical-history commands
 
-Create an authenticated Playwright storage-state file by signing into BiblioCommons in the
-opened browser, then close that browser:
+The unified `pnpm bookshelf` commands above are recommended for normal use. The underlying
+commands remain available for development and diagnostics. Create an authenticated Playwright
+storage-state file by signing into BiblioCommons in the opened browser, then close that browser:
 
 ```sh
 pnpm exec playwright codegen --save-storage=secrets/child-card.json \

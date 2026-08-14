@@ -6,6 +6,8 @@ coverage/
 playwright-report/
 test-results/
 secrets/
+backups/
+data/bookshelf.json
 *.storage-state.json
 .DS_Store
 *.db
