@@ -3,6 +3,7 @@ import path from 'node:path';
 import { expect, test } from '@playwright/test';
 import {
   addBookManually,
+  BULK_IMPORT_TIMEOUT,
   csvSnapshot,
   importCsv,
   openApp,
@@ -45,7 +46,9 @@ test.describe('every input path reaches the bookshelf', () => {
 
     await importCsv(page, csvSnapshot(50));
 
-    await expect(page.getByTestId('import-status')).toHaveText('Imported 50 new of 50 rows.');
+    await expect(page.getByTestId('import-status')).toHaveText('Imported 50 new of 50 rows.', {
+      timeout: BULK_IMPORT_TIMEOUT,
+    });
     await expect(page.getByTestId('record-count')).toHaveText('50 books');
   });
 
@@ -53,9 +56,11 @@ test.describe('every input path reaches the bookshelf', () => {
     await openApp(page);
 
     await importCsv(page, csvSnapshot(50));
-    await expect(page.getByTestId('record-count')).toHaveText('50 books');
+    await expect(page.getByTestId('record-count')).toHaveText('50 books', {
+      timeout: BULK_IMPORT_TIMEOUT,
+    });
 
-    await expect(shelfCards(page)).toHaveCount(50);
+    await expect(shelfCards(page)).toHaveCount(50, { timeout: BULK_IMPORT_TIMEOUT });
     expect(await pendingDecisions(page)).toBe(0);
   });
 
@@ -81,9 +86,13 @@ test.describe('every input path reaches the bookshelf', () => {
     await openApp(page);
 
     await importCsv(page, csvSnapshot(5));
-    await expect(page.getByTestId('record-count')).toHaveText('5 books');
+    await expect(page.getByTestId('record-count')).toHaveText('5 books', {
+      timeout: BULK_IMPORT_TIMEOUT,
+    });
     await page.getByTestId('libby-file').setInputFiles(libbyFixture);
-    await expect(page.getByTestId('record-count')).toHaveText('7 books');
+    await expect(page.getByTestId('record-count')).toHaveText('7 books', {
+      timeout: BULK_IMPORT_TIMEOUT,
+    });
 
     await expect(shelfCards(page)).toHaveCount(7);
     await expect(page.getByRole('alert')).toHaveCount(0);

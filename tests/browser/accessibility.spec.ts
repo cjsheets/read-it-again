@@ -1,6 +1,13 @@
 import { AxeBuilder } from '@axe-core/playwright';
 import { expect, test, type Page, type TestInfo } from '@playwright/test';
-import { addBookManually, csvSnapshot, importCsv, openApp, shelfCards } from './support/shelf.js';
+import {
+  addBookManually,
+  BULK_IMPORT_TIMEOUT,
+  csvSnapshot,
+  importCsv,
+  openApp,
+  shelfCards,
+} from './support/shelf.js';
 
 /**
  * Audit §11 Tier 3: zero serious axe violations, and `scrollWidth <= clientWidth`
@@ -15,11 +22,13 @@ const SERIOUS = new Set(['serious', 'critical']);
 
 async function populate(page: Page): Promise<void> {
   await importCsv(page, csvSnapshot(3));
-  await expect(page.getByTestId('record-count')).toHaveText('3 books');
+  await expect(page.getByTestId('record-count')).toHaveText('3 books', {
+    timeout: BULK_IMPORT_TIMEOUT,
+  });
   await addBookManually(page, { title: 'The Gruffalo', author: 'Julia Donaldson' });
   // Three imported rows plus the typed one; imports reach the shelf directly
   // since ADR 0012.
-  await expect(shelfCards(page)).toHaveCount(4);
+  await expect(shelfCards(page)).toHaveCount(4, { timeout: BULK_IMPORT_TIMEOUT });
 }
 
 async function scan(page: Page, testInfo: TestInfo, label: string): Promise<void> {

@@ -7,6 +7,15 @@ import { expect, type Locator, type Page } from '@playwright/test';
  */
 export const PRODUCTION_URL = 'http://127.0.0.1:4175/';
 
+/**
+ * Waiting room for a bulk import. Since ADR 0012 every imported row is resolved,
+ * attributed, and folded into the reading model, so import duration scales with
+ * row count — a 50-row file exceeds Playwright's 5s default on CI hardware.
+ * These assertions are waiting for completion, not asserting a time bound; the
+ * actual timing bar lives in `performance-budget.spec.ts` (F-04).
+ */
+export const BULK_IMPORT_TIMEOUT = 60_000;
+
 /** Generates a CSV whose rows the generic adapter can infer without a mapping. */
 export function csvSnapshot(rowCount: number, prefix = 'Book'): Buffer {
   const rows = ['Title,Author,ISBN,Date,Format'];
