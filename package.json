@@ -18,12 +18,14 @@
     "test": "pnpm test:unit && pnpm test:browser",
     "test:browser": "playwright test",
     "test:unit": "vitest run",
-    "typecheck": "tsc -b"
+    "typecheck": "tsc -b && tsc -p tests/tsconfig.json"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.13.0",
     "@eslint/js": "latest",
     "@playwright/test": "latest",
     "@types/node": "latest",
+    "axe-core": "^4.13.0",
     "eslint": "latest",
     "eslint-config-prettier": "latest",
     "globals": "latest",

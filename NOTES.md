@@ -2,13 +2,17 @@
 
 ## Re-entry
 
-- **Phase:** 7 — Client-only PWA (complete 2026-08-13)
+- **Phase:** Audit remediation, Increment 0 — Safety net (complete 2026-08-16)
 - **Last state:** The production PWA is complete, and the local workflow now has a unified
   `pnpm bookshelf` CLI for setup/login, one-command sync, status, recommendation refresh, and
   encrypted PWA-compatible backup. Phase 3's personal live-card acceptance run remains pending a
-  user-owned authenticated session.
-- **Next action:** Run `pnpm bookshelf setup` with the personal child card, then `pnpm bookshelf
-sync`; deploy the static artifact with its required headers after validating archive transfer.
+  user-owned authenticated session. The UX audit's findings are now encoded as executable tests;
+  see `tests/browser/README.md`. Finding IDs (F-01, F-04, …) refer to that audit, which is kept
+  locally and is not tracked in this repository.
+- **Next action:** Increment 1 — accessibility and copy. Four annotated tests
+  (`:focus-visible`, trait-chip `aria-pressed`, the 24×24 px target floor, and 320 px reflow)
+  turn green the moment it lands, and each will then report "Expected to fail, but passed"
+  until its `test.fail()` annotation is removed.
 - **Source plan:** Obsidian `Efforts/Read It Again.md`
 - **Important constraint:** KCLS OpenSearch did not return CORS permission headers on
   2026-08-12. Browser-only catalog access is not currently viable.
@@ -64,3 +68,22 @@ Post-Phase 7 accessibility result: the recurring local workflow is reduced from 
 package commands to `pnpm bookshelf sync`. Interactive setup stores versioned non-secret config,
 login saves its authenticated state only under the ignored `secrets/` directory, status exposes
 freshness and review counts, and backup writes an encrypted archive compatible with the PWA.
+
+Increment 0 result: the audit's largest findings are now executable. Eighteen Chromium tests:
+nine contract tests that are green today, eight annotated safety-net tests carrying `test.fail()`
+with the finding and the increment that closes it, and one skipped placeholder for the search
+budget, which has nothing to measure until Increment 6 introduces a query surface. The suite asserts
+that every input path reaches the bookshelf (F-01), holds the Tier 3 budgets at 500 and 1000 books
+(F-04), and covers focus styles, trait-chip state, the 24x24 px target floor, and 320 px reflow
+(F-07, F-08, F-09, F-10). axe-core runs on the first-run screen and on a populated shelf and is
+green today, which is itself the finding: axe cannot detect missing focus styles, missing
+`aria-pressed` on a toggle, or non-text contrast, so those four needed explicit assertions.
+
+Measured on this machine at 1000 books: import 16.9 s (budget 10 s), add-one-more 2.4 s
+(budget 500 ms), 16 144 DOM nodes (budget 2000), 230 963 px document (budget 20 000). The node
+and pixel counts are hardware-independent, so the budget gate stays honest on any runner.
+Every run attaches its measurements to the HTML report, which CI uploads as an artifact.
+
+Two supporting changes: `pnpm typecheck` now also compiles `tests/tsconfig.json`, which nothing
+was checking before, and the shelf section and its cards carry `data-testid` hooks so these
+locators survive Increment 4's rewrite of `main.tsx`.

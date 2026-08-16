@@ -592,7 +592,7 @@ function ReadingDashboard({
   ) => Promise<void>;
 }) {
   return (
-    <section className="reading-model" aria-labelledby="shelf-title">
+    <section className="reading-model" aria-labelledby="shelf-title" data-testid="shelf">
       <div className="section-heading">
         <div>
           <p className="eyebrow">Preference model</p>
@@ -678,7 +678,7 @@ function AssessmentCard({
   const [minutes, setMinutes] = useState(item.estimatedReadMinutes?.toString() ?? '');
   const [traits, setTraits] = useState<readonly ReadingTrait[]>(item.traits);
   return (
-    <article className="assessment-card">
+    <article className="assessment-card" data-testid="shelf-card">
       <h3>{item.title}</h3>
       <p>
         {item.readerName} · {item.episodeCount} acquisition episode

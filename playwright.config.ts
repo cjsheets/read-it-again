@@ -4,7 +4,9 @@ export default defineConfig({
   testDir: './tests/browser',
   fullyParallel: false,
   retries: process.env.CI ? 2 : 0,
-  reporter: process.env.CI ? 'github' : 'list',
+  // The HTML report carries the attached performance and axe JSON, so the budget
+  // trend stays readable even while those tests are annotated expected-to-fail.
+  reporter: process.env.CI ? [['github'], ['html', { open: 'never' }]] : 'list',
   use: {
     baseURL: 'http://127.0.0.1:4173',
     trace: 'on-first-retry',
