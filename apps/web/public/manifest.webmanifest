@@ -42,7 +42,7 @@
       "name": "Add a book",
       "short_name": "Add",
       "description": "Type in a book and put it on the bookshelf.",
-      "url": "/?action=add",
+      "url": "/#add",
       "icons": [{ "src": "/icon-192.png", "sizes": "192x192", "type": "image/png" }]
     }
   ]

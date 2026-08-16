@@ -1,11 +1,14 @@
-import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { expect, test } from '@playwright/test';
 import {
   addBookManually,
   BULK_IMPORT_TIMEOUT,
   csvSnapshot,
+  exportArchive,
+  goTo,
+  importArchive,
   importCsv,
+  importLibby,
   openApp,
   pendingDecisions,
   PRODUCTION_URL,
@@ -16,15 +19,10 @@ const libbyFixture = path.resolve('packages/test-fixtures/libby/timeline.json');
 const PASSPHRASE = 'a sufficiently long passphrase';
 
 /**
- * Audit finding F-01. Every documented input path is supposed to end with a book
- * the household can rate, read, and be recommended against. Today only manual
- * entry does: `worker.ts` calls `correctAttribution` in the `importManual` branch
- * and nowhere else, so CSV and Libby rows stop at the review queues.
- *
- * The tests below describe the finished behaviour. The ones that cannot pass yet
- * carry `test.fail()` with the increment that is meant to fix them — see
- * `tests/browser/README.md` for why that annotation is used instead of a
- * permanently red build.
+ * Audit finding F-01. Every documented input path must end with a book the
+ * household can rate, read, and be recommended against. ADR 0012 closed this: the
+ * browser has no catalog, so it takes source records at their word rather than
+ * parking them in a queue no one can clear.
  */
 test.describe('every input path reaches the bookshelf', () => {
   test('manual entry lands a book on the bookshelf with no decisions', async ({ page }) => {
@@ -36,6 +34,7 @@ test.describe('every input path reaches the bookshelf', () => {
       isbn: '9780000000002',
     });
 
+    await goTo(page, 'shelf');
     await expect(shelfCards(page)).toHaveCount(1);
     await expect(shelfCards(page).getByRole('heading', { name: 'The Paper Moon' })).toBeVisible();
     expect(await pendingDecisions(page)).toBe(0);
@@ -49,17 +48,17 @@ test.describe('every input path reaches the bookshelf', () => {
     await expect(page.getByTestId('import-status')).toHaveText('Imported 50 new of 50 rows.', {
       timeout: BULK_IMPORT_TIMEOUT,
     });
-    await expect(page.getByTestId('record-count')).toHaveText('50 books');
   });
 
   test('a CSV import lands every row on the bookshelf with no decisions', async ({ page }) => {
     await openApp(page);
 
     await importCsv(page, csvSnapshot(50));
-    await expect(page.getByTestId('record-count')).toHaveText('50 books', {
+    await expect(page.getByTestId('import-status')).toHaveText('Imported 50 new of 50 rows.', {
       timeout: BULK_IMPORT_TIMEOUT,
     });
 
+    await goTo(page, 'shelf');
     await expect(shelfCards(page)).toHaveCount(50, { timeout: BULK_IMPORT_TIMEOUT });
     expect(await pendingDecisions(page)).toBe(0);
   });
@@ -69,9 +68,10 @@ test.describe('every input path reaches the bookshelf', () => {
   }) => {
     await openApp(page);
 
-    await page.getByTestId('libby-file').setInputFiles(libbyFixture);
-    await expect(page.getByTestId('record-count')).toHaveText('2 books');
+    await importLibby(page, libbyFixture);
+    await expect(page.getByTestId('import-status')).toHaveText('Imported 2 new of 2 rows.');
 
+    await goTo(page, 'shelf');
     await expect(shelfCards(page)).toHaveCount(2);
     expect(await pendingDecisions(page)).toBe(0);
   });
@@ -86,20 +86,21 @@ test.describe('every input path reaches the bookshelf', () => {
     await openApp(page);
 
     await importCsv(page, csvSnapshot(5));
-    await expect(page.getByTestId('record-count')).toHaveText('5 books', {
+    await expect(page.getByTestId('import-status')).toHaveText('Imported 5 new of 5 rows.', {
       timeout: BULK_IMPORT_TIMEOUT,
     });
-    await page.getByTestId('libby-file').setInputFiles(libbyFixture);
-    await expect(page.getByTestId('record-count')).toHaveText('7 books', {
+    await importLibby(page, libbyFixture);
+    await expect(page.getByTestId('import-status')).toHaveText('Imported 2 new of 2 rows.', {
       timeout: BULK_IMPORT_TIMEOUT,
     });
 
+    await goTo(page, 'shelf');
     await expect(shelfCards(page)).toHaveCount(7);
     await expect(page.getByRole('alert')).toHaveCount(0);
-    await expect(page.getByTestId('resolution-count')).toHaveCount(0);
-    await expect(page.getByTestId('attribution-count')).toHaveCount(0);
-    await expect(page.getByRole('heading', { name: 'Resolution queue' })).toHaveCount(0);
-    await expect(page.getByRole('heading', { name: 'Attribution review' })).toHaveCount(0);
+    await expect(page.getByTestId('tasks-badge')).toHaveCount(0);
+
+    await goTo(page, 'tasks');
+    await expect(page.getByTestId('tasks-empty')).toBeVisible();
   });
 
   test('an encrypted archive carries the bookshelf to a fresh device', async ({
@@ -110,14 +111,10 @@ test.describe('every input path reaches the bookshelf', () => {
     for (const title of ['Cloud Boat', 'The Paper Moon', 'Bear Counts the Stars']) {
       await addBookManually(page, { title, author: 'Ada Fox' });
     }
+    await goTo(page, 'shelf');
     await expect(shelfCards(page)).toHaveCount(3);
 
-    await page.getByLabel('Archive passphrase').fill(PASSPHRASE);
-    const downloadPromise = page.waitForEvent('download');
-    await page.getByRole('button', { name: 'Export encrypted backup' }).click();
-    const archivePath = await (await downloadPromise).path();
-    expect(archivePath).not.toBeNull();
-    const archive = await readFile(archivePath);
+    const archive = await exportArchive(page, PASSPHRASE);
 
     // A separate context is a separate OPFS origin store: a genuinely empty device.
     const restored = await browser.newContext();
@@ -125,16 +122,12 @@ test.describe('every input path reaches the bookshelf', () => {
     await openApp(restoredPage, PRODUCTION_URL);
     await expect(shelfCards(restoredPage)).toHaveCount(0);
 
-    await restoredPage.getByLabel('Archive passphrase').fill(PASSPHRASE);
-    await restoredPage.getByTestId('archive-file').setInputFiles({
-      name: 'backup.ria-archive',
-      mimeType: 'application/json',
-      buffer: archive,
-    });
-
+    await importArchive(restoredPage, archive, PASSPHRASE);
     await expect(restoredPage.getByTestId('import-status')).toHaveText(
       'Encrypted archive restored.',
     );
+
+    await goTo(restoredPage, 'shelf');
     await expect(shelfCards(restoredPage)).toHaveCount(3);
     await expect(
       shelfCards(restoredPage).getByRole('heading', { name: 'Cloud Boat' }),

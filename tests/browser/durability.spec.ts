@@ -1,9 +1,11 @@
-import { readFile } from 'node:fs/promises';
 import { expect, test } from '@playwright/test';
 import {
   addBookManually,
   BULK_IMPORT_TIMEOUT,
   csvSnapshot,
+  exportArchive,
+  goTo,
+  importArchive,
   importCsv,
   openApp,
   PRODUCTION_URL,
@@ -25,6 +27,7 @@ test.describe('storage durability', () => {
     expect(await page.evaluate(() => navigator.storage.persisted())).toBe(false);
 
     await addBookManually(page, { title: 'The Gruffalo', author: 'Julia Donaldson' });
+    await goTo(page, 'settings');
 
     // Chromium grants without prompting for a site with engagement; whatever the
     // browser decides, the app must show that state rather than stay silent.
@@ -41,28 +44,29 @@ test.describe('storage durability', () => {
   }) => {
     await openApp(page);
     await addBookManually(page, { title: 'Cloud Boat', author: 'Ada Fox' });
+    await goTo(page, 'settings');
     await expect(page.getByTestId('last-backup')).toHaveText('Never');
 
-    await page.getByLabel('Archive passphrase').fill(PASSPHRASE);
-    const downloadPromise = page.waitForEvent('download');
-    await page.getByRole('button', { name: 'Export encrypted backup' }).click();
-    await downloadPromise;
+    await exportArchive(page, PASSPHRASE);
 
     await expect(page.getByTestId('last-backup')).not.toHaveText('Never');
     // It is a fact about the data, so it survives a reload rather than living in
     // component state.
     await page.reload();
+    await goTo(page, 'settings');
     await expect(page.getByTestId('last-backup')).not.toHaveText('Never');
   });
 
   test('a shelf worth losing with no backup gets a reminder', async ({ page }) => {
     await openApp(page);
+    await goTo(page, 'settings');
     await expect(page.getByTestId('backup-reminder')).toHaveCount(0);
 
     await importCsv(page, csvSnapshot(6));
-    await expect(page.getByTestId('record-count')).toHaveText('6 books', {
+    await expect(page.getByTestId('import-status')).toHaveText('Imported 6 new of 6 rows.', {
       timeout: BULK_IMPORT_TIMEOUT,
     });
+    await goTo(page, 'settings');
 
     await expect(page.getByTestId('backup-reminder')).toBeVisible();
     await expect(page.getByTestId('backup-reminder')).toContainText('6 books and no backup');
@@ -73,13 +77,11 @@ test.describe('storage durability', () => {
   }) => {
     await openApp(page);
     await addBookManually(page, { title: 'Bear Counts the Stars', author: 'Rae Finch' });
+    await goTo(page, 'shelf');
     await expect(shelfCards(page)).toHaveCount(1);
     await expect(page.getByTestId('wipe-notice')).toHaveCount(0);
 
-    await page.getByLabel('Archive passphrase').fill(PASSPHRASE);
-    const downloadPromise = page.waitForEvent('download');
-    await page.getByRole('button', { name: 'Export encrypted backup' }).click();
-    const archive = await readFile(await (await downloadPromise).path());
+    const archive = await exportArchive(page, PASSPHRASE);
 
     // Exactly the audit's scenario: the database is destroyed while the browser
     // profile survives, which is what storage eviction does.
@@ -92,17 +94,16 @@ test.describe('storage durability', () => {
     await page.reload();
 
     await expect(page.getByTestId('wipe-notice')).toBeVisible();
-    await expect(page.getByTestId('wipe-notice')).toContainText('Import archive');
     await expect(shelfCards(page)).toHaveCount(0);
 
-    // And the route it points at actually works.
-    await page.getByLabel('Archive passphrase').fill(PASSPHRASE);
-    await page.getByTestId('archive-file').setInputFiles({
-      name: 'backup.ria-archive',
-      mimeType: 'application/json',
-      buffer: archive,
-    });
+    // The notice must offer a way out, not just bad news. Its button is the route
+    // to recovery, so follow it rather than navigating there independently.
+    await page.getByRole('button', { name: 'Restore from a backup' }).click();
+    await expect(page.getByRole('heading', { name: 'Backup and restore' })).toBeVisible();
+
+    await importArchive(page, archive, PASSPHRASE);
     await expect(page.getByTestId('import-status')).toHaveText('Encrypted archive restored.');
+    await goTo(page, 'shelf');
     await expect(shelfCards(page)).toHaveCount(1);
     await expect(page.getByTestId('wipe-notice')).toHaveCount(0);
   });

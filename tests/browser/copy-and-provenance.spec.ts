@@ -1,5 +1,13 @@
 import { expect, test } from '@playwright/test';
-import { addBookManually, csvSnapshot, importCsv, openApp, shelfCards } from './support/shelf.js';
+import {
+  addBookManually,
+  csvSnapshot,
+  goTo,
+  importCsv,
+  importLibby,
+  openApp,
+  shelfCards,
+} from './support/shelf.js';
 
 /**
  * Increment 1's copy and labelling work: contextual errors (F-06, N10), an honest
@@ -11,6 +19,7 @@ test.describe('errors name the artefact they are about', () => {
   // validated", which sent users to debug the wrong file.
   test('a bad passphrase does not blame the Libby file', async ({ page }) => {
     await openApp(page);
+    await goTo(page, 'settings');
     await page.getByLabel('Archive passphrase').fill('short');
     await page.getByRole('button', { name: 'Export encrypted backup' }).click();
 
@@ -29,7 +38,7 @@ test.describe('errors name the artefact they are about', () => {
 
   test('an archive dropped in the Libby slot is identified as a backup', async ({ page }) => {
     await openApp(page);
-    await page.getByTestId('libby-file').setInputFiles({
+    await importLibby(page, {
       name: 'backup.ria-archive',
       mimeType: 'application/json',
       buffer: Buffer.from(JSON.stringify({ format: 'read-it-again-encrypted-v1' })),
@@ -42,6 +51,7 @@ test.describe('errors name the artefact they are about', () => {
     await openApp(page);
     const seen = new Set<string>();
 
+    await goTo(page, 'settings');
     await page.getByLabel('Archive passphrase').fill('short');
     await page.getByRole('button', { name: 'Export encrypted backup' }).click();
     seen.add(await page.getByTestId('error-title').innerText());
@@ -49,7 +59,7 @@ test.describe('errors name the artefact they are about', () => {
     await importCsv(page, Buffer.from('foo,bar\n1,2\n'), 'not-books.csv');
     seen.add(await page.getByTestId('error-title').innerText());
 
-    await page.getByTestId('libby-file').setInputFiles({
+    await importLibby(page, {
       name: 'broken.json',
       mimeType: 'application/json',
       buffer: Buffer.from('[{"title":{}}]'),
@@ -66,6 +76,7 @@ test.describe('ratings distinguish unrated from middling', () => {
   test('a new book is unrated, with nothing selected and saving unavailable', async ({ page }) => {
     await openApp(page);
     await addBookManually(page, { title: 'The Gruffalo', author: 'Julia Donaldson' });
+    await goTo(page, 'shelf');
 
     const card = shelfCards(page).first();
     await expect(card.getByTestId('rating-unset')).toBeVisible();
@@ -76,6 +87,7 @@ test.describe('ratings distinguish unrated from middling', () => {
   test('saving becomes available once a rating is chosen, and persists', async ({ page }) => {
     await openApp(page);
     await addBookManually(page, { title: 'The Gruffalo', author: 'Julia Donaldson' });
+    await goTo(page, 'shelf');
 
     const card = shelfCards(page).first();
     await card.getByRole('button', { name: 'Child engagement: 3 of 3 — loved it' }).click();
@@ -103,20 +115,22 @@ test.describe('provenance is named honestly', () => {
   test('a typed-in book is labelled as added by you, not as a checkout', async ({ page }) => {
     await openApp(page);
     await addBookManually(page, { title: 'The Gruffalo', author: 'Julia Donaldson' });
+    await goTo(page, 'shelf');
 
     await expect(shelfCards(page).first()).toContainText('Added by you');
 
-    const shelf = page.getByTestId('shelf');
-    await expect(shelf).toContainText('Nothing borrowed from a library yet.');
-    await expect(shelf).toContainText('No borrowing history yet.');
-    // The book must not appear under either library-facts heading.
-    await expect(shelf.getByRole('listitem').filter({ hasText: 'The Gruffalo' })).toHaveCount(0);
+    // Library facts live under Activity, and a typed-in book is not one.
+    await goTo(page, 'activity');
+    await expect(page.getByText('Nothing borrowed from a library yet.')).toBeVisible();
+    await expect(page.getByText('No borrowing history yet.')).toBeVisible();
+    await expect(page.getByRole('listitem').filter({ hasText: 'The Gruffalo' })).toHaveCount(0);
   });
 
   test('a CSV import is labelled as a file import', async ({ page }) => {
     await openApp(page);
     await importCsv(page, csvSnapshot(1));
-    await expect(page.getByTestId('record-count')).toHaveText('1 books');
+    await expect(page.getByTestId('import-status')).toHaveText('Imported 1 new of 1 rows.');
+    await goTo(page, 'shelf');
 
     await expect(shelfCards(page).first()).toContainText('Imported from a CSV file');
   });

@@ -1,45 +1,48 @@
 import { expect, test } from '@playwright/test';
+import {
+  addBookManually,
+  csvSnapshot,
+  exportArchive,
+  goTo,
+  importArchive,
+  importCsv,
+  importLibby,
+  openApp,
+  shelfCards,
+} from './support/shelf.js';
+
+const PASSPHRASE = 'a sufficiently long passphrase';
 
 test('supports CSV and manual offline inputs and ships an installable shell', async ({ page }) => {
-  await page.goto('http://127.0.0.1:4175/');
-  await expect(page.getByText('Client-only and private by construction.')).toBeVisible();
+  await openApp(page);
   await expect(page.getByTestId('import-status')).not.toHaveText('Opening your private bookshelf…');
 
-  await page.getByTestId('csv-file').setInputFiles({
-    name: 'books.csv',
-    mimeType: 'text/csv',
-    buffer: Buffer.from(
-      'Title,Author,ISBN,Date,Format\nCloud Boat,Ada Fox,9780000000001,2026-08-01,Book',
-    ),
+  await importCsv(page, csvSnapshot(1, 'Cloud Boat'));
+  await expect(page.getByTestId('import-status')).toHaveText('Imported 1 new of 1 rows.');
+
+  await addBookManually(page, {
+    title: 'The Paper Moon',
+    author: 'Rae Finch',
+    isbn: '9780000000002',
   });
-  await expect(page.getByTestId('import-status')).toHaveText(
-    /(?:Imported 1 new of 1 rows|Already up to date — 1 rows checked, 0 new)\./u,
-  );
-  await expect(
-    page.getByLabel('Import inbox').getByRole('heading', { name: 'Cloud Boat' }),
-  ).toBeVisible();
-
-  await page.getByLabel('Book title').fill('The Paper Moon');
-  await page.getByLabel('Book author').fill('Rae Finch');
-  await page.getByLabel('Book ISBN').fill('9780000000002');
-  await page.getByRole('button', { name: 'Add to bookshelf' }).click();
   await expect(page.getByTestId('import-status')).toHaveText('Book added.');
-  await expect(page.getByRole('heading', { name: 'The Paper Moon' }).first()).toBeVisible();
+  await goTo(page, 'shelf');
+  await expect(shelfCards(page)).toHaveCount(2);
 
-  await page.getByLabel('Archive passphrase').fill('a sufficiently long passphrase');
-  const downloadPromise = page.waitForEvent('download');
-  await page.getByRole('button', { name: 'Export encrypted backup' }).click();
-  const download = await downloadPromise;
-  const archivePath = await download.path();
-  expect(archivePath).not.toBeNull();
-  await page.getByTestId('libby-file').setInputFiles(archivePath);
-  await expect(page.getByTestId('import-status')).toHaveText(
-    'Use Import archive under Add or transfer books.',
-  );
-  await expect(page.getByText('This file is an encrypted bookshelf archive')).toBeVisible();
-  await page.getByTestId('archive-file').setInputFiles(archivePath);
+  const archive = await exportArchive(page, PASSPHRASE);
+
+  // An archive dropped into the Libby slot is identified rather than misreported.
+  await importLibby(page, {
+    name: 'backup.ria-archive',
+    mimeType: 'application/json',
+    buffer: archive,
+  });
+  await expect(page.getByTestId('error-title')).toHaveText('That is a backup, not a Libby file');
+
+  await importArchive(page, archive, PASSPHRASE);
   await expect(page.getByTestId('import-status')).toHaveText('Encrypted archive restored.');
-  await expect(page.getByRole('heading', { name: 'The Paper Moon' }).first()).toBeVisible();
+  await goTo(page, 'shelf');
+  await expect(shelfCards(page).getByRole('heading', { name: 'The Paper Moon' })).toBeVisible();
 
   const manifest = await page.request.get('http://127.0.0.1:4175/manifest.webmanifest');
   expect(manifest.ok()).toBe(true);
@@ -51,9 +54,9 @@ test('supports CSV and manual offline inputs and ships an installable shell', as
     .toBeGreaterThan(0);
   await page.evaluate(async () => navigator.serviceWorker.ready);
   await page.reload();
-  await expect(page.getByText('Client-only and private by construction.')).toBeVisible();
+  await expect(shelfCards(page)).toHaveCount(2);
   await page.context().setOffline(true);
   await page.reload();
-  await expect(page.getByText('Client-only and private by construction.')).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'The Paper Moon' }).first()).toBeVisible();
+  await expect(shelfCards(page)).toHaveCount(2);
+  await expect(shelfCards(page).getByRole('heading', { name: 'The Paper Moon' })).toBeVisible();
 });

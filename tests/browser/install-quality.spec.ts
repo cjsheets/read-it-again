@@ -72,6 +72,14 @@ test('the manifest can produce a real install on iOS and Android', async ({ page
 });
 
 test('the Add a book shortcut lands on the form, not just the app', async ({ page }) => {
+  await page.goto(new URL('#add', PRODUCTION_URL).href);
+  await expect(page.getByTestId('import-status')).not.toHaveText('Opening your private bookshelf…');
+
+  await expect(page.getByLabel('Book title')).toBeFocused();
+});
+
+// Already-installed shortcuts still point at the pre-Increment-4 URL.
+test('the older ?action=add shortcut still reaches Add', async ({ page }) => {
   await page.goto(new URL('?action=add', PRODUCTION_URL).href);
   await expect(page.getByTestId('import-status')).not.toHaveText('Opening your private bookshelf…');
 

@@ -1,5 +1,5 @@
 import { expect, test, type Page, type TestInfo } from '@playwright/test';
-import { addBookManually, csvSnapshot, importCsv, openApp } from './support/shelf.js';
+import { addBookManually, csvSnapshot, goTo, importCsv, openApp } from './support/shelf.js';
 
 /**
  * Audit §11 Tier 3 — synthetic budgets that catch F-04-class regressions without
@@ -60,15 +60,19 @@ async function measure(page: Page, books: number): Promise<Measurements> {
 
   const importStarted = Date.now();
   await importCsv(page, csvSnapshot(books));
-  await expect(page.getByTestId('record-count')).toHaveText(`${books} books`, {
-    timeout: 5 * 60_000,
-  });
+  await expect(page.getByTestId('import-status')).toHaveText(
+    `Imported ${books} new of ${books} rows.`,
+    { timeout: 5 * 60_000 },
+  );
   const importMilliseconds = Date.now() - importStarted;
 
   const addStarted = Date.now();
   await addBookManually(page, { title: 'One More Book', author: 'Rae Finch' }, { timeout: 60_000 });
   const addOneMoreMilliseconds = Date.now() - addStarted;
 
+  // The shelf is the surface the budgets are about, so measure it rather than
+  // whichever destination the last action left us on.
+  await goTo(page, 'shelf');
   const layout = await page.evaluate(() => ({
     domNodes: document.getElementsByTagName('*').length,
     documentHeightPixels: document.documentElement.scrollHeight,

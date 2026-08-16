@@ -4,6 +4,7 @@ import {
   addBookManually,
   BULK_IMPORT_TIMEOUT,
   csvSnapshot,
+  goTo,
   importCsv,
   openApp,
   shelfCards,
@@ -22,10 +23,11 @@ const SERIOUS = new Set(['serious', 'critical']);
 
 async function populate(page: Page): Promise<void> {
   await importCsv(page, csvSnapshot(3));
-  await expect(page.getByTestId('record-count')).toHaveText('3 books', {
+  await expect(page.getByTestId('import-status')).toHaveText('Imported 3 new of 3 rows.', {
     timeout: BULK_IMPORT_TIMEOUT,
   });
   await addBookManually(page, { title: 'The Gruffalo', author: 'Julia Donaldson' });
+  await goTo(page, 'shelf');
   // Three imported rows plus the typed one; imports reach the shelf directly
   // since ADR 0012.
   await expect(shelfCards(page)).toHaveCount(4, { timeout: BULK_IMPORT_TIMEOUT });
@@ -114,6 +116,7 @@ test.describe('accessibility', () => {
     await populate(page);
 
     expect(await undersizedControls(page, '[data-testid="shelf-card"]', 44)).toEqual([]);
+    await goTo(page, 'add');
     expect(await undersizedControls(page, '.manual-form', 44)).toEqual([]);
   });
 });

@@ -2,18 +2,19 @@
 
 ## Re-entry
 
-- **Phase:** Audit remediation, Increment 3 — Storage durability (complete 2026-08-16)
+- **Phase:** Audit remediation, Increment 4 — App shell and routing (complete 2026-08-16)
 - **Last state:** The production PWA is complete, and the local workflow now has a unified
   `pnpm bookshelf` CLI for setup/login, one-command sync, status, recommendation refresh, and
   encrypted PWA-compatible backup. Phase 3's personal live-card acceptance run remains pending a
   user-owned authenticated session. The UX audit's findings are now encoded as executable tests;
   see `tests/browser/README.md`. Finding IDs (F-01, F-04, …) refer to that audit, which is kept
   locally and is not tracked in this repository.
-- **Next action:** Increment 4 — app shell and routing (N5/N9). This splits the ~1100-line
-  `main.tsx` into a routed component tree with five destinations, and it is the largest single
-  refactor in the plan; everything after it depends on it. The browser suite is the safety net
-  for it, which is what Increment 0 was for. A short note on the routing choice is worth writing,
-  though no ADR is required.
+- **Next action:** Increment 5 — covers and the book detail view (N3/N6). Migration 8 adds
+  `cover_images`, covers render from blob URLs so the CSP needs no change, and the detail drawer
+  is where an automatic attribution finally becomes reversible for a book already on the shelf,
+  completing ADR 0012's mitigation. Requires an ADR: _"Cover images are local blobs, not remote
+  URLs."_ The archive format gains cover blobs, which is a versioned change that must still
+  import old archives.
 - **Source plan:** Obsidian `Efforts/Read It Again.md`
 - **Important constraint:** KCLS OpenSearch did not return CORS permission headers on
   2026-08-12. Browser-only catalog access is not currently viable.
@@ -190,3 +191,44 @@ backup registered in the database but the UI still read "Last backup: Never" unt
 
 Tests: 32 -> 37 browser and 66 unit. The archive round-trip now carries one extra row, which is
 `last_backup_at` itself, and asserts it restores intact.
+
+Increment 4 result: ships N5 and N9. `main.tsx` went from 1229 lines to 326, with the rest split
+across a router, a shared state module, four components, and six destinations — about 1600 lines
+total, so this is a redistribution rather than a rewrite. The single scrolling page whose sections
+were pipeline stages is gone.
+
+Routing is a 66-line hash router rather than a dependency, and the reasoning is recorded in
+`router.ts` itself. Hash over the History API because this ships as static files with an offline
+service worker: path routing would need either server rewrites, which the `_headers` deploy
+contract does not describe, or a service-worker navigation fallback that has to stay correct for
+every future route. A hash never leaves the document, cannot 404, and behaves identically offline.
+No library because the requirement is five flat destinations with no params, no nesting, and no
+data loading; revisit when nested parameterised routes arrive.
+
+Concepts moved to where audit §6.3 puts them. The Import inbox is deleted outright. Backup and
+restore, import history, and the privacy note are in Settings, where passphrase entry no longer
+sits above the fold. Library facts are under Activity. Review work is one Tasks destination reached
+from a badge, with actions renamed to outcomes: "Keep as typed", "Ask me later", "Remove". The
+first-run screen leads with a single "Add your first book" button and states the privacy boundary
+in one sentence, rather than opening with a Libby import panel and a box explaining what the app
+cannot do.
+
+F-20 is closed alongside: a `nav` landmark, a skip link, and an error boundary whose recovery copy
+deliberately says the books are still saved and warns against clearing site data, because that is
+the one instinct after a broken screen that would actually destroy the bookshelf.
+
+Two deliberate deviations from the audit. The intermediate 72px icon rail at 960–1279px is not
+built: it needs an icon set that does not exist yet, and text labels at 72px are illegible, so the
+sidebar switches straight to a bottom tab bar below 960px. And `record-count` moved to Settings
+where it belongs as an ingestion fact, so tests now assert the import status line or the shelf
+itself, which is what a person would actually look at.
+
+Tests: 37 -> 44 browser (43 green, 2 F-04 annotations, 1 skipped) and 66 unit. Every spec needed
+updating because the IA moved, which is what Increment 0 existed to make safe. Seven new tests
+cover the shell: destination reachability, deep links and reload, unknown-hash fallback, the nav
+landmark and `aria-current`, the skip link, the tasks badge, and the error boundary.
+
+Two layout defects were caught by looking at the result rather than by the assertions: a CSS
+specificity bug where `.first-run > p` outranked `.first-run-privacy` and collapsed its spacing to
+zero, and a bottom tab bar that handed Settings half its width because the destination list and
+Settings both claimed `flex: 1`.

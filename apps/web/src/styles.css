@@ -1,6 +1,29 @@
+/* Design tokens. The warm cream and forest green are deliberately kept — the audit
+   was explicit that the palette is well judged and that what needed replacing was
+   the structure, not the skin. Border values are the 3:1 contrast pair verified in
+   Increment 1: #8a8072 is 3.82:1 and #5f7d6d is 4.45:1 on the card surface. */
 :root {
-  color: #28251f;
-  background: #f6f1e8;
+  --page: #f6f1e8;
+  --surface: #fffdf8;
+  --ink: #28251f;
+  --ink-soft: #4f493f;
+  --ink-muted: #6b645a;
+  --brand: #24473b;
+  --brand-strong: #19382f;
+  --brand-tint: #dfeae2;
+  --accent: #a44b32;
+  --accent-tint: #fff0ec;
+  --border: #8a8072;
+  --border-soft: #ded5c7;
+  --border-green: #5f7d6d;
+  --radius: 14px;
+  --radius-pill: 999px;
+  --tap: 44px;
+  --nav-width: 240px;
+  --bottom-bar: 62px;
+
+  color: var(--ink);
+  background: var(--page);
   font-family:
     Inter,
     ui-sans-serif,
@@ -28,45 +51,193 @@ input {
    9.1:1 even over the dark-green filled buttons — the ring lands on the page,
    not on the button. */
 :focus-visible {
-  outline: 3px solid #24473b;
+  outline: 3px solid var(--brand);
   outline-offset: 2px;
 }
 /* The file inputs are 1px and visually hidden, so their own ring would be
    invisible. Move it to the label the user actually sees. */
 .file-button:focus-within {
-  outline: 3px solid #24473b;
+  outline: 3px solid var(--brand);
   outline-offset: 2px;
 }
 .file-button input:focus-visible {
   outline: none;
 }
-.capability-note {
-  background: #e8f0ea;
-  border-left: 4px solid #24473b;
-  line-height: 1.5;
-  margin: -12px 0 28px;
-  padding: 16px 18px;
+
+.skip-link {
+  position: absolute;
+  left: -9999px;
+  top: 0;
+  z-index: 10;
+  background: var(--brand);
+  color: white;
+  padding: 12px 18px;
+  border-radius: 0 0 var(--radius) 0;
 }
+.skip-link:focus {
+  left: 0;
+}
+
+/* ── Shell ──────────────────────────────────────────────────────────────────
+   Sidebar at desktop widths, bottom tab bar below. The audit's intermediate
+   72px icon rail is deliberately not built: it needs an icon set that does not
+   exist yet, and text labels at 72px are illegible. Revisit with the visual work
+   in Increment 5. */
+.shell {
+  display: grid;
+  grid-template-columns: var(--nav-width) minmax(0, 1fr);
+  min-height: 100vh;
+}
+.shell-nav {
+  border-right: 1px solid var(--border-soft);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 28px 16px;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+}
+.shell-brand {
+  font-family: Georgia, serif;
+  font-size: 1.25rem;
+  color: var(--brand);
+  margin: 0 0 20px;
+  padding: 0 10px;
+}
+.shell-nav ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+}
+.shell-nav button {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius-pill);
+  color: var(--ink-soft);
+  cursor: pointer;
+  display: flex;
+  gap: 8px;
+  justify-content: space-between;
+  min-height: var(--tap);
+  padding: 8px 14px;
+  text-align: left;
+  width: 100%;
+}
+.shell-nav button:hover {
+  background: var(--brand-tint);
+}
+.shell-nav button[aria-current='page'] {
+  background: var(--brand);
+  color: white;
+  font-weight: 700;
+}
+.nav-badge {
+  background: var(--accent);
+  border-radius: var(--radius-pill);
+  color: white;
+  font-size: 0.75rem;
+  font-weight: 700;
+  min-width: 22px;
+  padding: 2px 7px;
+  text-align: center;
+}
+.shell-settings {
+  border-top: 1px solid var(--border-soft) !important;
+  border-radius: 0 !important;
+  margin-top: 8px;
+  padding-top: 14px !important;
+}
+
 main {
-  width: min(920px, calc(100% - 32px));
+  width: min(1100px, calc(100% - 48px));
   margin: 0 auto;
-  padding: 64px 0 96px;
+  padding: 40px 0 96px;
 }
-header {
-  margin-bottom: 36px;
+main:focus {
+  outline: none;
 }
+
+@media (max-width: 959px) {
+  .shell {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .shell-nav {
+    background: var(--surface);
+    border-right: 0;
+    border-top: 1px solid var(--border-soft);
+    bottom: 0;
+    flex-direction: row;
+    gap: 0;
+    height: auto;
+    order: 2;
+    padding: 0;
+    position: fixed;
+    top: auto;
+    width: 100%;
+    z-index: 5;
+  }
+  .shell-brand {
+    display: none;
+  }
+  .shell-nav ul {
+    flex-direction: row;
+    gap: 0;
+    /* One share per destination, so the six bottom-bar items are equal width.
+       A plain `flex: 1` here would hand Settings half the bar on its own. */
+    flex: 5;
+  }
+  .shell-nav li {
+    flex: 1;
+    min-width: 0;
+  }
+  .shell-nav button {
+    border-radius: 0;
+    flex-direction: column;
+    font-size: 0.78rem;
+    gap: 2px;
+    justify-content: center;
+    min-height: var(--bottom-bar);
+    padding: 6px 2px;
+    text-align: center;
+  }
+  .shell-nav button[aria-current='page'] {
+    background: transparent;
+    color: var(--brand);
+    box-shadow: inset 0 3px 0 var(--brand);
+  }
+  .shell-settings {
+    border-top: 0 !important;
+    flex: 1;
+    margin-top: 0;
+    padding-top: 6px !important;
+  }
+  main {
+    width: calc(100% - 32px);
+    padding: 24px 0 calc(var(--bottom-bar) + 40px);
+  }
+}
+
+@media (max-width: 380px) {
+  main {
+    width: calc(100% - 20px);
+  }
+  .shell-nav button {
+    font-size: 0.7rem;
+  }
+}
+
+/* ── Shared type ────────────────────────────────────────────────────────── */
 h1,
 h2,
 h3,
 p {
   margin-top: 0;
-}
-h1 {
-  font-family: Georgia, serif;
-  font-size: clamp(2.7rem, 8vw, 5.5rem);
-  line-height: 0.95;
-  margin-bottom: 20px;
-  color: #24473b;
 }
 h2 {
   font-family: Georgia, serif;
@@ -78,46 +249,189 @@ h3 {
   font-size: 1.15rem;
   margin-bottom: 5px;
 }
-.eyebrow {
-  color: #a44b32;
-  font-size: 0.74rem;
-  font-weight: 800;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  margin-bottom: 10px;
+.model-note,
+.count {
+  color: var(--ink-muted);
 }
-.lede {
-  color: #655f55;
-  font-size: 1.08rem;
-  max-width: 580px;
+.count {
+  font-variant-numeric: tabular-nums;
 }
-.import-panel {
+.section-heading {
+  align-items: end;
   display: flex;
-  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px 16px;
   justify-content: space-between;
-  gap: 28px;
-  background: #fffdf8;
-  border: 1px solid #ded5c7;
-  border-radius: 18px;
-  padding: 24px;
-  box-shadow: 0 12px 36px rgb(54 43 29 / 7%);
+  margin-bottom: 14px;
 }
-.import-panel p {
-  color: #6b645a;
+/* Below ~560px the count has nowhere to sit beside a two-line description, so let
+   it drop to its own line rather than squeezing into a two-word column. */
+.section-heading > :first-child {
+  flex: 1 1 260px;
+  min-width: 0;
+}
+.section-heading h2,
+.section-heading h3 {
   margin-bottom: 0;
+}
+.link-button {
+  background: none;
+  border: 0;
+  color: var(--brand);
+  cursor: pointer;
+  font: inherit;
+  padding: 0;
+  text-decoration: underline;
+}
+.empty {
+  border: 1px dashed var(--border);
+  border-radius: var(--radius);
+  color: #756d62;
+  padding: 32px;
+  text-align: center;
+}
+.empty p {
+  margin: 0 0 8px;
+}
+.empty p:last-child {
+  margin-bottom: 0;
+}
+
+.status {
+  min-height: 24px;
+  color: var(--ink-muted);
+  margin: 0 4px 24px;
+}
+
+/* ── First run (N9) ─────────────────────────────────────────────────────── */
+.first-run {
+  background: var(--surface);
+  border: 1px solid var(--border-soft);
+  border-radius: 18px;
+  padding: 48px 32px;
+  text-align: center;
+}
+.first-run h2 {
+  font-size: clamp(1.9rem, 5vw, 2.6rem);
+  color: var(--brand);
+}
+/* Scoped to the lede specifically: `.first-run > p` would also match the privacy
+   line below and outrank its own rule, collapsing that spacing to zero. */
+.first-run > p:not(.first-run-privacy) {
+  color: var(--ink-muted);
+  margin: 0 auto 28px;
+  max-width: 44ch;
+}
+.first-run-actions button.primary {
+  background: var(--brand);
+  border: 0;
+  border-radius: var(--radius-pill);
+  color: white;
+  cursor: pointer;
+  font-weight: 700;
+  min-height: var(--tap);
+  padding: 12px 28px;
+}
+.first-run-actions button.primary:hover {
+  background: var(--brand-strong);
+}
+.first-run-privacy {
+  color: var(--ink-muted);
+  font-size: 0.86rem;
+  margin: 24px 0 0;
+}
+
+/* ── Errors and durability ──────────────────────────────────────────────── */
+.error,
+.wipe-notice {
+  background: var(--accent-tint);
+  border-left: 4px solid var(--accent);
+  padding: 18px 20px;
+  margin: 0 0 28px;
+  line-height: 1.5;
+}
+.error ul {
+  margin-bottom: 0;
+  padding-left: 20px;
+}
+.error-action {
+  margin: 10px 0 0;
+  color: var(--ink-soft);
+}
+.wipe-notice p {
+  margin: 10px 0 14px;
+}
+.crash {
+  padding: 64px 24px;
+}
+.crash-detail {
+  color: var(--ink-muted);
+  font-family: ui-monospace, monospace;
+  font-size: 0.85rem;
+}
+.crash button {
+  background: var(--brand);
+  border: 0;
+  border-radius: var(--radius-pill);
+  color: white;
+  cursor: pointer;
+  min-height: var(--tap);
+  padding: 10px 24px;
+}
+.durability {
+  border-top: 1px solid var(--border-soft);
+  font-size: 0.82rem;
+  margin-top: 14px;
+  padding-top: 12px;
+}
+.durability p {
+  color: var(--ink-muted);
+  margin: 0 0 4px;
+}
+.durability-label {
+  color: var(--ink-soft);
+  font-weight: 700;
+}
+.durability-warning {
+  color: var(--accent) !important;
+  margin-top: 8px !important;
+}
+
+/* ── Add and Settings cards ─────────────────────────────────────────────── */
+.tool-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(260px, 100%), 1fr));
+  gap: 14px;
+}
+.tool-grid article,
+.settings-card {
+  background: var(--surface);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius);
+  padding: 18px;
+}
+.settings-card {
+  margin-bottom: 16px;
+  padding: 22px;
+}
+.tool-grid article > p,
+.settings-card > p {
+  color: var(--ink-muted);
+  font-size: 0.88rem;
 }
 .file-button {
   flex: none;
   cursor: pointer;
   display: inline-flex;
-  background: #24473b;
+  background: var(--brand);
   color: white;
   padding: 13px 18px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   font-weight: 750;
+  justify-content: center;
 }
 .file-button:hover {
-  background: #19382f;
+  background: var(--brand-strong);
 }
 .file-button.disabled {
   cursor: wait;
@@ -129,312 +443,40 @@ h3 {
   block-size: 1px;
   opacity: 0;
 }
-.status {
-  min-height: 24px;
-  color: #655f55;
-  margin: 14px 4px 38px;
-}
-.browser-tools {
-  margin: 42px 0;
-}
-.tool-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 14px;
-}
-.tool-grid article {
-  background: #fffdf8;
-  border: 1px solid #ded5c7;
-  border-radius: 14px;
-  padding: 18px;
-}
-.tool-grid article > p {
-  color: #6b645a;
-  font-size: 0.88rem;
-  min-height: 42px;
-}
 .manual-form,
 .archive-actions {
   display: grid;
   gap: 8px;
 }
 .manual-form input,
-.tool-grid input[type='password'] {
-  border: 1px solid #8a8072;
+.settings-card input[type='password'] {
+  border: 1px solid var(--border);
   border-radius: 8px;
-  min-height: 44px;
+  min-height: var(--tap);
   min-width: 0;
   padding: 9px 10px;
   width: 100%;
 }
 .manual-form button,
 .archive-actions > button {
-  background: #24473b;
+  background: var(--brand);
   border: 0;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   color: white;
   cursor: pointer;
-  min-height: 44px;
+  min-height: var(--tap);
   padding: 10px 12px;
 }
 .archive-actions {
   margin-top: 9px;
 }
-.error {
-  background: #fff0ec;
-  border-left: 4px solid #a44b32;
-  padding: 18px 20px;
-  margin: -20px 0 38px;
-}
-.error ul {
-  margin-bottom: 0;
-  padding-left: 20px;
-}
-.error-action {
-  margin: 10px 0 0;
-  color: #4f493f;
-}
-.wipe-notice {
-  background: #fff0ec;
-  border-left: 4px solid #a44b32;
-  padding: 18px 20px;
-  margin: -12px 0 28px;
-  line-height: 1.5;
-}
-.wipe-notice p {
-  margin: 10px 0 0;
-}
-.wipe-notice button {
-  background: transparent;
-  border: 1px solid #8a8072;
-  border-radius: 999px;
-  color: #4f493f;
-  cursor: pointer;
-  margin-top: 14px;
-  min-height: 44px;
-  padding: 8px 16px;
-}
-.durability {
-  border-top: 1px solid #ded5c7;
-  font-size: 0.82rem;
-  margin-top: 14px;
-  padding-top: 12px;
-}
-.durability p {
-  color: #6b645a;
-  margin: 0 0 4px;
-}
-.durability-label {
-  color: #4f493f;
-  font-weight: 700;
-}
-.durability-warning {
-  color: #a44b32 !important;
-  margin-top: 8px !important;
-}
-.section-heading {
-  display: flex;
-  align-items: end;
-  justify-content: space-between;
-  margin-bottom: 14px;
-}
-.section-heading h2 {
-  margin-bottom: 0;
-}
-.count {
-  color: #655f55;
-  font-variant-numeric: tabular-nums;
-}
-.empty {
-  border: 1px dashed #8a8072;
-  border-radius: 14px;
-  color: #756d62;
-  padding: 36px;
-  text-align: center;
-}
-.books {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  border-top: 1px solid #dcd3c6;
-}
-.book {
-  display: grid;
-  grid-template-columns: 48px minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 16px;
-  border-bottom: 1px solid #dcd3c6;
-  padding: 17px 4px;
-}
-.book p {
-  color: #6b645a;
-  margin-bottom: 0;
-}
-.format {
-  width: 42px;
-  height: 42px;
-  display: grid;
-  place-items: center;
-  border-radius: 10px;
-  background: #dfeae2;
-  color: #24473b;
-  font-family: Georgia, serif;
-  font-weight: 700;
-}
-.meta {
-  display: grid;
-  justify-items: end;
-  gap: 4px;
-  color: #756d62;
-  font-size: 0.82rem;
-  text-transform: capitalize;
-}
-details {
-  margin-top: 32px;
-  color: #655f55;
-}
-.resolution {
-  margin-top: 56px;
-}
-.resolution-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: grid;
-  gap: 14px;
-}
-.resolution-card {
-  background: #fffdf8;
-  border: 1px solid #ded5c7;
-  border-radius: 14px;
-  padding: 20px;
-}
-.resolution-card p {
-  color: #6b645a;
-  margin-bottom: 14px;
-}
-.candidates {
-  display: grid;
-  gap: 8px;
-  margin: 14px 0;
-}
-.candidates button {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  text-align: left;
-  gap: 3px 12px;
-  border: 1px solid #5f7d6d;
-  background: #edf4ef;
-  border-radius: 10px;
-  min-height: 44px;
-  padding: 12px;
-  cursor: pointer;
-}
-.candidates span {
-  color: #655f55;
-}
-.candidates small {
-  grid-column: 2;
-  grid-row: 1 / span 2;
-  align-self: center;
-  color: #24473b;
-}
-.decision-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-.decision-actions button {
-  border: 1px solid #8a8072;
-  background: transparent;
-  border-radius: 999px;
-  min-height: 44px;
-  padding: 8px 16px;
-  cursor: pointer;
-  color: #4f493f;
-}
-.decision-actions button:first-child {
-  border-color: #24473b;
-  color: #24473b;
-  font-weight: 700;
-}
-/* Save is disabled until something actually changes (F-12), so it has to read as
-   unavailable rather than merely being inert when pressed. */
-.decision-actions button:disabled,
-.decision-actions button:first-child:disabled {
-  border-color: #cfc6b8;
-  color: #8a8072;
-  cursor: not-allowed;
-  font-weight: 400;
-}
-summary {
-  cursor: pointer;
-  font-weight: 700;
-}
 .runs {
   line-height: 1.8;
 }
-.reading-model {
-  margin-top: 56px;
-}
-.recommendations {
-  margin-top: 56px;
-}
-.recommendation-columns {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 22px;
-}
-.recommendation-list {
-  display: grid;
-  gap: 12px;
-  list-style: none;
-  margin: 0;
-  padding: 0;
-}
-.recommendation-card {
-  background: #fffdf8;
-  border: 1px solid #ded5c7;
-  border-radius: 14px;
-  padding: 18px;
-}
-.recommendation-title {
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
-}
-.recommendation-title h4 {
-  font-family: Georgia, serif;
-  font-size: 1.08rem;
-  margin: 0 0 4px;
-}
-.recommendation-title p,
-.recommendation-meta {
-  color: #6b645a;
-  font-size: 0.82rem;
-  margin-bottom: 0;
-}
-.recommendation-title > span {
-  align-self: start;
-  border-radius: 999px;
-  flex: none;
-  font-size: 0.72rem;
-  font-weight: 750;
-  padding: 5px 8px;
-}
-.recommendation-title .available {
-  background: #dfeae2;
-  color: #24473b;
-}
-.recommendation-title .unavailable {
-  background: #eee7dc;
-  color: #655f55;
-}
-.recommendation-evidence {
-  color: #4f493f;
-  font-size: 0.88rem;
-  line-height: 1.45;
-  padding-left: 18px;
+
+/* ── Shelf ──────────────────────────────────────────────────────────────── */
+.shelf-tasks {
+  margin: -6px 0 14px;
 }
 .shelf-grid {
   display: grid;
@@ -442,24 +484,24 @@ summary {
   grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr));
   gap: 14px;
 }
-.assessment-card {
-  background: #fffdf8;
-  border: 1px solid #ded5c7;
-  border-radius: 14px;
+.assessment-card,
+.resolution-card,
+.recommendation-card {
+  background: var(--surface);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius);
   padding: 20px;
 }
-.assessment-card > p,
-.model-note {
-  color: #6b645a;
+.assessment-card > p {
+  color: var(--ink-muted);
 }
 .quick-rating {
   display: grid;
   gap: 10px;
   margin-bottom: 14px;
 }
-/* Wrapping flex, not a fixed 145px label column. The label drops above the
-   buttons as soon as they stop fitting, which is what removes the 320 px
-   overflow without depending on a magic breakpoint matching the content. */
+/* Wrapping flex, not a fixed label column. The label drops above the buttons as
+   soon as they stop fitting, which is what removes the 320px overflow. */
 .rating-row {
   display: flex;
   flex-wrap: wrap;
@@ -478,23 +520,23 @@ summary {
 }
 .rating-buttons button,
 .trait-chips button {
-  border: 1px solid #8a8072;
+  border: 1px solid var(--border);
   background: transparent;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   cursor: pointer;
 }
 .rating-buttons button {
-  min-width: 44px;
-  min-height: 44px;
+  min-width: var(--tap);
+  min-height: var(--tap);
 }
 .rating-buttons button[aria-pressed='true'],
 .trait-chips button[aria-pressed='true'] {
-  background: #24473b;
-  border-color: #24473b;
+  background: var(--brand);
+  border-color: var(--brand);
   color: white;
 }
 .rating-unset {
-  color: #6b645a;
+  color: var(--ink-muted);
   font-size: 0.8rem;
   margin: -4px 0 0;
 }
@@ -506,7 +548,7 @@ summary {
   margin: 12px 0;
 }
 .trait-chips button {
-  min-height: 44px;
+  min-height: var(--tap);
   padding: 6px 12px;
   font-size: 0.78rem;
 }
@@ -519,24 +561,95 @@ summary {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  min-height: 44px;
+  min-height: var(--tap);
 }
 .assessment-options input[type='checkbox'] {
   width: 24px;
   height: 24px;
 }
 .assessment-options input[type='number'] {
-  border: 1px solid #8a8072;
+  border: 1px solid var(--border);
   border-radius: 8px;
-  min-height: 44px;
+  min-height: var(--tap);
   padding: 4px 8px;
   width: 76px;
 }
+.decision-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.decision-actions button {
+  border: 1px solid var(--border);
+  background: transparent;
+  border-radius: var(--radius-pill);
+  min-height: var(--tap);
+  padding: 8px 16px;
+  cursor: pointer;
+  color: var(--ink-soft);
+}
+.decision-actions button:first-child {
+  border-color: var(--brand);
+  color: var(--brand);
+  font-weight: 700;
+}
+/* Save is disabled until something actually changes (F-12), so it has to read as
+   unavailable rather than being inert when pressed. */
+.decision-actions button:disabled,
+.decision-actions button:first-child:disabled {
+  border-color: #cfc6b8;
+  color: var(--border);
+  cursor: not-allowed;
+  font-weight: 400;
+}
+
+/* ── Tasks ──────────────────────────────────────────────────────────────── */
+.resolution {
+  margin-top: 28px;
+}
+.resolution-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 14px;
+}
+.resolution-card p {
+  color: var(--ink-muted);
+  margin-bottom: 14px;
+}
+.candidates {
+  display: grid;
+  gap: 8px;
+  margin: 14px 0;
+}
+.candidates button {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  text-align: left;
+  gap: 3px 12px;
+  border: 1px solid var(--border-green);
+  background: #edf4ef;
+  border-radius: 10px;
+  min-height: var(--tap);
+  padding: 12px;
+  cursor: pointer;
+}
+.candidates span {
+  color: #655f55;
+}
+.candidates small {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  align-self: center;
+  color: var(--brand);
+}
+
+/* ── Activity and Discover ──────────────────────────────────────────────── */
 .reading-columns {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(min(260px, 100%), 1fr));
   gap: 18px;
-  margin-top: 34px;
 }
 .reading-columns > div {
   border-top: 3px solid #c9d7cd;
@@ -549,50 +662,53 @@ summary {
 .reading-columns li {
   margin-bottom: 10px;
 }
-
-@media (max-width: 720px) {
-  .tool-grid,
-  .recommendation-columns,
-  .reading-columns {
-    grid-template-columns: 1fr;
-  }
+.recommendation-columns {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr));
+  gap: 22px;
 }
-
-@media (max-width: 640px) {
-  main {
-    padding-top: 36px;
-  }
-  .import-panel {
-    align-items: stretch;
-    flex-direction: column;
-  }
-  .file-button {
-    justify-content: center;
-  }
-  .book {
-    grid-template-columns: 44px minmax(0, 1fr);
-  }
-  .reading-columns {
-    grid-template-columns: 1fr;
-  }
-  .meta {
-    grid-column: 2;
-    display: flex;
-    gap: 12px;
-    justify-content: start;
-  }
+.recommendation-list {
+  display: grid;
+  gap: 12px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
 }
-
-/* Below 380px every remaining multi-column grid collapses, per audit §7.3. */
-@media (max-width: 380px) {
-  main {
-    width: calc(100% - 20px);
-  }
-  .shelf-grid,
-  .candidates {
-    grid-template-columns: 1fr;
-  }
-  .decision-actions button {
-    flex: 1 1 100%;
-  }
+.recommendation-title {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+.recommendation-title h4 {
+  font-family: Georgia, serif;
+  font-size: 1.08rem;
+  margin: 0 0 4px;
+}
+.recommendation-title p,
+.recommendation-meta {
+  color: var(--ink-muted);
+  font-size: 0.82rem;
+  margin-bottom: 0;
+}
+.recommendation-title > span {
+  align-self: start;
+  border-radius: var(--radius-pill);
+  flex: none;
+  font-size: 0.72rem;
+  font-weight: 750;
+  padding: 5px 8px;
+}
+.recommendation-title .available {
+  background: var(--brand-tint);
+  color: var(--brand);
+}
+.recommendation-title .unavailable {
+  background: #eee7dc;
+  color: #655f55;
+}
+.recommendation-evidence {
+  color: var(--ink-soft);
+  font-size: 0.88rem;
+  line-height: 1.45;
+  padding-left: 18px;
 }
