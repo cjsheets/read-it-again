@@ -2,18 +2,17 @@
 
 ## Re-entry
 
-- **Phase:** Audit remediation, Increment 1 — Accessibility and copy (complete 2026-08-16)
+- **Phase:** Audit remediation, Increment 2 — Close the import loop (complete 2026-08-16)
 - **Last state:** The production PWA is complete, and the local workflow now has a unified
   `pnpm bookshelf` CLI for setup/login, one-command sync, status, recommendation refresh, and
   encrypted PWA-compatible backup. Phase 3's personal live-card acceptance run remains pending a
   user-owned authenticated session. The UX audit's findings are now encoded as executable tests;
   see `tests/browser/README.md`. Finding IDs (F-01, F-04, …) refer to that audit, which is kept
   locally and is not tracked in this repository.
-- **Next action:** Increment 2 — close the import loop (N1/F-01). Two annotated tests
-  (`a CSV import lands every row on the bookshelf`, `a Libby snapshot lands every title`)
-  turn green when it lands and will then report "Expected to fail, but passed" until their
-  `test.fail()` annotations are removed. Increment 2 requires an ADR:
-  _"Automatic resolution and attribution defaults in the browser composition."_
+- **Next action:** Increment 3 — storage durability (N8/F-05), a three-day item:
+  `navigator.storage.persist()` after the first add, `last_backup_at` in `app_metadata`, and a
+  wipe-detection screen. Then Increment 4 (app shell and routing), which is the largest single
+  refactor and gates everything after it.
 - **Source plan:** Obsidian `Efforts/Read It Again.md`
 - **Important constraint:** KCLS OpenSearch did not return CORS permission headers on
   2026-08-12. Browser-only catalog access is not currently viable.
@@ -120,3 +119,40 @@ one target per scope. Every correction in Attribution review failed with SQLITE_
 so no imported book could reach the shelf even with the two decisions F-01 describes - F-01 was
 worse than measured. The old shared error headline hid it. The worker protocol is now split by
 scope so the invalid shape cannot be constructed, and a regression test covers it.
+
+Increment 2 result: ships N1 and closes F-01, the audit's highest-severity finding. A 50-row CSV
+and a Libby snapshot now land every book on the shelf with zero human decisions, and a one-reader
+household never sees a review queue. Recorded in ADR 0012.
+
+The mechanism is a `CompositionDefaults` object the browser passes and the local runtime does not.
+The domain rules are unchanged: they are conservative because they have a catalog, and the browser
+has none by construction (ADR 0002), so its assessments always found zero evidence and always
+concluded "a human should decide". Two defaults fill that vacuum — accept the source record's own
+title when no catalog candidate exists, and attribute to the household's only reader when the
+rules could not choose. The single-reader default is skipped whenever a catalog-derived signal is
+present, so a considered "this is adult material" is never overridden.
+
+The defaults must be threaded through `correctAttribution` as well, not just the import path:
+`recomputeAttributions` re-derives every record on every call, so correcting one book without them
+would silently revert every other book to review. That is the subtle part of this change.
+
+Audit trail is preserved. Automatic resolutions use the same append-only path with confidence 0.5
+instead of 1, which distinguishes them without a schema change. Automatic attributions are
+`method='evidence_rules'` with an explanation beginning "Attributed automatically…" and a
+`single_reader_default` evidence row. A human correction supersedes rather than replaces, and a
+unit test proves the superseded record is still on file with the correction pointing at it.
+
+Closing the loop made the F-04 numbers worse, which is expected and correct — a thousand imported
+books now render as shelf cards instead of stopping in a queue. At 1000 books, measured on this
+machine: import 16.9 s -> 49.1 s, add-one-more 2.4 s -> 28.2 s, DOM nodes 16 144 -> 45 136,
+document height 230 963 px -> 309 979 px. The cause is precise: `recomputeAttributions` scans every
+record with a resolved case, which used to be roughly zero in the browser and is now all of them.
+The worker compounds it by calling `prepareResolutionQueue` in its tail after a branch has already
+recomputed and rebuilt, so a manual add does the O(n) work twice. Both are Increment 6's to fix
+alongside the paged query surface; the redundant tail call is the cheap half.
+
+Tests: 30 -> 32 browser (29 green, 2 F-04 annotations, 1 skipped) and 62 -> 66 unit. Eight existing
+browser tests had encoded the broken behaviour by asserting books stop in a queue, and were
+updated. One of them, a regression test for the attribution CHECK-constraint bug, tested a UI path
+that no longer exists in a one-reader household; it was replaced by a test that no review queue
+ever appears, with the constraint-level coverage moved to the application tests.

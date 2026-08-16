@@ -26,6 +26,7 @@ import {
   listAttributionTriage,
   migrate,
 } from '@read-it-again/storage-schema';
+import type { CompositionDefaults } from '@read-it-again/application';
 import type { WorkerRequest, WorkerResponse } from './protocol.js';
 
 const SOURCE_ACCOUNT_ID = 'default-libby-source';
@@ -67,7 +68,9 @@ async function handle(request: WorkerRequest): Promise<void> {
         sourceAccountId: SOURCE_ACCOUNT_ID,
         householdId: HOUSEHOLD_ID,
       });
-      const resolution = await prepareResolutionQueue(database, emptyCatalog);
+      const resolution = await prepareResolutionQueue(database, emptyCatalog, {
+        defaults: BROWSER_DEFAULTS,
+      });
       worker.postMessage({
         id: request.id,
         ok: true,
@@ -88,7 +91,9 @@ async function handle(request: WorkerRequest): Promise<void> {
         sourceAccountId: CSV_SOURCE_ACCOUNT_ID,
         householdId: HOUSEHOLD_ID,
       });
-      const resolution = await prepareResolutionQueue(database, emptyCatalog);
+      const resolution = await prepareResolutionQueue(database, emptyCatalog, {
+        defaults: BROWSER_DEFAULTS,
+      });
       worker.postMessage({
         id: request.id,
         ok: true,
@@ -113,6 +118,7 @@ async function handle(request: WorkerRequest): Promise<void> {
         workId: manual.workId,
         state: 'assigned',
         readerIds: ['default-reader'],
+        defaults: BROWSER_DEFAULTS,
       });
     } else if (request.type === 'exportArchive') {
       const archiveText = await exportEncryptedArchive(database, request.passphrase);
@@ -121,7 +127,9 @@ async function handle(request: WorkerRequest): Promise<void> {
         ok: true,
         archiveText,
         inbox: await getHouseholdImportInbox(database),
-        resolutionQueue: (await prepareResolutionQueue(database, emptyCatalog)).queue,
+        resolutionQueue: (
+          await prepareResolutionQueue(database, emptyCatalog, { defaults: BROWSER_DEFAULTS })
+        ).queue,
         attributionTriage: await listAttributionTriage(database),
         readingModel: await getReadingModel(database),
         recommendations: await getRecommendations(database),
@@ -132,22 +140,28 @@ async function handle(request: WorkerRequest): Promise<void> {
     }
 
     if (request.type === 'acceptCandidate') {
-      await decideCandidate(database, request.caseId, request.candidateId);
+      await decideCandidate(database, request.caseId, request.candidateId, {
+        defaults: BROWSER_DEFAULTS,
+      });
     } else if (request.type === 'manualResolve') {
-      await createManualWorkForCase(database, request.caseId, request.title, request.authorsJson);
+      await createManualWorkForCase(database, request.caseId, request.title, request.authorsJson, {
+        defaults: BROWSER_DEFAULTS,
+      });
     } else if (request.type === 'rejectCase') {
       await rejectCase(database, request.caseId);
     } else if (request.type === 'deferCase') {
       await deferCase(database, request.caseId);
     } else if (request.type === 'correctAttribution') {
-      await correctAttribution(database, request);
+      await correctAttribution(database, { ...request, defaults: BROWSER_DEFAULTS });
     } else if (request.type === 'assessWork') {
       await assessWork(database, request);
     } else if (request.type === 'recordReadingSession') {
       await recordReadingSession(database, request);
     }
 
-    const resolution = await prepareResolutionQueue(database, emptyCatalog);
+    const resolution = await prepareResolutionQueue(database, emptyCatalog, {
+      defaults: BROWSER_DEFAULTS,
+    });
 
     worker.postMessage({
       id: request.id,
@@ -175,3 +189,14 @@ const emptyCatalog = {
   searchByIsbn: async () => [],
   searchByTitleAuthor: async () => [],
 };
+
+/**
+ * ADR 0012. The browser has no catalog (ADR 0002), so the conservative domain
+ * rules have nothing to work with and every imported book stalls in a review
+ * queue (F-01). These defaults let imports land on the shelf; the decisions they
+ * write are append-only and any human choice supersedes them.
+ */
+const BROWSER_DEFAULTS = {
+  acceptSourceDetails: true,
+  assignSingleReader: true,
+} as const satisfies CompositionDefaults;

@@ -293,6 +293,12 @@ export async function createManualResolution(
     readonly title: string;
     readonly authorsJson: string;
     readonly now: string;
+    /**
+     * 1 means a person chose this. Anything lower means a composition default
+     * created the work from source details without asking — see ADR 0012. The
+     * decision is append-only either way, so a later human choice supersedes it.
+     */
+    readonly confidence?: number;
   },
 ): Promise<void> {
   await inTransaction(database, async () => {
@@ -312,7 +318,7 @@ export async function createManualResolution(
       input.editionId,
       null,
       'manual',
-      1,
+      input.confidence ?? 1,
       input.now,
     );
   });

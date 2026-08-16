@@ -17,7 +17,9 @@ async function populate(page: Page): Promise<void> {
   await importCsv(page, csvSnapshot(3));
   await expect(page.getByTestId('record-count')).toHaveText('3 books');
   await addBookManually(page, { title: 'The Gruffalo', author: 'Julia Donaldson' });
-  await expect(shelfCards(page)).toHaveCount(1);
+  // Three imported rows plus the typed one; imports reach the shelf directly
+  // since ADR 0012.
+  await expect(shelfCards(page)).toHaveCount(4);
 }
 
 async function scan(page: Page, testInfo: TestInfo, label: string): Promise<void> {

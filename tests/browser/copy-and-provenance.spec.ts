@@ -118,11 +118,6 @@ test.describe('provenance is named honestly', () => {
     await importCsv(page, csvSnapshot(1));
     await expect(page.getByTestId('record-count')).toHaveText('1 books');
 
-    // Resolve and attribute so the book reaches the shelf; until Increment 2 this
-    // is still manual, which is exactly what shelf-journey.spec.ts asserts.
-    await page.getByRole('button', { name: 'Use source details' }).click();
-    await page.getByRole('button', { name: 'For Child', exact: true }).click();
-
     await expect(shelfCards(page).first()).toContainText('Imported from a CSV file');
   });
 });

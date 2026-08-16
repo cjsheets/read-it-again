@@ -19,6 +19,10 @@ import {
   type ResolutionQueueItem,
 } from '@read-it-again/storage-schema';
 import { recomputeAttributions } from './attribution.js';
+import {
+  AUTOMATIC_RESOLUTION_CONFIDENCE,
+  type CompositionDefaults,
+} from './composition-defaults.js';
 import { rebuildReadingModel } from './reading.js';
 
 export interface CatalogPort {
@@ -48,7 +52,11 @@ interface ImportRow {
 export async function prepareResolutionQueue(
   database: Database,
   catalog: CatalogPort,
-  options: { readonly idFactory?: () => string; readonly now?: () => Date } = {},
+  options: {
+    readonly idFactory?: () => string;
+    readonly now?: () => Date;
+    readonly defaults?: CompositionDefaults;
+  } = {},
 ): Promise<PrepareResolutionResult> {
   const idFactory = options.idFactory ?? (() => crypto.randomUUID());
   const now = (options.now ?? (() => new Date()))().toISOString();
@@ -136,6 +144,24 @@ export async function prepareResolutionQueue(
         cacheKey,
       });
       automaticallyResolved += 1;
+      continue;
+    }
+    // No catalog candidate. Where the composition has no catalog at all (the
+    // browser), leaving this pending means the book never reaches the shelf, so
+    // take the source record at its word. Only ever applied to a case created in
+    // this pass, so a deferred case stays deferred.
+    if (options.defaults?.acceptSourceDetails && ranked.length === 0 && row.title.trim()) {
+      await createManualResolution(database, {
+        caseId: resolutionCase.id,
+        decisionId: idFactory(),
+        workId: idFactory(),
+        editionId: idFactory(),
+        title: row.title,
+        authorsJson: row.authors_json,
+        confidence: AUTOMATIC_RESOLUTION_CONFIDENCE,
+        now,
+      });
+      automaticallyResolved += 1;
     }
   }
 
@@ -144,7 +170,7 @@ export async function prepareResolutionQueue(
     idFactory,
     now,
   });
-  await recomputeAttributions(database, { idFactory, now });
+  await recomputeAttributions(database, { idFactory, now, defaults: options.defaults });
   await rebuildReadingModel(database, { idFactory, now: () => new Date(now) });
   return {
     casesCreated: rows.length,
@@ -160,7 +186,11 @@ export async function decideCandidate(
   database: Database,
   caseId: string,
   candidateId: string,
-  options: { readonly idFactory?: () => string; readonly now?: () => Date } = {},
+  options: {
+    readonly idFactory?: () => string;
+    readonly now?: () => Date;
+    readonly defaults?: CompositionDefaults;
+  } = {},
 ): Promise<void> {
   const id = options.idFactory ?? (() => crypto.randomUUID());
   const now = (options.now ?? (() => new Date()))().toISOString();
@@ -187,7 +217,7 @@ export async function decideCandidate(
     cacheKey: cases[0].cache_key,
   });
   await applyExclusiveCardAttribution(database, { idFactory: id, now });
-  await recomputeAttributions(database, { idFactory: id, now });
+  await recomputeAttributions(database, { idFactory: id, now, defaults: options.defaults });
   await rebuildReadingModel(database, { idFactory: id, now: () => new Date(now) });
 }
 
@@ -196,7 +226,11 @@ export async function createManualWorkForCase(
   caseId: string,
   title: string,
   authorsJson: string,
-  options: { readonly idFactory?: () => string; readonly now?: () => Date } = {},
+  options: {
+    readonly idFactory?: () => string;
+    readonly now?: () => Date;
+    readonly defaults?: CompositionDefaults;
+  } = {},
 ): Promise<void> {
   const id = options.idFactory ?? (() => crypto.randomUUID());
   const now = (options.now ?? (() => new Date()))().toISOString();
@@ -216,6 +250,7 @@ export async function createManualWorkForCase(
   await recomputeAttributions(database, {
     idFactory: id,
     now,
+    defaults: options.defaults,
   });
   await rebuildReadingModel(database, { idFactory: id, now: () => new Date(now) });
 }

@@ -14,6 +14,7 @@ import {
   type Database,
 } from '@read-it-again/storage-schema';
 import { mergeWorks, repointResolution, splitEditionToWork } from '@read-it-again/storage-schema';
+import { applySingleReaderDefault, type CompositionDefaults } from './composition-defaults.js';
 
 export interface EnrichmentCatalogPort {
   getMarcMetadata(bibid: string): Promise<CatalogMetadata>;
@@ -73,7 +74,11 @@ export async function enrichResolvedCatalogRecords(
 
 export async function recomputeAttributions(
   database: Database,
-  options: { readonly idFactory?: () => string; readonly now?: string } = {},
+  options: {
+    readonly idFactory?: () => string;
+    readonly now?: string;
+    readonly defaults?: CompositionDefaults;
+  } = {},
 ): Promise<number> {
   const idFactory = options.idFactory ?? (() => crypto.randomUUID());
   const now = options.now ?? new Date().toISOString();
@@ -123,6 +128,12 @@ export async function recomputeAttributions(
         pageCount: metadata.pageCount,
         candidateReaderIds: readers.map(({ person_id }) => person_id),
       });
+      if (options.defaults?.assignSingleReader) {
+        assessment = applySingleReaderDefault(
+          assessment,
+          readers.map(({ person_id }) => person_id),
+        );
+      }
       method = assessment.evidence.length > 0 ? 'evidence_rules' : 'unresolved';
     }
     if (await resultMatches(database, row.import_record_id, method, assessment)) continue;
@@ -150,12 +161,16 @@ export async function correctAttribution(
     readonly note?: string;
     readonly idFactory?: () => string;
     readonly now?: () => Date;
+    // Must be threaded through: recomputeAttributions re-derives every record, so
+    // correcting one book without the composition's defaults would revert all the
+    // others to review.
+    readonly defaults?: CompositionDefaults;
   },
 ): Promise<void> {
   const idFactory = input.idFactory ?? (() => crypto.randomUUID());
   const now = (input.now ?? (() => new Date()))().toISOString();
   await saveAttributionOverride(database, { ...input, id: idFactory(), now });
-  await recomputeAttributions(database, { idFactory, now });
+  await recomputeAttributions(database, { idFactory, now, defaults: input.defaults });
   const { rebuildReadingModel } = await import('./reading.js');
   await rebuildReadingModel(database, { idFactory, now: () => new Date(now) });
 }

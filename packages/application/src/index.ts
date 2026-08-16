@@ -9,6 +9,11 @@ export {
 } from './resolution.js';
 export type { CatalogPort, PrepareResolutionResult } from './resolution.js';
 export {
+  applySingleReaderDefault,
+  AUTOMATIC_RESOLUTION_CONFIDENCE,
+} from './composition-defaults.js';
+export type { CompositionDefaults } from './composition-defaults.js';
+export {
   correctAttribution,
   enrichResolvedCatalogRecords,
   mergeWorksAndRecompute,

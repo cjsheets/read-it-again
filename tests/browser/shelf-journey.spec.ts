@@ -49,9 +49,7 @@ test.describe('every input path reaches the bookshelf', () => {
     await expect(page.getByTestId('record-count')).toHaveText('50 books');
   });
 
-  // F-01 · fixed by Increment 2 (close the import loop).
   test('a CSV import lands every row on the bookshelf with no decisions', async ({ page }) => {
-    test.fail(true, 'F-01: CSV rows stop at the resolution queue. Fixed by Increment 2.');
     await openApp(page);
 
     await importCsv(page, csvSnapshot(50));
@@ -61,11 +59,9 @@ test.describe('every input path reaches the bookshelf', () => {
     expect(await pendingDecisions(page)).toBe(0);
   });
 
-  // F-01 · fixed by Increment 2 (close the import loop).
   test('a Libby snapshot lands every title on the bookshelf with no decisions', async ({
     page,
   }) => {
-    test.fail(true, 'F-01: Libby rows stop at the resolution queue. Fixed by Increment 2.');
     await openApp(page);
 
     await page.getByTestId('libby-file').setInputFiles(libbyFixture);
@@ -76,25 +72,25 @@ test.describe('every input path reaches the bookshelf', () => {
   });
 
   /**
-   * Regression: the PWA sent both `importRecordId` and `workId` on every
-   * attribution correction, but `attribution_overrides` has a CHECK constraint
-   * permitting exactly one target per scope. Every correction failed, so the
-   * review queue could never be cleared and no imported book could reach the
-   * shelf even with the two decisions F-01 describes.
+   * A one-reader household has no question to answer, so it must never be shown a
+   * queue (audit §2.3-B). This also guards the class of defect that hid behind the
+   * old shared error headline: a worker request violating a database constraint
+   * used to surface as a generic alert and leave the queue stuck.
    */
-  test('an attribution correction actually saves and lands the book', async ({ page }) => {
+  test('a single-reader household is never asked to review anything', async ({ page }) => {
     await openApp(page);
-    await importCsv(page, csvSnapshot(1));
-    await expect(page.getByTestId('record-count')).toHaveText('1 books');
 
-    await page.getByRole('button', { name: 'Use source details' }).click();
-    await expect(page.getByTestId('attribution-count')).toHaveText('1 pending');
-    await page.getByRole('button', { name: 'For Child', exact: true }).click();
+    await importCsv(page, csvSnapshot(5));
+    await expect(page.getByTestId('record-count')).toHaveText('5 books');
+    await page.getByTestId('libby-file').setInputFiles(libbyFixture);
+    await expect(page.getByTestId('record-count')).toHaveText('7 books');
 
-    await expect(page.getByTestId('import-status')).toHaveText('Attribution correction saved.');
+    await expect(shelfCards(page)).toHaveCount(7);
     await expect(page.getByRole('alert')).toHaveCount(0);
+    await expect(page.getByTestId('resolution-count')).toHaveCount(0);
     await expect(page.getByTestId('attribution-count')).toHaveCount(0);
-    await expect(shelfCards(page)).toHaveCount(1);
+    await expect(page.getByRole('heading', { name: 'Resolution queue' })).toHaveCount(0);
+    await expect(page.getByRole('heading', { name: 'Attribution review' })).toHaveCount(0);
   });
 
   test('an encrypted archive carries the bookshelf to a fresh device', async ({
