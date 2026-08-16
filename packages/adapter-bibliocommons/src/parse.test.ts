@@ -46,4 +46,41 @@ describe('BiblioCommons saved HTML parser', () => {
         </tr></table>`),
     ).toThrow(BibliocommonsSnapshotError);
   });
+
+  it('accepts the current KCLS comma-prefixed year and named return date', () => {
+    const result = parseBibliocommonsSnapshot(`<table><tr>
+      <td class="item-title"><p class="main-title">Current markup</p></td>
+      <td class="item-author">Writer, Ada</td>
+      <td class="item-format">Book <span class="publication-date">, 2020</span></td>
+      <td class="item-callnumber"><p class="callnumber-details">E WRITER</p></td>
+      <td class="item-checkedoutdate">Aug 14, 2026</td>
+    </tr></table>`);
+    expect(result.records[0]).toMatchObject({
+      publishedYear: 2020,
+      occurredAt: '2026-08-14T00:00:00.000Z',
+    });
+  });
+
+  it('still rejects impossible named dates', () => {
+    expect(() =>
+      parseBibliocommonsSnapshot(`<table><tr>
+        <td class="item-title"><p class="main-title">Bad date</p></td>
+        <td class="item-author">Writer, Ada</td>
+        <td class="item-format">Book <span class="publication-date">, 2020</span></td>
+        <td class="item-callnumber"><p class="callnumber-details">E WRITER</p></td>
+        <td class="item-checkedoutdate">Feb 30, 2026</td>
+      </tr></table>`),
+    ).toThrow('invalid checkout date');
+  });
+
+  it('preserves a valid catalog row that has no credited author', () => {
+    const result = parseBibliocommonsSnapshot(`<table><tr>
+      <td class="item-title"><p class="main-title">Authorless work</p></td>
+      <td class="item-author"></td>
+      <td class="item-format">DVD <span class="publication-date">, 2020</span></td>
+      <td class="item-callnumber"><p class="callnumber-details">J DVD AUTHORLESS</p></td>
+      <td class="item-checkedoutdate">Aug 14, 2026</td>
+    </tr></table>`);
+    expect(result.records[0]).toMatchObject({ authors: [], rawPayload: { author: '' } });
+  });
 });

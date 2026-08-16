@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { chromium, type Browser } from 'playwright';
-import { acquireBibliocommonsCards } from './acquire.js';
+import { acquireBibliocommonsCards, BibliocommonsAcquisitionError } from './acquire.js';
 
 const row = (title: string) => `<tr>
   <td class="item-title"><p class="main-title">${title}</p></td>
@@ -39,6 +39,23 @@ describe('local BiblioCommons Playwright acquisition', () => {
     ]);
   });
 
+  it('collects every page when Load next 50 replaces the current rows', async () => {
+    const html = `<table><tbody id="rows">${row('First')}</tbody></table>
+      <button id="more">Load next 50</button>
+      <script>
+        document.querySelector('#more').addEventListener('click', () => {
+          document.querySelector('#rows').innerHTML = ${JSON.stringify(row('Second'))};
+          document.querySelector('#more').remove();
+        });
+      </script>`;
+    const [result] = await acquireBibliocommonsCards(browser, [{ cardId: 'replacement' }], {
+      recentlyReturnedUrl: `data:text/html,${encodeURIComponent(html)}`,
+      timeoutMs: 5_000,
+    });
+    expect(result).toMatchObject({ pagesLoaded: 2, parsed: { rowsSeen: 2 } });
+    expect(result?.parsed.records.map(({ title }) => title)).toEqual(['First', 'Second']);
+  });
+
   it('classifies a login page as a failed acquisition', async () => {
     await expect(
       acquireBibliocommonsCards(browser, [{ cardId: 'expired' }], {
@@ -48,5 +65,29 @@ describe('local BiblioCommons Playwright acquisition', () => {
       cardId: 'expired',
       reason: 'login-required',
     });
+  });
+
+  it('explains when the account has not opted in to borrowing history', async () => {
+    const html = `<main>
+      <h1>Borrowing History</h1>
+      <p>Borrowing History is currently disabled.</p>
+      <a href="/settings">Enable borrowing history to start keeping returned titles.</a>
+    </main>`;
+    let caught: unknown;
+    try {
+      await acquireBibliocommonsCards(browser, [{ cardId: 'child-card' }], {
+        recentlyReturnedUrl: `data:text/html,${encodeURIComponent(html)}`,
+        timeoutMs: 1_000,
+      });
+    } catch (error) {
+      caught = error;
+    }
+    expect(caught).toBeInstanceOf(BibliocommonsAcquisitionError);
+    if (!(caught instanceof BibliocommonsAcquisitionError)) return;
+    expect(caught).toMatchObject({
+      cardId: 'child-card',
+      reason: 'history-disabled',
+    });
+    expect(caught.message).toContain('a parent must enable it');
   });
 });

@@ -1,6 +1,7 @@
 import { chmodSync, existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { chromium } from 'playwright';
+import { assertBibliocommonsHistoryReady } from '@read-it-again/adapter-bibliocommons';
 import { KclsCatalogClient } from '@read-it-again/adapter-kcls';
 import {
   enrichResolvedCatalogRecords,
@@ -34,8 +35,21 @@ export async function initializeBookshelf(config: ResolvedBookshelfConfig): Prom
   }
 }
 
-export async function loginBookshelf(config: ResolvedBookshelfConfig): Promise<void> {
+export const BORROWING_HISTORY_SETUP_NOTICE = `\nBefore continuing with the child's card:
+  1. If this card has only been used physically, choose Log In/Register and create its online
+     catalog profile using the card number and PIN/password. This is common for children's cards.
+  2. Decide whether to opt in to Borrowing History. It is off by default because it retains a
+     private record of what the child borrows. Read It Again cannot enable it for you.
+  3. To opt in: My Settings → Account Preferences → Borrowing History → Change, turn it on,
+     and save. Tracking starts only when enabled; earlier physical checkouts are not recovered.
+  4. Return to the Borrowing History / Recently Returned page before pressing Enter here.\n`;
+
+export async function loginBookshelf(
+  config: ResolvedBookshelfConfig,
+  report: (message: string) => void = console.log,
+): Promise<void> {
   mkdirSync(dirname(config.sessionFilename), { recursive: true });
+  report(BORROWING_HISTORY_SETUP_NOTICE);
   const browser = await chromium.launch({ headless: false });
   const context = await browser.newContext(
     existsSync(config.sessionFilename) ? { storageState: config.sessionFilename } : {},
@@ -46,19 +60,12 @@ export async function loginBookshelf(config: ResolvedBookshelfConfig): Promise<v
       waitUntil: 'domcontentloaded',
     });
     await waitForEnter(
-      '\nSign in to the library account in the browser. When Recently Returned is visible, return here and press Enter. ',
+      'Complete those account steps in the browser. When Borrowing History is visible, return here and press Enter. ',
     );
     await page.goto('https://kcls.bibliocommons.com/v2/print/recentlyreturned', {
       waitUntil: 'domcontentloaded',
     });
-    const loginVisible = await page
-      .locator('form[action*="login"], input[type="password"], [data-test-id*="login"]')
-      .first()
-      .isVisible()
-      .catch(() => false);
-    if (page.url().toLowerCase().includes('/login') || loginVisible) {
-      throw new Error('The library session is still signed out; no session was saved');
-    }
+    await assertBibliocommonsHistoryReady(page, config.card.id);
     await context.storageState({ path: config.sessionFilename });
     chmodSync(config.sessionFilename, 0o600);
   } finally {

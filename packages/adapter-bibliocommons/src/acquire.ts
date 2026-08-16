@@ -20,7 +20,11 @@ export class BibliocommonsAcquisitionError extends Error {
   constructor(
     readonly cardId: string,
     readonly reason:
-      'login-required' | 'session-expired' | 'selector-contract' | 'pagination-incomplete',
+      | 'login-required'
+      | 'session-expired'
+      | 'history-disabled'
+      | 'selector-contract'
+      | 'pagination-incomplete',
     message: string,
     options?: ErrorOptions,
   ) {
@@ -60,8 +64,12 @@ async function acquireCard(
       waitUntil: 'domcontentloaded',
       timeout: options.timeoutMs ?? 30_000,
     });
-    await assertAuthenticated(page, card.cardId, 'login-required');
+    await assertBibliocommonsHistoryReady(page, card.cardId, 'login-required');
     await waitForRows(page, card.cardId, options.timeoutMs ?? 30_000);
+
+    let currentRows = await rowMarkup(page);
+    const collectedRows = [...currentRows];
+    validateRows(currentRows);
 
     let pagesLoaded = 1;
     const maxPages = options.maxPages ?? 100;
@@ -73,11 +81,15 @@ async function acquireCard(
           `the Load next 50 control remained after ${maxPages} pages`,
         );
       }
-      const before = await rowCount(page);
+      const before = rowSignature(currentRows);
       await loadMoreButton(page).click();
       try {
         await page.waitForFunction(
-          (previous) => document.querySelectorAll('td.item-title p.main-title').length > previous,
+          (previous) =>
+            Array.from(document.querySelectorAll('tr'))
+              .filter((row) => row.querySelector('td.item-title'))
+              .map((row) => row.outerHTML)
+              .join('\u001f') !== previous,
           before,
           { timeout: options.timeoutMs ?? 30_000 },
         );
@@ -90,11 +102,15 @@ async function acquireCard(
           { cause: error },
         );
       }
+      const nextRows = await rowMarkup(page);
+      validateRows(nextRows);
+      collectedRows.push(...newRows(currentRows, nextRows));
+      currentRows = nextRows;
       pagesLoaded += 1;
     }
 
     await assertAuthenticated(page, card.cardId, 'session-expired');
-    const html = await page.content();
+    const html = snapshotHtml(collectedRows, pagesLoaded);
     try {
       return { cardId: card.cardId, html, parsed: parseBibliocommonsSnapshot(html), pagesLoaded };
     } catch (error) {
@@ -108,6 +124,38 @@ async function acquireCard(
   } finally {
     await context.close();
   }
+}
+
+/**
+ * Verifies the account prerequisites that can be checked without changing a patron's privacy
+ * settings. Enabling borrowing history is intentionally left to the account owner.
+ */
+export async function assertBibliocommonsHistoryReady(
+  page: Page,
+  cardId: string,
+  loginReason: 'login-required' | 'session-expired' = 'login-required',
+): Promise<void> {
+  await assertAuthenticated(page, cardId, loginReason);
+  const bodyText = await page
+    .locator('body')
+    .innerText()
+    .catch(() => '');
+  if (borrowingHistoryLooksDisabled(bodyText)) {
+    throw new BibliocommonsAcquisitionError(
+      cardId,
+      'history-disabled',
+      'borrowing history is off; a parent must enable it under My Settings → Account Preferences → Borrowing History, then return here',
+    );
+  }
+}
+
+function borrowingHistoryLooksDisabled(bodyText: string): boolean {
+  const text = bodyText.replaceAll(/\s+/gu, ' ').toLowerCase();
+  return [
+    /borrowing history (?:is )?(?:currently )?(?:off|disabled|not enabled)/u,
+    /(?:enable|turn on) borrowing history (?:to|if you want to) (?:see|view|start|keep)/u,
+    /you (?:have not|haven't) enabled borrowing history/u,
+  ].some((pattern) => pattern.test(text));
 }
 
 async function assertAuthenticated(
@@ -151,6 +199,28 @@ async function hasLoadMore(page: Page): Promise<boolean> {
   return (await button.count()) > 0 && (await button.isVisible()) && (await button.isEnabled());
 }
 
-async function rowCount(page: Page): Promise<number> {
-  return page.locator('td.item-title p.main-title').count();
+async function rowMarkup(page: Page): Promise<readonly string[]> {
+  return page
+    .locator('tr')
+    .evaluateAll((rows) =>
+      rows.filter((row) => row.querySelector('td.item-title')).map((row) => row.outerHTML),
+    );
+}
+
+function rowSignature(rows: readonly string[]): string {
+  return rows.join('\u001f');
+}
+
+function newRows(previous: readonly string[], current: readonly string[]): readonly string[] {
+  const appended =
+    current.length > previous.length && previous.every((row, index) => current[index] === row);
+  return appended ? current.slice(previous.length) : current;
+}
+
+function validateRows(rows: readonly string[]): void {
+  parseBibliocommonsSnapshot(snapshotHtml(rows, 1));
+}
+
+function snapshotHtml(rows: readonly string[], pagesLoaded: number): string {
+  return `<table data-read-it-again-pages="${pagesLoaded}"><tbody>${rows.join('\n')}</tbody></table>`;
 }

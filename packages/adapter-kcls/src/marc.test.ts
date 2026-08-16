@@ -19,4 +19,23 @@ describe('KCLS MARC parser', () => {
       series: [{ name: 'Moonlit adventures', volume: '1' }],
     });
   });
+
+  it('accepts the MARCXML collection wrapper returned by the live KCLS endpoint', async () => {
+    const record = await readFile(fixture, 'utf8');
+    const wrapped = `<collection xmlns="http://www.loc.gov/MARC21/slim">${record.replace(
+      /^<\?xml[^>]*>/u,
+      '',
+    )}</collection>`;
+    expect(parseMarcMetadata(wrapped)).toMatchObject({
+      audience: 'b',
+      juvenileHeading: true,
+      pageCount: 32,
+    });
+  });
+
+  it('rejects an empty MARCXML collection', () => {
+    expect(() => parseMarcMetadata('<collection></collection>')).toThrow(
+      'KCLS MARC response does not contain a record',
+    );
+  });
 });

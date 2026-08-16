@@ -1,5 +1,6 @@
 export {
   acquireBibliocommonsCards,
+  assertBibliocommonsHistoryReady,
   BibliocommonsAcquisitionError,
   RECENTLY_RETURNED_URL,
 } from './acquire.js';

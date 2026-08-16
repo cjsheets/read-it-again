@@ -19,14 +19,13 @@ interface MarcControlField {
 export function parseMarcMetadata(xml: string): CatalogMetadata {
   const parser = new XMLParser({ ignoreAttributes: false, attributeNamePrefix: '@_' });
   const document = parser.parse(xml) as {
-    record?: {
-      controlfield?: MarcControlField | readonly MarcControlField[];
-      datafield?: MarcField | readonly MarcField[];
-    };
+    record?: MarcRecord | readonly MarcRecord[];
+    collection?: { readonly record?: MarcRecord | readonly MarcRecord[] };
   };
-  if (!document.record) throw new Error('KCLS MARC response does not contain a record');
-  const controls = array(document.record.controlfield);
-  const fields = array(document.record.datafield);
+  const record = array(document.record ?? document.collection?.record)[0];
+  if (!record) throw new Error('KCLS MARC response does not contain a record');
+  const controls = array(record.controlfield);
+  const fields = array(record.datafield);
   const fixed = controls.find((field) => field['@_tag'] === '008')?.['#text'] ?? '';
   const audience = fixed.length > 22 ? fixed[22]?.trim() || undefined : undefined;
   const subjects = fields
@@ -62,6 +61,11 @@ export function parseMarcMetadata(xml: string): CatalogMetadata {
     summary: clean(summary),
     series,
   };
+}
+
+interface MarcRecord {
+  readonly controlfield?: MarcControlField | readonly MarcControlField[];
+  readonly datafield?: MarcField | readonly MarcField[];
 }
 
 function parseContributor(field: MarcField): MarcContributor | undefined {

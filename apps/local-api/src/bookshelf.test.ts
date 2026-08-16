@@ -8,7 +8,12 @@ import {
   loadBookshelfConfig,
   saveBookshelfConfig,
 } from './bookshelf-config.js';
-import { backupBookshelf, getBookshelfStatus, initializeBookshelf } from './bookshelf-workflow.js';
+import {
+  backupBookshelf,
+  BORROWING_HISTORY_SETUP_NOTICE,
+  getBookshelfStatus,
+  initializeBookshelf,
+} from './bookshelf-workflow.js';
 
 const directories: string[] = [];
 
@@ -17,6 +22,15 @@ afterEach(() => {
 });
 
 describe('bookshelf CLI', () => {
+  it('warns parents about child-card registration, consent, and non-retroactive history', () => {
+    expect(BORROWING_HISTORY_SETUP_NOTICE).toContain('create its online');
+    expect(BORROWING_HISTORY_SETUP_NOTICE).toContain('off by default');
+    expect(BORROWING_HISTORY_SETUP_NOTICE).toContain('cannot enable it for you');
+    expect(BORROWING_HISTORY_SETUP_NOTICE).toContain(
+      'earlier physical checkouts are not recovered',
+    );
+  });
+
   it('parses commands, values, inline values, and flags', () => {
     expect(
       parseArguments([

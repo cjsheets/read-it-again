@@ -40,7 +40,6 @@ export class BibliocommonsSnapshotError extends Error {
 
 const REQUIRED_SELECTORS = [
   'td.item-title p.main-title',
-  'td.item-author',
   'td.item-format',
   'td.item-callnumber p.callnumber-details',
   'td.item-checkedoutdate',
@@ -83,7 +82,7 @@ export function parseBibliocommonsSnapshot(rawHtml: string): BibliocommonsParseR
     records.push({
       title,
       subtitle,
-      authors: [parseFamilyFirstAuthor(rawAuthor)],
+      authors: rawAuthor ? [parseFamilyFirstAuthor(rawAuthor)] : [],
       sourceFormat,
       publishedYear,
       callNumber,
@@ -118,22 +117,26 @@ function parseFamilyFirstAuthor(raw: string): BibliocommonsAuthor {
 
 function parseYear(value: string, rowIndex: number, issues: string[]): number | undefined {
   if (!value) return undefined;
-  if (!/^\d{4}$/u.test(value)) {
+  const match = /^(?:,\s*)?(\d{4})$/u.exec(value);
+  if (!match) {
     issues.push(`row ${rowIndex + 1} has invalid publication year ${JSON.stringify(value)}`);
     return undefined;
   }
-  return Number(value);
+  return Number(match[1]);
 }
 
 function parseDate(value: string, rowIndex: number, issues: string[]): string | undefined {
-  const match = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/u.exec(value);
-  if (!match) {
+  const numeric = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/u.exec(value);
+  const named = /^(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec) (\d{1,2}), (\d{4})$/u.exec(
+    value,
+  );
+  if (!numeric && !named) {
     issues.push(`row ${rowIndex + 1} has invalid checkout date ${JSON.stringify(value)}`);
     return undefined;
   }
-  const month = Number(match[1]);
-  const day = Number(match[2]);
-  const year = Number(match[3]);
+  const month = numeric ? Number(numeric[1]) : MONTHS.indexOf(named?.[1] ?? '') + 1;
+  const day = Number((numeric ?? named)?.[2]);
+  const year = Number((numeric ?? named)?.[3]);
   const date = new Date(Date.UTC(year, month - 1, day));
   if (
     date.getUTCFullYear() !== year ||
@@ -145,3 +148,5 @@ function parseDate(value: string, rowIndex: number, issues: string[]): string | 
   }
   return date.toISOString();
 }
+
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];

@@ -35,6 +35,23 @@ Configure a reader and sign in to KCLS in the browser that opens:
 pnpm bookshelf setup
 ```
 
+### Important first-time setup for a child's card
+
+A child's library account is often only a physical card, even when the adults in the household
+already use Libby, OverDrive, or another digital service. In that case, the parent or guardian
+must use **Log In/Register** in the KCLS catalog to create an online catalog profile linked to the
+child's existing card number and PIN/password. This does not create a new library card.
+
+KCLS/BiblioCommons borrowing history is also off by default. Because enabling it opts the child
+into retention of a private borrowing record, Read It Again will never switch it on automatically.
+The setup browser guides the parent to **My Settings → Account Preferences → Borrowing History →
+Change**, where they can make that choice and save it. History starts with items returned after it
+is enabled; older physical checkouts cannot be recovered. The login and sync commands detect a
+signed-out session and known “history disabled” pages and explain what remains to be done.
+
+This physical borrowing history is separate from the Libby timeline used for ebooks and
+audiobooks.
+
 After setup, the normal recurring workflow is one command:
 
 ```sh

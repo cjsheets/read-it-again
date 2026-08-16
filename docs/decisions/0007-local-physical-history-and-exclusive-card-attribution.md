@@ -10,12 +10,17 @@ stable row identifier. Its print view is paginated, and a partial scrape would s
 records near a short retention horizon. One KCLS card belongs exclusively to the child, which
 is stronger attribution evidence than any content classifier.
 
+Children's cards commonly have no online catalog profile until a parent registers the existing
+card. Borrowing History is a separate, non-retroactive privacy opt-in and is off by default.
+
 ## Decision
 
 The BiblioCommons adapter and its orchestration belong to local-only packages that the hosted
 browser application does not depend on. Each card uses an isolated Playwright browser
 context. Acquisition walks “Load next 50” to exhaustion and rejects login pages, expired
-sessions, missing selector-contract fields, and pagination that stops making progress.
+sessions, recognized history-disabled pages, missing selector-contract fields, and pagination
+that stops making progress. Setup gives the parent explicit registration and privacy guidance;
+the application verifies the resulting session but never changes the Borrowing History setting.
 
 The versioned physical source key hashes card ID, canonical title and author, normalized call
 number, and checkout date. Successful rows enter the existing resolution pipeline. Once
