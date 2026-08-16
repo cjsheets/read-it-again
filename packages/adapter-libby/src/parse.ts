@@ -50,6 +50,36 @@ export interface LibbyParseResult {
   readonly records: readonly NormalizedImportRecord[];
 }
 
+/** Plain-language names for the schema paths a parent might see. The CSV adapter's
+ *  "Could not find a title column. Available columns: …" is the standard here; a
+ *  raw Zod path like `0.title.text` is not something to show a reader (F-06). */
+const FIELD_LABELS: Readonly<Record<string, string>> = {
+  'title.text': 'title',
+  'title.titleId': 'title identifier',
+  'title.url': 'title link',
+  author: 'author',
+  timestamp: 'borrow date',
+  activity: 'activity',
+  'library.key': 'library',
+  'library.text': 'library name',
+  'library.url': 'library link',
+  'cover.url': 'cover link',
+  'cover.format': 'format, which must be ebook or audiobook',
+};
+
+function describeIssue(issue: {
+  readonly path: readonly PropertyKey[];
+  readonly message: string;
+}): string {
+  const [index, ...rest] = issue.path;
+  if (typeof index !== 'number') {
+    return 'This file is not a Libby timeline export. It should be a list of timeline entries.';
+  }
+  const field = rest.join('.');
+  if (!field) return `Entry ${index + 1} could not be read.`;
+  return `Entry ${index + 1}: the ${FIELD_LABELS[field] ?? field} is missing or invalid.`;
+}
+
 export class LibbySnapshotError extends Error {
   constructor(readonly issues: readonly string[]) {
     super(`Libby snapshot is invalid: ${issues.join('; ')}`);
@@ -68,12 +98,7 @@ export function parseLibbySnapshot(rawText: string): LibbyParseResult {
 
   const parsed = timelineSchema.safeParse(raw);
   if (!parsed.success) {
-    throw new LibbySnapshotError(
-      parsed.error.issues.map((issue) => {
-        const path = issue.path.length > 0 ? issue.path.join('.') : 'document';
-        return `${path}: ${issue.message}`;
-      }),
-    );
+    throw new LibbySnapshotError(parsed.error.issues.map(describeIssue));
   }
 
   const borrowed = parsed.data.filter((entry) => entry.activity.toLowerCase() === 'borrowed');

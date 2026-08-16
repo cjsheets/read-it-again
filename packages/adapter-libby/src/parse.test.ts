@@ -24,14 +24,26 @@ describe('parseLibbySnapshot', () => {
     ]);
   });
 
-  it('reports paths for schema errors', () => {
+  it('describes schema errors in plain language without leaking schema paths', () => {
     expect(() => parseLibbySnapshot('[{"title":{}}]')).toThrow(LibbySnapshotError);
     try {
       parseLibbySnapshot('[{"title":{}}]');
     } catch (error) {
-      expect(
-        (error as LibbySnapshotError).issues.some((issue) => issue.includes('0.title.text')),
-      ).toBe(true);
+      const { issues } = error as LibbySnapshotError;
+      expect(issues).toContain('Entry 1: the title is missing or invalid.');
+      // F-06: a parent must never be shown a raw Zod path such as `0.title.text`.
+      expect(issues.some((issue) => /\d\.[a-z]+\./iu.test(issue))).toBe(false);
+    }
+  });
+
+  it('explains a file that is not a timeline at all', () => {
+    try {
+      parseLibbySnapshot('{"activity":"borrowed"}');
+      throw new Error('expected a LibbySnapshotError');
+    } catch (error) {
+      expect((error as LibbySnapshotError).issues).toContain(
+        'This file is not a Libby timeline export. It should be a list of timeline entries.',
+      );
     }
   });
 

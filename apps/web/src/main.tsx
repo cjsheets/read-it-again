@@ -1,4 +1,4 @@
-import { StrictMode, useEffect, useState } from 'react';
+import { StrictMode, useEffect, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import type {
   ImportBatchResult,
@@ -10,9 +10,55 @@ import type {
   RecommendationView,
   ResolutionQueueItem,
 } from '@read-it-again/storage-schema';
+import { isLibrarySource } from '@read-it-again/storage-schema';
 import { requestWorker } from './client.js';
 import type { WorkerRequestInput } from './protocol.js';
 import './styles.css';
+
+/** F-06: one hardcoded headline told users their Libby file was invalid when they
+ *  had merely mistyped a backup passphrase. Errors now name the artefact they are
+ *  actually about, and most carry a specific next action. */
+type ErrorOperation =
+  | 'libby'
+  | 'wrongSlot'
+  | 'csv'
+  | 'manual'
+  | 'archiveExport'
+  | 'archiveImport'
+  | 'inbox'
+  | 'decision';
+
+const ERROR_TITLES: Readonly<Record<ErrorOperation, string>> = {
+  libby: 'That Libby file could not be read',
+  wrongSlot: 'That is a backup, not a Libby file',
+  csv: 'That CSV file could not be read',
+  manual: 'That book could not be added',
+  archiveExport: 'That backup could not be created',
+  archiveImport: 'That backup could not be restored',
+  inbox: 'Your bookshelf could not be opened',
+  decision: 'That change could not be saved',
+};
+
+const ERROR_ACTIONS: Readonly<Partial<Record<ErrorOperation, string>>> = {
+  libby: 'In Libby, choose Timeline → Export Timeline → Data (JSON), then try that file.',
+  wrongSlot: 'Use Import archive under “Add or transfer books”, with its passphrase.',
+  csv: 'The first row must name the columns, and one of them must be a title.',
+  archiveExport: 'Choose a passphrase of at least 12 characters, then export again.',
+  archiveImport:
+    'Enter the passphrase you chose when you exported this backup, then pick the file again.',
+  inbox: 'Reload the page. If it keeps happening, this browser may be blocking local storage.',
+};
+
+const BROWSER_OPERATION_ERRORS = {
+  importCsv: 'csv',
+  importManual: 'manual',
+  importArchive: 'archiveImport',
+} as const satisfies Readonly<Record<string, ErrorOperation>>;
+
+interface ErrorState {
+  readonly operation: ErrorOperation;
+  readonly issues: readonly string[];
+}
 
 interface InboxState {
   readonly records: readonly ImportRecord[];
@@ -33,7 +79,7 @@ function App() {
     recommendations: { generatedAt: null, constraints: null, discovery: [], readAgain: [] },
   });
   const [status, setStatus] = useState('Opening your private bookshelf…');
-  const [error, setError] = useState<readonly string[]>([]);
+  const [error, setError] = useState<ErrorState | null>(null);
   const [busy, setBusy] = useState(true);
   const [archivePassphrase, setArchivePassphrase] = useState('');
 
@@ -56,7 +102,7 @@ function App() {
         response.inbox.records.length === 0 ? 'No books imported yet.' : 'Import inbox ready.',
       );
     } else {
-      setError(response.issues ?? [response.message]);
+      setError({ operation: 'inbox', issues: response.issues ?? [response.message] });
       setStatus('Could not open the import inbox.');
     }
     setBusy(false);
@@ -64,12 +110,15 @@ function App() {
 
   async function importFile(file: File) {
     setBusy(true);
-    setError([]);
+    setError(null);
     setStatus(`Checking ${file.name}…`);
     try {
       const rawText = await file.text();
       if (isEncryptedArchive(rawText)) {
-        setError(['This file is an encrypted bookshelf archive, not a Libby timeline.']);
+        setError({
+          operation: 'wrongSlot',
+          issues: ['This file is an encrypted bookshelf archive, not a Libby timeline.'],
+        });
         setStatus('Use Import archive under Add or transfer books.');
         return;
       }
@@ -79,7 +128,7 @@ function App() {
         fileName: file.name,
       });
       if (!response.ok) {
-        setError(response.issues ?? [response.message]);
+        setError({ operation: 'libby', issues: response.issues ?? [response.message] });
         setStatus('Nothing was imported. Fix the file and try again.');
         return;
       }
@@ -92,7 +141,10 @@ function App() {
       });
       setStatus(importSummary(response.result));
     } catch (caught) {
-      setError([caught instanceof Error ? caught.message : String(caught)]);
+      setError({
+        operation: 'libby',
+        issues: [caught instanceof Error ? caught.message : String(caught)],
+      });
       setStatus('Nothing was imported.');
     } finally {
       setBusy(false);
@@ -199,14 +251,17 @@ function App() {
       <p className="status" role="status" data-testid="import-status">
         {status}
       </p>
-      {error.length > 0 && (
+      {error && (
         <section className="error" role="alert">
-          <strong>Libby file could not be validated</strong>
+          <strong data-testid="error-title">{ERROR_TITLES[error.operation]}</strong>
           <ul>
-            {error.slice(0, 8).map((issue) => (
+            {error.issues.slice(0, 8).map((issue) => (
               <li key={issue}>{issue}</li>
             ))}
           </ul>
+          {ERROR_ACTIONS[error.operation] && (
+            <p className="error-action">{ERROR_ACTIONS[error.operation]}</p>
+          )}
         </section>
       )}
 
@@ -317,7 +372,7 @@ function App() {
       });
       setStatus('Resolution decision saved.');
     } else {
-      setError(response.issues ?? [response.message]);
+      setError({ operation: 'decision', issues: response.issues ?? [response.message] });
     }
     setBusy(false);
   }
@@ -329,14 +384,17 @@ function App() {
     readerIds: readonly string[],
   ) {
     setBusy(true);
-    const response = await requestWorker({
-      type: 'correctAttribution',
-      scope,
-      importRecordId: item.importRecordId,
-      workId: item.workId,
-      state,
-      readerIds,
-    });
+    const response = await requestWorker(
+      scope === 'checkout'
+        ? {
+            type: 'correctAttribution',
+            scope,
+            importRecordId: item.importRecordId,
+            state,
+            readerIds,
+          }
+        : { type: 'correctAttribution', scope, workId: item.workId, state, readerIds },
+    );
     if (response.ok) {
       setInbox({
         ...response.inbox,
@@ -346,7 +404,7 @@ function App() {
         recommendations: response.recommendations,
       });
       setStatus('Attribution correction saved.');
-    } else setError(response.issues ?? [response.message]);
+    } else setError({ operation: 'decision', issues: response.issues ?? [response.message] });
     setBusy(false);
   }
 
@@ -364,7 +422,7 @@ function App() {
         recommendations: response.recommendations,
       });
       setStatus(request.type === 'assessWork' ? 'Assessment saved.' : 'Confirmed session saved.');
-    } else setError(response.issues ?? [response.message]);
+    } else setError({ operation: 'decision', issues: response.issues ?? [response.message] });
     setBusy(false);
   }
 
@@ -381,7 +439,7 @@ function App() {
 
   async function exportArchive() {
     setBusy(true);
-    setError([]);
+    setError(null);
     const response = await requestWorker({ type: 'exportArchive', passphrase: archivePassphrase });
     if (response.ok && response.archiveText) {
       downloadText(
@@ -390,7 +448,7 @@ function App() {
       );
       setStatus('Encrypted archive downloaded. Keep its passphrase separately.');
     } else if (!response.ok) {
-      setError(response.issues ?? [response.message]);
+      setError({ operation: 'archiveExport', issues: response.issues ?? [response.message] });
       setStatus('Archive export failed.');
     }
     setBusy(false);
@@ -408,7 +466,7 @@ function App() {
     success: string,
   ) {
     setBusy(true);
-    setError([]);
+    setError(null);
     const response = await requestWorker(request);
     if (response.ok) {
       setInbox({
@@ -420,7 +478,10 @@ function App() {
       });
       setStatus(request.type === 'importCsv' ? importSummary(response.result) : success);
     } else {
-      setError(response.issues ?? [response.message]);
+      setError({
+        operation: BROWSER_OPERATION_ERRORS[request.type],
+        issues: response.issues ?? [response.message],
+      });
       setStatus('Nothing was changed.');
     }
     setBusy(false);
@@ -451,6 +512,16 @@ function ManualBookForm({
   const [title, setTitle] = useState('');
   const [author, setAuthor] = useState('');
   const [isbn, setIsbn] = useState('');
+  const titleField = useRef<HTMLInputElement>(null);
+
+  // The manifest's "Add a book" shortcut opens /?action=add. Honour it, so the
+  // shortcut lands on the form rather than merely opening the app.
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get('action') !== 'add') return;
+    titleField.current?.scrollIntoView({ block: 'center' });
+    titleField.current?.focus();
+  }, []);
+
   return (
     <article>
       <h3>Manual or ISBN</h3>
@@ -470,6 +541,7 @@ function ManualBookForm({
         <input
           aria-label="Book title"
           placeholder="Title"
+          ref={titleField}
           required
           value={title}
           onChange={(event) => setTitle(event.target.value)}
@@ -502,6 +574,20 @@ function downloadText(value: string, fileName: string): void {
   link.download = fileName;
   link.click();
   URL.revokeObjectURL(url);
+}
+
+/** ADR 0009 separates a library checkout from a book you simply added. These are
+ *  the plain-language names for that distinction (F-13). */
+const SOURCE_LABELS: Readonly<Record<string, string>> = {
+  manual: 'Added by you',
+  csv: 'Imported from a CSV file',
+  libby: 'From your library history',
+  bibliocommons: 'From your library history',
+};
+
+function provenanceLabel(sourceKinds: readonly string[]): string {
+  const labels = [...new Set(sourceKinds.map((kind) => SOURCE_LABELS[kind] ?? 'Imported'))];
+  return labels.length === 0 ? 'On your shelf' : labels.join(' · ');
 }
 
 const TRAITS: readonly { readonly value: ReadingTrait; readonly label: string }[] = [
@@ -591,6 +677,15 @@ function ReadingDashboard({
     request: Extract<WorkerRequestInput, { type: 'assessWork' | 'recordReadingSession' }>,
   ) => Promise<void>;
 }) {
+  // Only library-sourced records are checkout observations, and an acquisition
+  // episode is only an acquisition if a real checkout produced it (F-13).
+  const libraryCheckouts = model.checkouts.filter((checkout) =>
+    isLibrarySource(checkout.sourceKind),
+  );
+  const libraryWorkIds = new Set(libraryCheckouts.map((checkout) => checkout.workId));
+  const acquisitionEpisodes = model.episodes.filter((episode) =>
+    libraryWorkIds.has(episode.workId),
+  );
   return (
     <section className="reading-model" aria-labelledby="shelf-title" data-testid="shelf">
       <div className="section-heading">
@@ -612,18 +707,22 @@ function ReadingDashboard({
         <div>
           <h3>Acquisition episodes</h3>
           <p className="model-note">Derived from checkout proximity; not confirmed readings.</p>
-          <ul>
-            {model.episodes.map((episode) => (
-              <li key={episode.id}>
-                <strong>{episode.title}</strong> · {episode.readerName}
-                <br />
-                <small>
-                  {episode.checkoutCount} checkout{episode.checkoutCount === 1 ? '' : 's'} ·{' '}
-                  {episode.recurrenceKind.replace('_', ' ')}
-                </small>
-              </li>
-            ))}
-          </ul>
+          {acquisitionEpisodes.length === 0 ? (
+            <p>No borrowing history yet.</p>
+          ) : (
+            <ul>
+              {acquisitionEpisodes.map((episode) => (
+                <li key={episode.id}>
+                  <strong>{episode.title}</strong> · {episode.readerName}
+                  <br />
+                  <small>
+                    {episode.checkoutCount} checkout{episode.checkoutCount === 1 ? '' : 's'} ·{' '}
+                    {episode.recurrenceKind.replace('_', ' ')}
+                  </small>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
         <div>
           <h3>Confirmed reading sessions</h3>
@@ -647,15 +746,19 @@ function ReadingDashboard({
         <div>
           <h3>Checkout observations</h3>
           <p className="model-note">Imported library facts; a checkout does not prove reading.</p>
-          <ul>
-            {model.checkouts.map((checkout) => (
-              <li key={checkout.id}>
-                <strong>{checkout.title}</strong> · {checkout.readers.join(', ')}
-                <br />
-                <small>{new Date(checkout.occurredAt).toLocaleDateString()}</small>
-              </li>
-            ))}
-          </ul>
+          {libraryCheckouts.length === 0 ? (
+            <p>Nothing borrowed from a library yet.</p>
+          ) : (
+            <ul>
+              {libraryCheckouts.map((checkout) => (
+                <li key={checkout.id}>
+                  <strong>{checkout.title}</strong> · {checkout.readers.join(', ')}
+                  <br />
+                  <small>{new Date(checkout.occurredAt).toLocaleDateString()}</small>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
       </div>
     </section>
@@ -671,27 +774,40 @@ function AssessmentCard({
     request: Extract<WorkerRequestInput, { type: 'assessWork' | 'recordReadingSession' }>,
   ) => Promise<void>;
 }) {
-  const [engagement, setEngagement] = useState(item.childEngagement ?? 2);
-  const [tolerance, setTolerance] = useState(item.adultTolerance ?? 2);
+  const [engagement, setEngagement] = useState<number | null>(item.childEngagement);
+  const [tolerance, setTolerance] = useState<number | null>(item.adultTolerance);
   const [asks, setAsks] = useState(item.asksByName);
   const [veto, setVeto] = useState(item.veto);
   const [minutes, setMinutes] = useState(item.estimatedReadMinutes?.toString() ?? '');
   const [traits, setTraits] = useState<readonly ReadingTrait[]>(item.traits);
+  const unrated = item.childEngagement === null && item.adultTolerance === null;
+  const changed =
+    engagement !== item.childEngagement ||
+    tolerance !== item.adultTolerance ||
+    asks !== item.asksByName ||
+    veto !== item.veto ||
+    minutes !== (item.estimatedReadMinutes?.toString() ?? '') ||
+    traits.length !== item.traits.length ||
+    traits.some((trait) => !item.traits.includes(trait));
   return (
     <article className="assessment-card" data-testid="shelf-card">
       <h3>{item.title}</h3>
       <p>
-        {item.readerName} · {item.episodeCount} acquisition episode
-        {item.episodeCount === 1 ? '' : 's'}
+        {item.readerName} · {provenanceLabel(item.sourceKinds)}
       </p>
       <div className="quick-rating">
         <RatingButtons label="Child engagement" value={engagement} onChange={setEngagement} />
         <RatingButtons label="Adult tolerance" value={tolerance} onChange={setTolerance} />
       </div>
+      {unrated && (
+        <p className="rating-unset" data-testid="rating-unset">
+          Not rated yet.
+        </p>
+      )}
       <div className="trait-chips">
         {TRAITS.map((trait) => (
           <button
-            className={traits.includes(trait.value) ? 'selected' : ''}
+            aria-pressed={traits.includes(trait.value)}
             type="button"
             key={trait.value}
             onClick={() =>
@@ -738,13 +854,14 @@ function AssessmentCard({
       <div className="decision-actions">
         <button
           type="button"
+          disabled={!changed}
           onClick={() =>
             void onChanged({
               type: 'assessWork',
               workId: item.workId,
               personId: item.personId,
-              childEngagement: engagement,
-              adultTolerance: tolerance,
+              childEngagement: engagement ?? undefined,
+              adultTolerance: tolerance ?? undefined,
               asksByName: asks,
               veto,
               estimatedReadMinutes: minutes ? Number(minutes) : undefined,
@@ -774,29 +891,36 @@ function AssessmentCard({
   );
 }
 
+const RATING_MEANINGS = ['no', 'a little', 'a lot', 'loved it'] as const;
+
 function RatingButtons({
   label,
   value,
   onChange,
 }: {
   readonly label: string;
-  readonly value: number;
+  readonly value: number | null;
   readonly onChange: (value: number) => void;
 }) {
+  // role="group" rather than fieldset/legend: a <legend> cannot be laid out
+  // reliably, and the float hack it forced was the 320px overflow (F-10).
   return (
-    <fieldset>
-      <legend>{label}</legend>
-      {[0, 1, 2, 3].map((score) => (
-        <button
-          aria-pressed={score === value}
-          type="button"
-          key={score}
-          onClick={() => onChange(score)}
-        >
-          {score}
-        </button>
-      ))}
-    </fieldset>
+    <div className="rating-row" role="group" aria-label={label}>
+      <span className="rating-label">{label}</span>
+      <div className="rating-buttons">
+        {[0, 1, 2, 3].map((score) => (
+          <button
+            aria-label={`${label}: ${score} of 3 — ${RATING_MEANINGS[score]}`}
+            aria-pressed={score === value}
+            type="button"
+            key={score}
+            onClick={() => onChange(score)}
+          >
+            {score}
+          </button>
+        ))}
+      </div>
+    </div>
   );
 }
 

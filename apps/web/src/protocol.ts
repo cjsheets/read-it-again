@@ -51,11 +51,21 @@ export type WorkerRequest =
     }
   | { readonly id: string; readonly type: 'rejectCase'; readonly caseId: string }
   | { readonly id: string; readonly type: 'deferCase'; readonly caseId: string }
+  // Split by scope on purpose. `attribution_overrides` has a CHECK constraint
+  // allowing exactly one target per scope, so a shape carrying both is always a
+  // runtime failure; this makes that shape impossible to construct.
   | {
       readonly id: string;
       readonly type: 'correctAttribution';
-      readonly scope: 'checkout' | 'work';
+      readonly scope: 'checkout';
       readonly importRecordId: string;
+      readonly state: 'assigned' | 'excluded';
+      readonly readerIds: readonly string[];
+    }
+  | {
+      readonly id: string;
+      readonly type: 'correctAttribution';
+      readonly scope: 'work';
       readonly workId: string;
       readonly state: 'assigned' | 'excluded';
       readonly readerIds: readonly string[];
@@ -65,8 +75,10 @@ export type WorkerRequest =
       readonly type: 'assessWork';
       readonly workId: string;
       readonly personId: string;
-      readonly childEngagement: number;
-      readonly adultTolerance: number;
+      // Optional because "not rated yet" is a real state the storage layer already
+      // persists as NULL. Defaulting these to 2 fabricated assessments (F-12).
+      readonly childEngagement?: number;
+      readonly adultTolerance?: number;
       readonly asksByName: boolean;
       readonly veto: boolean;
       readonly estimatedReadMinutes?: number;

@@ -34,7 +34,8 @@ test('imports a Libby snapshot idempotently and reports invalid files without wr
     mimeType: 'application/json',
     buffer: Buffer.from('[{"title":{}}]'),
   });
-  await expect(page.getByRole('alert')).toContainText('0.title.text');
+  await expect(page.getByTestId('error-title')).toHaveText('That Libby file could not be read');
+  await expect(page.getByRole('alert')).toContainText('Entry 1: the title is missing or invalid.');
   await expect(page.getByTestId('import-status')).toHaveText(
     'Nothing was imported. Fix the file and try again.',
   );

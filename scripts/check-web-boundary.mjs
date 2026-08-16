@@ -28,7 +28,7 @@ const artifactForbidden = [
   'opac/extras/opensearch',
 ];
 for (const file of artifactFiles) {
-  if (/\.(?:wasm|svg)$/u.test(file)) continue;
+  if (/\.(?:wasm|svg|png|jpg|jpeg|webp|ico)$/u.test(file)) continue;
   const content = await readFile(file, 'utf8');
   for (const token of artifactForbidden)
     if (content.includes(token)) fail(`${file} contains ${token}`);

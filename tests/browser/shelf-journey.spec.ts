@@ -75,6 +75,28 @@ test.describe('every input path reaches the bookshelf', () => {
     expect(await pendingDecisions(page)).toBe(0);
   });
 
+  /**
+   * Regression: the PWA sent both `importRecordId` and `workId` on every
+   * attribution correction, but `attribution_overrides` has a CHECK constraint
+   * permitting exactly one target per scope. Every correction failed, so the
+   * review queue could never be cleared and no imported book could reach the
+   * shelf even with the two decisions F-01 describes.
+   */
+  test('an attribution correction actually saves and lands the book', async ({ page }) => {
+    await openApp(page);
+    await importCsv(page, csvSnapshot(1));
+    await expect(page.getByTestId('record-count')).toHaveText('1 books');
+
+    await page.getByRole('button', { name: 'Use source details' }).click();
+    await expect(page.getByTestId('attribution-count')).toHaveText('1 pending');
+    await page.getByRole('button', { name: 'For Child', exact: true }).click();
+
+    await expect(page.getByTestId('import-status')).toHaveText('Attribution correction saved.');
+    await expect(page.getByRole('alert')).toHaveCount(0);
+    await expect(page.getByTestId('attribution-count')).toHaveCount(0);
+    await expect(shelfCards(page)).toHaveCount(1);
+  });
+
   test('an encrypted archive carries the bookshelf to a fresh device', async ({
     page,
     browser,

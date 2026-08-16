@@ -39,11 +39,13 @@ export {
 export type { AttributionTriageItem } from './attribution-triage.js';
 export {
   getReadingModel,
+  isLibrarySource,
+  LIBRARY_SOURCE_KINDS,
   READING_TRAITS,
   saveReadingSession,
   saveWorkAssessment,
 } from './reading.js';
-export type { ReadingModelView, ReadingTrait } from './reading.js';
+export type { ReadingModelView, ReadingTrait, SourceKind } from './reading.js';
 export {
   getFreshHoldings,
   getRecommendations,

@@ -23,6 +23,23 @@ button,
 input {
   font: inherit;
 }
+
+/* Every control sits on a cream surface, so an offset forest-green ring reads at
+   9.1:1 even over the dark-green filled buttons — the ring lands on the page,
+   not on the button. */
+:focus-visible {
+  outline: 3px solid #24473b;
+  outline-offset: 2px;
+}
+/* The file inputs are 1px and visually hidden, so their own ring would be
+   invisible. Move it to the label the user actually sees. */
+.file-button:focus-within {
+  outline: 3px solid #24473b;
+  outline-offset: 2px;
+}
+.file-button input:focus-visible {
+  outline: none;
+}
 .capability-note {
   background: #e8f0ea;
   border-left: 4px solid #24473b;
@@ -143,8 +160,9 @@ h3 {
 }
 .manual-form input,
 .tool-grid input[type='password'] {
-  border: 1px solid #b9afa1;
+  border: 1px solid #8a8072;
   border-radius: 8px;
+  min-height: 44px;
   min-width: 0;
   padding: 9px 10px;
   width: 100%;
@@ -156,6 +174,7 @@ h3 {
   border-radius: 999px;
   color: white;
   cursor: pointer;
+  min-height: 44px;
   padding: 10px 12px;
 }
 .archive-actions {
@@ -171,6 +190,10 @@ h3 {
   margin-bottom: 0;
   padding-left: 20px;
 }
+.error-action {
+  margin: 10px 0 0;
+  color: #4f493f;
+}
 .section-heading {
   display: flex;
   align-items: end;
@@ -185,7 +208,7 @@ h3 {
   font-variant-numeric: tabular-nums;
 }
 .empty {
-  border: 1px dashed #bdb2a2;
+  border: 1px dashed #8a8072;
   border-radius: 14px;
   color: #756d62;
   padding: 36px;
@@ -262,9 +285,10 @@ details {
   grid-template-columns: minmax(0, 1fr) auto;
   text-align: left;
   gap: 3px 12px;
-  border: 1px solid #c9d7cd;
+  border: 1px solid #5f7d6d;
   background: #edf4ef;
   border-radius: 10px;
+  min-height: 44px;
   padding: 12px;
   cursor: pointer;
 }
@@ -283,10 +307,11 @@ details {
   gap: 8px;
 }
 .decision-actions button {
-  border: 1px solid #b9afa1;
+  border: 1px solid #8a8072;
   background: transparent;
   border-radius: 999px;
-  padding: 8px 12px;
+  min-height: 44px;
+  padding: 8px 16px;
   cursor: pointer;
   color: #4f493f;
 }
@@ -294,6 +319,15 @@ details {
   border-color: #24473b;
   color: #24473b;
   font-weight: 700;
+}
+/* Save is disabled until something actually changes (F-12), so it has to read as
+   unavailable rather than merely being inert when pressed. */
+.decision-actions button:disabled,
+.decision-actions button:first-child:disabled {
+  border-color: #cfc6b8;
+  color: #8a8072;
+  cursor: not-allowed;
+  font-weight: 400;
 }
 summary {
   cursor: pointer;
@@ -366,7 +400,8 @@ summary {
 }
 .shelf-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  /* min() keeps the track from forcing a 300px column into a 288px viewport. */
+  grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr));
   gap: 14px;
 }
 .assessment-card {
@@ -384,33 +419,46 @@ summary {
   gap: 10px;
   margin-bottom: 14px;
 }
-.quick-rating fieldset {
+/* Wrapping flex, not a fixed 145px label column. The label drops above the
+   buttons as soon as they stop fitting, which is what removes the 320 px
+   overflow without depending on a magic breakpoint matching the content. */
+.rating-row {
   display: flex;
-  gap: 5px;
-  border: 0;
-  padding: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
 }
-.quick-rating legend {
-  float: left;
-  width: 145px;
+.rating-label {
+  flex: 1 1 120px;
   font-size: 0.88rem;
+  min-width: 0;
 }
-.quick-rating button,
+.rating-buttons {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 6px;
+}
+.rating-buttons button,
 .trait-chips button {
-  border: 1px solid #b9afa1;
+  border: 1px solid #8a8072;
   background: transparent;
   border-radius: 999px;
   cursor: pointer;
 }
-.quick-rating button {
-  width: 32px;
-  height: 32px;
+.rating-buttons button {
+  min-width: 44px;
+  min-height: 44px;
 }
-.quick-rating button[aria-pressed='true'],
-.trait-chips button.selected {
+.rating-buttons button[aria-pressed='true'],
+.trait-chips button[aria-pressed='true'] {
   background: #24473b;
   border-color: #24473b;
   color: white;
+}
+.rating-unset {
+  color: #6b645a;
+  font-size: 0.8rem;
+  margin: -4px 0 0;
 }
 .trait-chips,
 .assessment-options {
@@ -420,15 +468,31 @@ summary {
   margin: 12px 0;
 }
 .trait-chips button {
-  padding: 6px 9px;
+  min-height: 44px;
+  padding: 6px 12px;
   font-size: 0.78rem;
 }
 .assessment-options {
   align-items: center;
+  column-gap: 16px;
   font-size: 0.84rem;
 }
+.assessment-options label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+}
+.assessment-options input[type='checkbox'] {
+  width: 24px;
+  height: 24px;
+}
 .assessment-options input[type='number'] {
-  width: 60px;
+  border: 1px solid #8a8072;
+  border-radius: 8px;
+  min-height: 44px;
+  padding: 4px 8px;
+  width: 76px;
 }
 .reading-columns {
   display: grid;
@@ -478,5 +542,19 @@ summary {
     display: flex;
     gap: 12px;
     justify-content: start;
+  }
+}
+
+/* Below 380px every remaining multi-column grid collapses, per audit §7.3. */
+@media (max-width: 380px) {
+  main {
+    width: calc(100% - 20px);
+  }
+  .shelf-grid,
+  .candidates {
+    grid-template-columns: 1fr;
+  }
+  .decision-actions button {
+    flex: 1 1 100%;
   }
 }

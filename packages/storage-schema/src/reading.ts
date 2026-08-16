@@ -12,6 +12,16 @@ export const READING_TRAITS = [
 ] as const;
 export type ReadingTrait = (typeof READING_TRAITS)[number];
 
+/** Where a record came from. Only library kinds are genuine checkout observations;
+ *  ADR 0009 turns on that distinction, so the view carries it explicitly. */
+export type SourceKind = 'libby' | 'bibliocommons' | 'csv' | 'manual';
+
+export const LIBRARY_SOURCE_KINDS: readonly SourceKind[] = ['libby', 'bibliocommons'];
+
+export function isLibrarySource(kind: string): boolean {
+  return (LIBRARY_SOURCE_KINDS as readonly string[]).includes(kind);
+}
+
 export interface ReadingModelView {
   readonly checkouts: readonly {
     readonly id: string;
@@ -19,6 +29,7 @@ export interface ReadingModelView {
     readonly workId: string;
     readonly occurredAt: string;
     readonly readers: readonly string[];
+    readonly sourceKind: string;
   }[];
   readonly episodes: readonly {
     readonly id: string;
@@ -55,6 +66,7 @@ export interface ReadingModelView {
     readonly veto: boolean;
     readonly estimatedReadMinutes: number | null;
     readonly traits: readonly ReadingTrait[];
+    readonly sourceKinds: readonly string[];
   }[];
 }
 
@@ -143,9 +155,11 @@ export async function getReadingModel(database: Database): Promise<ReadingModelV
     work_id: string;
     occurred_at: string;
     reader_names: string | null;
+    source_kind: string;
   }>(
-    `SELECT r.id, r.title, e.work_id, r.occurred_at, group_concat(p.display_name, '|||') AS reader_names
-     FROM import_records r JOIN resolution_cases c ON c.import_record_id = r.id
+    `SELECT r.id, r.title, e.work_id, r.occurred_at, sa.kind AS source_kind, group_concat(p.display_name, '|||') AS reader_names
+     FROM import_records r JOIN source_accounts sa ON sa.id = r.source_account_id
+     JOIN resolution_cases c ON c.import_record_id = r.id
      JOIN resolution_decisions d ON d.resolution_case_id = c.id AND d.current = 1
      JOIN editions e ON e.id = d.edition_id JOIN attribution_results a ON a.import_record_id = r.id AND a.current = 1 AND a.state = 'assigned'
      LEFT JOIN attribution_result_readers ar ON ar.attribution_result_id = a.id LEFT JOIN people p ON p.id = ar.person_id
@@ -190,8 +204,20 @@ export async function getReadingModel(database: Database): Promise<ReadingModelV
     veto: number | null;
     estimated_read_minutes: number | null;
     traits_json: string | null;
+    source_kinds: string | null;
   }>(
-    `SELECT p.household_id, s.work_id, w.canonical_title AS title, s.person_id, p.display_name AS reader_name, s.episode_count, s.preference_score, a.child_engagement, a.adult_tolerance, a.asks_by_name, a.veto, a.estimated_read_minutes, a.traits_json FROM preference_summaries s JOIN works w ON w.id = s.work_id JOIN people p ON p.id = s.person_id LEFT JOIN work_assessments a ON a.work_id = s.work_id AND a.person_id = s.person_id ORDER BY s.preference_score DESC, w.canonical_title`,
+    `SELECT p.household_id, s.work_id, w.canonical_title AS title, s.person_id, p.display_name AS reader_name, s.episode_count, s.preference_score, a.child_engagement, a.adult_tolerance, a.asks_by_name, a.veto, a.estimated_read_minutes, a.traits_json, src.kinds AS source_kinds
+     FROM preference_summaries s JOIN works w ON w.id = s.work_id JOIN people p ON p.id = s.person_id
+     LEFT JOIN work_assessments a ON a.work_id = s.work_id AND a.person_id = s.person_id
+     LEFT JOIN (
+       SELECT e.work_id AS work_id, group_concat(DISTINCT sa.kind) AS kinds
+       FROM import_records r JOIN source_accounts sa ON sa.id = r.source_account_id
+       JOIN resolution_cases c ON c.import_record_id = r.id
+       JOIN resolution_decisions d ON d.resolution_case_id = c.id AND d.current = 1
+       JOIN editions e ON e.id = d.edition_id
+       GROUP BY e.work_id
+     ) src ON src.work_id = s.work_id
+     ORDER BY s.preference_score DESC, w.canonical_title`,
   );
   return {
     checkouts: checkoutRows.map((row) => ({
@@ -200,6 +226,7 @@ export async function getReadingModel(database: Database): Promise<ReadingModelV
       workId: row.work_id,
       occurredAt: row.occurred_at,
       readers: splitNames(row.reader_names),
+      sourceKind: row.source_kind,
     })),
     episodes: episodeRows.map((row) => ({
       id: row.id,
@@ -236,6 +263,7 @@ export async function getReadingModel(database: Database): Promise<ReadingModelV
       veto: row.veto === 1,
       estimatedReadMinutes: row.estimated_read_minutes,
       traits: JSON.parse(row.traits_json ?? '[]') as ReadingTrait[],
+      sourceKinds: (row.source_kinds ?? '').split(',').filter(Boolean),
     })),
   };
 }

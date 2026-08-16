@@ -6,11 +6,15 @@ Two kinds of test live here.
 `libby-import`, and `pwa` are these. They are green and a failure is a regression.
 
 **Safety-net tests** describe behaviour the audit says the product is supposed to
-have and does not yet. `shelf-journey`, `performance-budget`, and `accessibility`
-are these. They exist so that the largest findings — F-01 (imported books never
-reach the shelf) and F-04 (the UI renders every row) — are executable statements
-rather than prose, and so that the Increment 4 refactor of `main.tsx` has
-something to refactor against.
+have and does not yet. `shelf-journey` and `performance-budget` still hold some of
+these. They exist so that the largest findings — F-01 (imported books never reach
+the shelf) and F-04 (the UI renders every row) — are executable statements rather
+than prose, and so that the Increment 4 refactor of `main.tsx` has something to
+refactor against.
+
+Four annotations were removed in Increment 1, and `accessibility.spec.ts` is now
+entirely contract tests. Four remain: two in `shelf-journey` (F-01, Increment 2)
+and two in `performance-budget` (F-04, Increment 6).
 
 ## Why `test.fail()` and not a red build
 

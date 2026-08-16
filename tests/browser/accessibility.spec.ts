@@ -57,9 +57,7 @@ test.describe('accessibility', () => {
     await scan(page, testInfo, 'populated');
   });
 
-  // F-07 · fixed by Increment 1.
   test('a focus-visible rule is defined somewhere in the loaded stylesheets', async ({ page }) => {
-    test.fail(true, 'F-07: styles.css defines no :focus or :focus-visible rule. Increment 1.');
     await openApp(page);
 
     const focusRules = await page.evaluate(() =>
@@ -77,11 +75,9 @@ test.describe('accessibility', () => {
     expect(focusRules).not.toEqual([]);
   });
 
-  // F-09 · fixed by Increment 1. axe cannot flag this: it has no way to know a
-  // <button> is a toggle, so the omission is invisible to automated scanning and
-  // has to be asserted by hand.
+  // axe cannot flag this: it has no way to know a <button> is a toggle, so the
+  // omission is invisible to automated scanning and has to be asserted by hand.
   test('trait chips expose their pressed state', async ({ page }) => {
-    test.fail(true, 'F-09: trait chips carry state only in className. Increment 1.');
     await openApp(page);
     await populate(page);
 
@@ -91,35 +87,52 @@ test.describe('accessibility', () => {
     await expect(chip).toHaveAttribute('aria-pressed', 'true');
   });
 
-  // F-08 · fixed by Increment 1. The audit measured 50 controls under 44x44 px on a
-  // populated shelf; WCAG 2.2 SC 2.5.8 sets 24x24 as the absolute floor.
+  // WCAG 2.2 SC 2.5.8 sets 24x24 as the absolute floor; the shelf's own controls
+  // are held to the 44x44 platform norm by the test below this one.
   test('no interactive control is smaller than the 24x24 px floor', async ({ page }) => {
-    test.fail(true, 'F-08: rating buttons are 32x32, chips 29 px tall, checkboxes 13x13.');
     await openApp(page);
     await populate(page);
 
-    const undersized = await page.evaluate(() =>
-      [...document.querySelectorAll('button, input, select, textarea, a[href]')]
-        .map((element) => ({ element, box: element.getBoundingClientRect() }))
-        .filter(({ box }) => box.width > 0 && (box.width < 24 || box.height < 24))
+    expect(await undersizedControls(page, 'body', 24)).toEqual([]);
+  });
+
+  // The audit's own bar: 44x44 on the surfaces used one-handed while holding a
+  // child — the shelf card (rating dials, chips, options) and the add-book form.
+  test('shelf and add-book controls meet the 44x44 platform norm', async ({ page }) => {
+    await openApp(page);
+    await populate(page);
+
+    expect(await undersizedControls(page, '[data-testid="shelf-card"]', 44)).toEqual([]);
+    expect(await undersizedControls(page, '.manual-form', 44)).toEqual([]);
+  });
+});
+
+/**
+ * Reports controls whose activation target is smaller than `minimum` in either
+ * axis. The measured box is the wrapping <label> when there is one: a visually
+ * hidden 1px file input or a 24px checkbox is activated by clicking anywhere in
+ * its label, so the label is the real target, not the input.
+ */
+function undersizedControls(page: Page, root: string, minimum: number): Promise<string[]> {
+  return page.evaluate(
+    ([selector, floor]) =>
+      [...document.querySelectorAll(`${selector} button, ${selector} input, ${selector} a[href]`)]
+        .map((element) => {
+          const target = element.closest('label') ?? element;
+          return { element, box: target.getBoundingClientRect() };
+        })
+        .filter(({ box }) => box.width > 0 && (box.width < floor || box.height < floor))
         .map(
           ({ element, box }) =>
             `${element.tagName.toLowerCase()}.${element.className || '-'} ${Math.round(box.width)}x${Math.round(box.height)}`,
         ),
-    );
-
-    expect(undersized).toEqual([]);
-  });
-});
+    [root, minimum] as const,
+  );
+}
 
 test.describe('reflow', () => {
-  // F-10 · fixed by Increment 1 (380 px breakpoint).
   for (const width of [320, 390] as const) {
     test(`the page does not scroll horizontally at ${width} px`, async ({ page }) => {
-      test.fail(
-        width === 320,
-        'F-10: the rating fieldset overflows to 332 px at a 320 px viewport. Increment 1.',
-      );
       await page.setViewportSize({ width, height: 800 });
       await openApp(page);
 

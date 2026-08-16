@@ -3,13 +3,20 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#f6f1e8" />
+    <!-- Matches manifest theme_color; they disagreed, so the installed app and the
+         browser tab were branded differently. -->
+    <meta name="theme-color" content="#24473b" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="Read Again" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta
       http-equiv="Content-Security-Policy"
       content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self'; img-src 'self' data: blob:; connect-src 'self'; worker-src 'self' blob:; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'"
     />
     <link rel="manifest" href="/manifest.webmanifest" />
     <link rel="icon" href="/icon.svg" type="image/svg+xml" />
+    <!-- iOS ignores SVG icons for home-screen install. -->
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <title>Read It Again</title>
   </head>
   <body>
