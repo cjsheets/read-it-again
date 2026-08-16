@@ -123,11 +123,16 @@ export async function importEncryptedArchive(
     for (const table of [...ARCHIVE_TABLES].reverse()) await database.run(`DELETE FROM ${table}`);
     let rowCount = 0;
     for (const table of ARCHIVE_TABLES) {
+      const allowedColumns = new Set(
+        (await database.query<{ name: string }>(`PRAGMA table_info(${table})`)).map(
+          ({ name }) => name,
+        ),
+      );
       const rows = payload.tables[table] ?? [];
       for (const row of rows) {
         const columns = Object.keys(row);
         if (columns.length === 0) continue;
-        if (columns.some((column) => !/^[a-z_]+$/u.test(column)))
+        if (columns.some((column) => !allowedColumns.has(column)))
           throw new Error('Archive contains an invalid column');
         await database.run(
           `INSERT INTO ${table} (${columns.join(', ')}) VALUES (${columns.map(() => '?').join(', ')})`,

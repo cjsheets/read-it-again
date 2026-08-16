@@ -67,9 +67,15 @@ function App() {
     setError([]);
     setStatus(`Checking ${file.name}…`);
     try {
+      const rawText = await file.text();
+      if (isEncryptedArchive(rawText)) {
+        setError(['This file is an encrypted bookshelf archive, not a Libby timeline.']);
+        setStatus('Use Import archive under Add or transfer books.');
+        return;
+      }
       const response = await requestWorker({
         type: 'importLibby',
-        rawText: await file.text(),
+        rawText,
         fileName: file.name,
       });
       if (!response.ok) {
@@ -418,6 +424,20 @@ function App() {
       setStatus('Nothing was changed.');
     }
     setBusy(false);
+  }
+}
+
+function isEncryptedArchive(rawText: string): boolean {
+  try {
+    const value = JSON.parse(rawText) as unknown;
+    return (
+      value !== null &&
+      typeof value === 'object' &&
+      !Array.isArray(value) &&
+      (value as { readonly format?: unknown }).format === 'read-it-again-encrypted-v1'
+    );
+  } catch {
+    return false;
   }
 }
 

@@ -19,6 +19,17 @@ describe('encrypted bookshelf archives', () => {
     await source.run(
       "INSERT INTO households (id, name, created_at) VALUES ('h', 'Private family', '2026-08-13T00:00:00Z')",
     );
+    await source.run(
+      `INSERT INTO source_accounts
+       (id, household_id, kind, label, config_json, created_at)
+       VALUES ('source', 'h', 'csv', 'CSV', '{}', '2026-08-13T00:00:00Z')`,
+    );
+    await source.run(
+      `INSERT INTO import_blobs
+       (id, source_account_id, sha256, media_type, content_text, byte_length, created_at)
+       VALUES ('blob', 'source', ?, 'text/csv', 'title', 5, '2026-08-13T00:00:00Z')`,
+      ['a'.repeat(64)],
+    );
     const encrypted = await exportEncryptedArchive(
       source,
       'a sufficiently long passphrase',
@@ -31,7 +42,10 @@ describe('encrypted bookshelf archives', () => {
     expect(await target.query('SELECT * FROM households')).toEqual([]);
     await expect(
       importEncryptedArchive(target, encrypted, 'a sufficiently long passphrase'),
-    ).resolves.toMatchObject({ rowCount: 1 });
+    ).resolves.toMatchObject({ rowCount: 3 });
     expect(await target.query('SELECT name FROM households')).toEqual([{ name: 'Private family' }]);
+    expect(await target.query('SELECT sha256 FROM import_blobs')).toEqual([
+      { sha256: 'a'.repeat(64) },
+    ]);
   });
 });

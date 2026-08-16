@@ -26,6 +26,21 @@ test('supports CSV and manual offline inputs and ships an installable shell', as
   await expect(page.getByTestId('import-status')).toHaveText('Book added.');
   await expect(page.getByRole('heading', { name: 'The Paper Moon' }).first()).toBeVisible();
 
+  await page.getByLabel('Archive passphrase').fill('a sufficiently long passphrase');
+  const downloadPromise = page.waitForEvent('download');
+  await page.getByRole('button', { name: 'Export encrypted backup' }).click();
+  const download = await downloadPromise;
+  const archivePath = await download.path();
+  expect(archivePath).not.toBeNull();
+  await page.getByTestId('libby-file').setInputFiles(archivePath);
+  await expect(page.getByTestId('import-status')).toHaveText(
+    'Use Import archive under Add or transfer books.',
+  );
+  await expect(page.getByText('This file is an encrypted bookshelf archive')).toBeVisible();
+  await page.getByTestId('archive-file').setInputFiles(archivePath);
+  await expect(page.getByTestId('import-status')).toHaveText('Encrypted archive restored.');
+  await expect(page.getByRole('heading', { name: 'The Paper Moon' }).first()).toBeVisible();
+
   const manifest = await page.request.get('http://127.0.0.1:4175/manifest.webmanifest');
   expect(manifest.ok()).toBe(true);
   expect(await manifest.json()).toMatchObject({ name: 'Read It Again', display: 'standalone' });
