@@ -12,6 +12,14 @@ import type {
 } from '@read-it-again/storage-schema';
 import { isLibrarySource } from '@read-it-again/storage-schema';
 import { requestWorker } from './client.js';
+import {
+  clearWipeMarker,
+  looksWiped,
+  readPersistence,
+  rememberBooksExist,
+  requestPersistenceOnce,
+  type PersistenceState,
+} from './durability.js';
 import type { WorkerRequestInput } from './protocol.js';
 import './styles.css';
 
@@ -67,7 +75,11 @@ interface InboxState {
   readonly attributionTriage: readonly AttributionTriageItem[];
   readonly readingModel: ReadingModelView;
   readonly recommendations: RecommendationView;
+  readonly lastBackupAt: string | null;
 }
+
+/** Nag once a shelf is worth losing, not on the first book. */
+const BACKUP_REMINDER_THRESHOLD = 5;
 
 function App() {
   const [inbox, setInbox] = useState<InboxState>({
@@ -77,7 +89,10 @@ function App() {
     attributionTriage: [],
     readingModel: { checkouts: [], episodes: [], sessions: [], shelf: [] },
     recommendations: { generatedAt: null, constraints: null, discovery: [], readAgain: [] },
+    lastBackupAt: null,
   });
+  const [persistence, setPersistence] = useState<PersistenceState>('unsupported');
+  const [wiped, setWiped] = useState(false);
   const [status, setStatus] = useState('Opening your private bookshelf…');
   const [error, setError] = useState<ErrorState | null>(null);
   const [busy, setBusy] = useState(true);
@@ -85,6 +100,7 @@ function App() {
 
   useEffect(() => {
     void refreshInbox();
+    void readPersistence().then(setPersistence);
   }, []);
 
   async function refreshInbox() {
@@ -97,10 +113,12 @@ function App() {
         attributionTriage: response.attributionTriage,
         readingModel: response.readingModel,
         recommendations: response.recommendations,
+        lastBackupAt: response.lastBackupAt,
       });
-      setStatus(
-        response.inbox.records.length === 0 ? 'No books imported yet.' : 'Import inbox ready.',
-      );
+      const count = response.inbox.records.length;
+      setWiped(looksWiped(count));
+      rememberBooksExist(count);
+      setStatus(count === 0 ? 'No books imported yet.' : 'Import inbox ready.');
     } else {
       setError({ operation: 'inbox', issues: response.issues ?? [response.message] });
       setStatus('Could not open the import inbox.');
@@ -138,6 +156,7 @@ function App() {
         attributionTriage: response.attributionTriage,
         readingModel: response.readingModel,
         recommendations: response.recommendations,
+        lastBackupAt: response.lastBackupAt,
       });
       setStatus(importSummary(response.result));
     } catch (caught) {
@@ -165,6 +184,31 @@ function App() {
         KCLS while KCLS blocks browser access; use manual resolution or import an encrypted archive
         created by the local runtime.
       </aside>
+
+      {wiped && (
+        <section className="wipe-notice" role="alert" data-testid="wipe-notice">
+          <strong>Your books are gone from this browser.</strong>
+          <p>
+            This device had a bookshelf and its storage is now empty. That usually means the browser
+            cleared site data, or reclaimed space because storage was not marked as persistent.
+            Nothing was sent anywhere, so nothing can be recovered from a server — but an encrypted
+            backup will restore everything.
+          </p>
+          <p>
+            Enter your passphrase under <strong>Encrypted archive</strong> below and choose{' '}
+            <strong>Import archive</strong>.
+          </p>
+          <button
+            type="button"
+            onClick={() => {
+              clearWipeMarker();
+              setWiped(false);
+            }}
+          >
+            Start over instead
+          </button>
+        </section>
+      )}
 
       <section className="import-panel" aria-labelledby="import-title">
         <div>
@@ -244,6 +288,11 @@ function App() {
                 />
               </label>
             </div>
+            <DurabilityNote
+              persistence={persistence}
+              lastBackupAt={inbox.lastBackupAt}
+              bookCount={inbox.records.length}
+            />
           </article>
         </div>
       </section>
@@ -369,6 +418,7 @@ function App() {
         attributionTriage: response.attributionTriage,
         readingModel: response.readingModel,
         recommendations: response.recommendations,
+        lastBackupAt: response.lastBackupAt,
       });
       setStatus('Resolution decision saved.');
     } else {
@@ -402,6 +452,7 @@ function App() {
         attributionTriage: response.attributionTriage,
         readingModel: response.readingModel,
         recommendations: response.recommendations,
+        lastBackupAt: response.lastBackupAt,
       });
       setStatus('Attribution correction saved.');
     } else setError({ operation: 'decision', issues: response.issues ?? [response.message] });
@@ -420,6 +471,7 @@ function App() {
         attributionTriage: response.attributionTriage,
         readingModel: response.readingModel,
         recommendations: response.recommendations,
+        lastBackupAt: response.lastBackupAt,
       });
       setStatus(request.type === 'assessWork' ? 'Assessment saved.' : 'Confirmed session saved.');
     } else setError({ operation: 'decision', issues: response.issues ?? [response.message] });
@@ -442,6 +494,9 @@ function App() {
     setError(null);
     const response = await requestWorker({ type: 'exportArchive', passphrase: archivePassphrase });
     if (response.ok && response.archiveText) {
+      // The export is what sets last_backup_at, so take the fresh value rather
+      // than making the user reload to see that the backup registered.
+      setInbox((current) => ({ ...current, lastBackupAt: response.lastBackupAt }));
       downloadText(
         response.archiveText,
         `read-it-again-${new Date().toISOString().slice(0, 10)}.ria-archive`,
@@ -475,7 +530,17 @@ function App() {
         attributionTriage: response.attributionTriage,
         readingModel: response.readingModel,
         recommendations: response.recommendations,
+        lastBackupAt: response.lastBackupAt,
       });
+      if (response.inbox.records.length > 0) {
+        // Books exist again, so any earlier loss has been made good.
+        setWiped(false);
+        clearWipeMarker();
+        rememberBooksExist(response.inbox.records.length);
+        // Asked here rather than on load: a real add is the user gesture that
+        // makes a browser most likely to grant persistent storage.
+        setPersistence(await requestPersistenceOnce());
+      }
       setStatus(request.type === 'importCsv' ? importSummary(response.result) : success);
     } else {
       setError({
@@ -486,6 +551,48 @@ function App() {
     }
     setBusy(false);
   }
+}
+
+/**
+ * F-05. ADR 0011 warns that browser storage disappears when a profile is cleared,
+ * and the UI said nothing. This states where the data stands in plain language:
+ * whether the browser has agreed not to evict it, and when it was last backed up.
+ */
+function DurabilityNote({
+  persistence,
+  lastBackupAt,
+  bookCount,
+}: {
+  readonly persistence: PersistenceState;
+  readonly lastBackupAt: string | null;
+  readonly bookCount: number;
+}) {
+  const overdue = bookCount >= BACKUP_REMINDER_THRESHOLD && lastBackupAt === null;
+  return (
+    <div className="durability" data-testid="durability">
+      <p>
+        <span className="durability-label">Storage</span>{' '}
+        <span data-testid="persistence-state">
+          {persistence === 'persistent'
+            ? 'Protected from automatic cleanup.'
+            : persistence === 'evictable'
+              ? 'This browser may delete these books to reclaim space.'
+              : 'This browser cannot report whether these books are protected.'}
+        </span>
+      </p>
+      <p>
+        <span className="durability-label">Last backup</span>{' '}
+        <span data-testid="last-backup">
+          {lastBackupAt === null ? 'Never' : new Date(lastBackupAt).toLocaleDateString()}
+        </span>
+      </p>
+      {overdue && (
+        <p className="durability-warning" data-testid="backup-reminder">
+          You have {bookCount} books and no backup. Export one and keep it somewhere else.
+        </p>
+      )}
+    </div>
+  );
 }
 
 function isEncryptedArchive(rawText: string): boolean {

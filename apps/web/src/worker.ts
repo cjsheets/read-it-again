@@ -21,8 +21,10 @@ import {
 } from '@read-it-again/application';
 import { openOpfsDatabase } from '@read-it-again/storage-browser';
 import {
+  getAppMetadata,
   getReadingModel,
   getRecommendations,
+  LAST_BACKUP_AT,
   listAttributionTriage,
   migrate,
 } from '@read-it-again/storage-schema';
@@ -80,6 +82,7 @@ async function handle(request: WorkerRequest): Promise<void> {
         attributionTriage: await listAttributionTriage(database),
         readingModel: await rebuildReadingModel(database),
         recommendations: await getRecommendations(database),
+        lastBackupAt: (await getAppMetadata(database, LAST_BACKUP_AT)) ?? null,
       } satisfies WorkerResponse);
       return;
     }
@@ -103,6 +106,7 @@ async function handle(request: WorkerRequest): Promise<void> {
         attributionTriage: await listAttributionTriage(database),
         readingModel: await getReadingModel(database),
         recommendations: await getRecommendations(database),
+        lastBackupAt: (await getAppMetadata(database, LAST_BACKUP_AT)) ?? null,
       } satisfies WorkerResponse);
       return;
     }
@@ -133,6 +137,7 @@ async function handle(request: WorkerRequest): Promise<void> {
         attributionTriage: await listAttributionTriage(database),
         readingModel: await getReadingModel(database),
         recommendations: await getRecommendations(database),
+        lastBackupAt: (await getAppMetadata(database, LAST_BACKUP_AT)) ?? null,
       } satisfies WorkerResponse);
       return;
     } else if (request.type === 'importArchive') {
@@ -171,6 +176,7 @@ async function handle(request: WorkerRequest): Promise<void> {
       attributionTriage: await listAttributionTriage(database),
       readingModel: await getReadingModel(database),
       recommendations: await getRecommendations(database),
+      lastBackupAt: (await getAppMetadata(database, LAST_BACKUP_AT)) ?? null,
     } satisfies WorkerResponse);
   } catch (error) {
     worker.postMessage({

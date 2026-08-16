@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { NodeSqliteDatabase } from '@read-it-again/storage-node';
-import { migrate } from '@read-it-again/storage-schema';
+import { getAppMetadata, LAST_BACKUP_AT, migrate } from '@read-it-again/storage-schema';
 import { exportEncryptedArchive, importEncryptedArchive } from './archive.js';
 
 describe('encrypted bookshelf archives', () => {
@@ -42,10 +42,13 @@ describe('encrypted bookshelf archives', () => {
     expect(await target.query('SELECT * FROM households')).toEqual([]);
     await expect(
       importEncryptedArchive(target, encrypted, 'a sufficiently long passphrase'),
-    ).resolves.toMatchObject({ rowCount: 3 });
+    ).resolves.toMatchObject({ rowCount: 4 });
     expect(await target.query('SELECT name FROM households')).toEqual([{ name: 'Private family' }]);
     expect(await target.query('SELECT sha256 FROM import_blobs')).toEqual([
       { sha256: 'a'.repeat(64) },
     ]);
+    // The fourth row: exporting records when the backup was taken, and that fact
+    // belongs to the data, so a restored device reports it accurately (F-05).
+    expect(await getAppMetadata(target, LAST_BACKUP_AT)).toBe('2026-08-13T12:00:00.000Z');
   });
 });

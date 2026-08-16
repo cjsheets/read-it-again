@@ -2,17 +2,18 @@
 
 ## Re-entry
 
-- **Phase:** Audit remediation, Increment 2 — Close the import loop (complete 2026-08-16)
+- **Phase:** Audit remediation, Increment 3 — Storage durability (complete 2026-08-16)
 - **Last state:** The production PWA is complete, and the local workflow now has a unified
   `pnpm bookshelf` CLI for setup/login, one-command sync, status, recommendation refresh, and
   encrypted PWA-compatible backup. Phase 3's personal live-card acceptance run remains pending a
   user-owned authenticated session. The UX audit's findings are now encoded as executable tests;
   see `tests/browser/README.md`. Finding IDs (F-01, F-04, …) refer to that audit, which is kept
   locally and is not tracked in this repository.
-- **Next action:** Increment 3 — storage durability (N8/F-05), a three-day item:
-  `navigator.storage.persist()` after the first add, `last_backup_at` in `app_metadata`, and a
-  wipe-detection screen. Then Increment 4 (app shell and routing), which is the largest single
-  refactor and gates everything after it.
+- **Next action:** Increment 4 — app shell and routing (N5/N9). This splits the ~1100-line
+  `main.tsx` into a routed component tree with five destinations, and it is the largest single
+  refactor in the plan; everything after it depends on it. The browser suite is the safety net
+  for it, which is what Increment 0 was for. A short note on the routing choice is worth writing,
+  though no ADR is required.
 - **Source plan:** Obsidian `Efforts/Read It Again.md`
 - **Important constraint:** KCLS OpenSearch did not return CORS permission headers on
   2026-08-12. Browser-only catalog access is not currently viable.
@@ -156,3 +157,36 @@ browser tests had encoded the broken behaviour by asserting books stop in a queu
 updated. One of them, a regression test for the attribution CHECK-constraint bug, tested a UI path
 that no longer exists in a one-reader household; it was replaced by a test that no review queue
 ever appears, with the constraint-level coverage moved to the application tests.
+
+Increment 3 result: ships N8 and closes F-05. Browser storage is evictable, `navigator.storage.persist()`
+was called nowhere in the source, and wiping OPFS returned the app to the first-run empty state with
+no warning and no mention that a backup existed. ADR 0011 named the risk and the UI ignored it.
+
+Three facts now exist, deliberately stored in three different places:
+
+- Whether this browser granted persistent storage is device-local and queried live from the Storage
+  API on every load, never cached, so it cannot go stale. `persist()` is requested once per device
+  after the first successful add, because a real add is the user gesture a browser weighs most.
+- Whether this device has ever held books is a localStorage marker. It cannot live in the database,
+  since the entire point is to survive the database disappearing.
+- `last_backup_at` belongs to the data rather than the device, so it lives in `app_metadata` and
+  travels inside the encrypted archive. A restored device reports an accurate last backup because
+  the value is written before the snapshot is taken.
+
+Worth knowing: requesting persistence is not the same as getting it. A probe against a fresh
+Chromium profile showed the request being made and denied — Chromium decides on site-engagement
+heuristics, and installing the PWA is one of the stronger signals, which is a direct payoff from
+Increment 1's install work. The app therefore states the real state rather than implying safety,
+and the backup reminder is the mitigation that does not depend on a browser's goodwill.
+
+Wipe detection has a known limit, recorded here so it is not rediscovered as a bug: clearing _all_
+site data removes the localStorage marker too, so that case is indistinguishable from a first run
+and correctly shows the first-run screen. What it does catch is the failure `persist()` exists to
+prevent — the browser evicting origin storage on its own. A test proves a genuine first run, including
+the service-worker shell being cached on a reload, is never misreported as a wipe.
+
+The export path had a real defect this work surfaced: it discarded its own worker response, so a
+backup registered in the database but the UI still read "Last backup: Never" until a reload.
+
+Tests: 32 -> 37 browser and 66 unit. The archive round-trip now carries one extra row, which is
+`last_backup_at` itself, and asserts it restores intact.

@@ -112,6 +112,9 @@ export type WorkerResponse =
       readonly attributionTriage: readonly AttributionTriageItem[];
       readonly readingModel: ReadingModelView;
       readonly recommendations: RecommendationView;
+      /** ISO timestamp of the last successful archive export, or null if never
+       *  backed up. Travels with the archive, so a restored device inherits it. */
+      readonly lastBackupAt: string | null;
       readonly result?: ImportBatchResult;
       readonly archiveText?: string;
     }

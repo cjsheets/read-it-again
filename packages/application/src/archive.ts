@@ -1,3 +1,4 @@
+import { LAST_BACKUP_AT, setAppMetadata } from '@read-it-again/storage-schema';
 import type { Database, SqlValue } from '@read-it-again/storage-schema';
 
 const ARCHIVE_TABLES = [
@@ -65,6 +66,12 @@ export async function exportEncryptedArchive(
   now: () => Date = () => new Date(),
 ): Promise<string> {
   validatePassphrase(passphrase);
+  const exportedAt = now().toISOString();
+  // Recorded before the snapshot is taken so the archive carries the moment it was
+  // made. A device restored from it then reports an accurate last backup rather
+  // than the one before this. Passphrase validation is the only realistic failure
+  // and it has already happened.
+  await setAppMetadata(database, LAST_BACKUP_AT, exportedAt);
   const migrations = await database.query<{ version: number }>(
     'SELECT max(version) AS version FROM schema_migrations',
   );
@@ -75,7 +82,7 @@ export async function exportEncryptedArchive(
   const payload: ArchivePayload = {
     format: 'read-it-again-logical-v1',
     schemaVersion: migrations[0]?.version ?? 0,
-    exportedAt: now().toISOString(),
+    exportedAt,
     tables,
   };
   const salt = crypto.getRandomValues(new Uint8Array(16));

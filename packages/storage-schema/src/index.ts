@@ -2,6 +2,7 @@ export { inTransaction } from './database.js';
 export type { Database, SqlParameters, SqlRow, SqlValue } from './database.js';
 export { runRepositoryConformance } from './conformance.js';
 export type { ConformanceResult } from './conformance.js';
+export { getAppMetadata, LAST_BACKUP_AT, setAppMetadata } from './app-metadata.js';
 export { createHousehold, listHouseholds } from './households.js';
 export type { Household } from './households.js';
 export {
