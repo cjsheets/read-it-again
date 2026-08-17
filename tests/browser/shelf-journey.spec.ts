@@ -114,8 +114,7 @@ test.describe('every input path reaches the bookshelf', () => {
     await expect(page.getByRole('alert')).toHaveCount(0);
     await expect(page.getByTestId('tasks-badge')).toHaveCount(0);
 
-    await goTo(page, 'tasks');
-    await expect(page.getByTestId('tasks-empty')).toBeVisible();
+    await expect(page.getByTestId('nav-tasks')).toHaveCount(0);
   });
 
   test('an encrypted archive carries the bookshelf to a fresh device', async ({

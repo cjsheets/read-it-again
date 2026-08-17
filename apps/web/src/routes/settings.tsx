@@ -99,10 +99,10 @@ export function Settings() {
       <article className="settings-card" aria-labelledby="privacy-title">
         <h3 id="privacy-title">Privacy</h3>
         <p>
-          <strong>Client-only and private by construction.</strong> This app works offline and keeps
-          everything in this browser. It makes no network requests for your data, so nothing can be
-          collected, and nothing can be recovered from a server if this browser loses it — which is
-          why the backup above matters.
+          <strong>Client-only and private by construction.</strong> Your books, readers and reading
+          history stay in this browser. The app does not send that information to a server, so it
+          cannot be recovered from one if this browser loses it — which is why the backup above
+          matters.
         </p>
         <p className="model-note">
           It cannot sign in to a library or query a catalog directly, because catalogs do not permit

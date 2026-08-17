@@ -205,10 +205,8 @@ test.describe('attribution with more than one reader', () => {
       'Reader archived. Their history is kept.',
     );
 
-    await goTo(page, 'tasks');
-    await expect(page.getByRole('button', { name: 'For Ada', exact: true })).toHaveCount(0);
-    // One reader again, so there is nothing left to ask.
-    await expect(page.getByTestId('tasks-empty')).toBeVisible();
+    // One reader again, so there is nothing left to ask and no empty daily tab.
+    await expect(page.getByTestId('nav-tasks')).toHaveCount(0);
   });
 });
 

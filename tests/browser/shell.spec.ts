@@ -15,7 +15,7 @@ import {
  * error boundary (audit §6.1, F-20). These assert the shell that replaced it.
  */
 test.describe('app shell', () => {
-  test('the shelf is the front door, and every destination is reachable', async ({ page }) => {
+  test('the shelf is the front door, and daily destinations stay simple', async ({ page }) => {
     await openApp(page);
 
     // Not an import panel, not a capability disclaimer — the shelf.
@@ -23,14 +23,15 @@ test.describe('app shell', () => {
 
     for (const [route, heading] of [
       ['add', 'Add a book'],
-      ['activity', 'Activity'],
-      ['discover', 'What to bring home next'],
-      ['tasks', 'Nothing needs you'],
+      ['activity', 'Reading activity'],
       ['settings', 'Settings'],
     ] as const) {
       await goTo(page, route);
       await expect(page.getByRole('heading', { name: heading, level: 2 })).toBeVisible();
     }
+
+    await expect(page.getByTestId('nav-discover')).toHaveCount(0);
+    await expect(page.getByTestId('nav-tasks')).toHaveCount(0);
   });
 
   test('a destination survives a reload and is shareable as a link', async ({ page }) => {
@@ -39,7 +40,7 @@ test.describe('app shell', () => {
     expect(new URL(page.url()).hash).toBe('#activity');
 
     await page.reload();
-    await expect(page.getByRole('heading', { name: 'Activity', level: 2 })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Reading activity', level: 2 })).toBeVisible();
 
     // Deep-linking straight in works too, which is the point of routing at all.
     await page.goto(new URL('#discover', PRODUCTION_URL).href);
@@ -81,9 +82,7 @@ test.describe('app shell', () => {
     await openApp(page);
     await addBookManually(page, { title: 'The Gruffalo', author: 'Julia Donaldson' });
     await expect(page.getByTestId('tasks-badge')).toHaveCount(0);
-
-    await goTo(page, 'tasks');
-    await expect(page.getByTestId('tasks-empty')).toBeVisible();
+    await expect(page.getByTestId('nav-tasks')).toHaveCount(0);
   });
 
   test('the shelf offers a route to Tasks when something does need deciding', async ({ page }) => {

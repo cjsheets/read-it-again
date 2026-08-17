@@ -19,6 +19,12 @@ export function Shell({
   const { summary, status, error, wiped, dismissWipeNotice, readerFilter, setReaderFilter } =
     useApp();
   const tasks = summary.taskCount;
+  const destinations = DESTINATIONS.filter(
+    (destination) =>
+      (destination.id !== 'tasks' || tasks > 0) &&
+      (destination.id !== 'discover' || summary.recommendationCount > 0),
+  );
+  const passiveStatus = status === 'No books imported yet.' || status === 'Bookshelf ready.';
 
   return (
     <div className="shell">
@@ -31,7 +37,7 @@ export function Shell({
           Read It Again
         </p>
         <ul>
-          {DESTINATIONS.map((destination) => (
+          {destinations.map((destination) => (
             <li key={destination.id}>
               <button
                 type="button"
@@ -92,7 +98,11 @@ export function Shell({
 
         {wiped && <WipeNotice go={go} onDismiss={dismissWipeNotice} />}
 
-        <p className="status" role="status" data-testid="import-status">
+        <p
+          className={passiveStatus ? 'status is-passive' : 'status'}
+          role="status"
+          data-testid="import-status"
+        >
           {status}
         </p>
 

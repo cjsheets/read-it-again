@@ -36,6 +36,7 @@ export function Shelf({ go }: { readonly go: (route: Route) => void }) {
     setShelfQuery: setQuery,
   } = useApp();
   const [selection, setSelection] = useState<readonly string[]>([]);
+  const [selectionMode, setSelectionMode] = useState(false);
   const [sort, setSort] = useState<ShelfSort>('recent');
   const [openBook, setOpenBook] = useState<string | null>(null);
   const [window, setWindow] = useState<GridWindow>({
@@ -98,6 +99,18 @@ export function Shelf({ go }: { readonly go: (route: Route) => void }) {
             ))}
           </select>
         </label>
+        <button
+          type="button"
+          className="select-mode"
+          data-testid="selection-mode"
+          aria-pressed={selectionMode}
+          onClick={() => {
+            setSelectionMode((current) => !current);
+            setSelection([]);
+          }}
+        >
+          {selectionMode ? 'Done selecting' : 'Select books'}
+        </button>
       </div>
 
       {summary.taskCount > 0 && (
@@ -132,7 +145,7 @@ export function Shelf({ go }: { readonly go: (route: Route) => void }) {
               entry={entry}
               aria={aria}
               selected={selection.includes(entry.workId)}
-              selecting={selection.length > 0}
+              selecting={selectionMode}
               onToggle={() =>
                 setSelection((current) =>
                   current.includes(entry.workId)
@@ -295,14 +308,16 @@ function ShelfTile({
       data-testid="shelf-card"
       {...aria}
     >
-      <label className="cover-select">
-        <input
-          type="checkbox"
-          aria-label={`Select ${entry.title}`}
-          checked={selected}
-          onChange={onToggle}
-        />
-      </label>
+      {selecting && (
+        <label className="cover-select">
+          <input
+            type="checkbox"
+            aria-label={`Select ${entry.title}`}
+            checked={selected}
+            onChange={onToggle}
+          />
+        </label>
+      )}
       {/* While a selection exists the tile toggles rather than opens, so a
           mis-tap adds a book instead of losing the selection to a drawer. */}
       <button type="button" className="cover-button" onClick={selecting ? onToggle : onOpen}>
@@ -373,7 +388,7 @@ function FirstRun({
         </button>
       </div>
       <p className="first-run-privacy">
-        Everything stays in this browser. Nothing is ever sent anywhere.{' '}
+        Your books and reading history stay in this browser.{' '}
         <button type="button" className="link-button" onClick={() => go('settings')}>
           How this works
         </button>

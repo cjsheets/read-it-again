@@ -293,13 +293,19 @@ async function reply(
 
 /** Four counts, whatever the size of the library. */
 async function summarize(database: Database): Promise<Summary> {
-  const rows = await database.query<{ books: number; records: number; tasks: number }>(
+  const rows = await database.query<{
+    books: number;
+    records: number;
+    tasks: number;
+    recommendations: number;
+  }>(
     `SELECT
        (SELECT count(*) FROM preference_summaries) AS books,
        (SELECT count(*) FROM import_records) AS records,
        (SELECT count(*) FROM resolution_cases WHERE status IN ('pending', 'deferred'))
          + (SELECT count(*) FROM attribution_results WHERE current = 1 AND state = 'review')
-         AS tasks`,
+         AS tasks,
+       (SELECT count(*) FROM recommendation_items) AS recommendations`,
   );
   const counts = rows[0];
   const readers = await listReaders(database);
@@ -307,6 +313,7 @@ async function summarize(database: Database): Promise<Summary> {
     bookCount: counts?.books ?? 0,
     recordCount: counts?.records ?? 0,
     taskCount: counts?.tasks ?? 0,
+    recommendationCount: counts?.recommendations ?? 0,
     lastBackupAt: (await getAppMetadata(database, LAST_BACKUP_AT)) ?? null,
     readers: readers.map(({ id, displayName }) => ({ id, displayName })),
   };

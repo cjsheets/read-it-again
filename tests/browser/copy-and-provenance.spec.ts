@@ -104,9 +104,9 @@ test.describe('ratings distinguish unrated from middling', () => {
     await expect(
       reloaded.getByRole('button', { name: 'Child engagement: 3 of 3 — loved it' }),
     ).toHaveAttribute('aria-pressed', 'true');
-    // Adult tolerance was never touched, so it must still read as unset.
+    // Grown-up enjoyment was never touched, so it must still read as unset.
     await expect(
-      reloaded.getByRole('button', { name: 'Adult tolerance: 2 of 3 — a lot' }),
+      reloaded.getByRole('button', { name: 'Grown-up enjoyment: 2 of 3 — a lot' }),
     ).toHaveAttribute('aria-pressed', 'false');
   });
 });
@@ -124,6 +124,7 @@ test.describe('provenance is named honestly', () => {
 
     // Library facts live under Activity, and a typed-in book is not one.
     await goTo(page, 'activity');
+    await page.getByText('Library borrowing history').click();
     await expect(page.getByText('Nothing borrowed from a library yet.')).toBeVisible();
     await expect(page.getByText('No borrowing history yet.')).toBeVisible();
     await expect(page.getByRole('listitem').filter({ hasText: 'The Gruffalo' })).toHaveCount(0);

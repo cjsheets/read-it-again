@@ -92,6 +92,7 @@ export function BookDetail({
           </button>
         </div>
 
+        <LogReading item={item} />
         <CoverChooser workId={item.workId} hasCover={item.hasCover} />
         <Assessment item={item} />
 
@@ -132,8 +133,6 @@ export function BookDetail({
         </section>
 
         <WhyThisReader item={item} />
-
-        <LogReading item={item} />
       </div>
     </div>
   );
@@ -277,10 +276,10 @@ function Assessment({ item }: { readonly item: ShelfItem }) {
 
   return (
     <section className="detail-section" aria-labelledby={`assess-${item.workId}`}>
-      <h3 id={`assess-${item.workId}`}>How it goes</h3>
+      <h3 id={`assess-${item.workId}`}>Ratings and read-aloud notes</h3>
       <div className="quick-rating">
         <RatingButtons label="Child engagement" value={engagement} onChange={setEngagement} />
-        <RatingButtons label="Adult tolerance" value={tolerance} onChange={setTolerance} />
+        <RatingButtons label="Grown-up enjoyment" value={tolerance} onChange={setTolerance} />
       </div>
       {unrated && (
         <p className="rating-unset" data-testid="rating-unset">

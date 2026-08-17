@@ -109,7 +109,7 @@ function App() {
         {route === 'shelf' && <Shelf go={go} />}
         {route === 'add' && <Add go={go} />}
         {route === 'activity' && <Activity />}
-        {route === 'discover' && <Discover />}
+        {route === 'discover' && <Discover go={go} />}
         {route === 'tasks' && <Tasks />}
         {route === 'settings' && <Settings />}
       </Shell>

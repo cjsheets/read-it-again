@@ -67,6 +67,7 @@ test.describe('selecting several books at once', () => {
 
     await goTo(page, 'shelf');
     await expect(shelfCards(page)).toHaveCount(3);
+    await page.getByTestId('selection-mode').click();
     await shelfCards(page).nth(0).getByRole('checkbox').check();
     await shelfCards(page).nth(1).getByRole('checkbox').check();
     await expect(page.getByTestId('selection-count')).toHaveText('2 books selected');
@@ -89,6 +90,7 @@ test.describe('selecting several books at once', () => {
     await expect(page.getByTestId('import-status')).toHaveText('Imported 3 new of 3 rows.');
     await goTo(page, 'shelf');
 
+    await page.getByTestId('selection-mode').click();
     await shelfCards(page).nth(0).getByRole('checkbox').check();
     await shelfCards(page).nth(1).getByRole('button').click();
 
@@ -112,6 +114,13 @@ test.describe('logging a reading', () => {
     await addBookManually(page, { title: 'The Gruffalo', author: 'Julia Donaldson' });
 
     const detail = await openBook(page);
+    const logTop = await detail
+      .getByTestId('log-a-reading')
+      .evaluate((element) => element.getBoundingClientRect().top);
+    const ratingsTop = await detail
+      .getByRole('heading', { name: 'Ratings and read-aloud notes' })
+      .evaluate((element) => element.getBoundingClientRect().top);
+    expect(logTop).toBeLessThan(ratingsTop);
     await detail.getByTestId('log-a-reading').click();
     await expect(page.getByTestId('import-status')).toHaveText('Confirmed session saved.');
     await expect(detail.getByTestId('session-logged')).toBeVisible();
