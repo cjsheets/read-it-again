@@ -49,24 +49,25 @@ test.describe('errors name the artefact they are about', () => {
 
   test('every error headline is distinct', async ({ page }) => {
     await openApp(page);
-    const seen = new Set<string>();
+    const title = page.getByTestId('error-title');
 
+    // Each headline is awaited by name rather than read as soon as the action
+    // returns. Reading immediately can capture the *previous* error, which made
+    // this pass locally and go flaky on slower CI hardware.
     await goTo(page, 'settings');
     await page.getByLabel('Archive passphrase').fill('short');
     await page.getByRole('button', { name: 'Export encrypted backup' }).click();
-    seen.add(await page.getByTestId('error-title').innerText());
+    await expect(title).toHaveText('That backup could not be created');
 
     await importCsv(page, Buffer.from('foo,bar\n1,2\n'), 'not-books.csv');
-    seen.add(await page.getByTestId('error-title').innerText());
+    await expect(title).toHaveText('That CSV file could not be read');
 
     await importLibby(page, {
       name: 'broken.json',
       mimeType: 'application/json',
       buffer: Buffer.from('[{"title":{}}]'),
     });
-    seen.add(await page.getByTestId('error-title').innerText());
-
-    expect(seen.size).toBe(3);
+    await expect(title).toHaveText('That Libby file could not be read');
   });
 });
 
