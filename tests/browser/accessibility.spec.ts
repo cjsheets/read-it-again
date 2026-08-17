@@ -7,6 +7,7 @@ import {
   goTo,
   importCsv,
   openApp,
+  openBook,
   shelfCards,
 } from './support/shelf.js';
 
@@ -94,7 +95,8 @@ test.describe('accessibility', () => {
     await openApp(page);
     await populate(page);
 
-    const chip = shelfCards(page).first().getByRole('button', { name: 'Rhyme & meter' });
+    const detail = await openBook(page);
+    const chip = detail.getByRole('button', { name: 'Rhyme & meter' });
     await expect(chip).toHaveAttribute('aria-pressed', 'false');
     await chip.click();
     await expect(chip).toHaveAttribute('aria-pressed', 'true');
@@ -115,7 +117,9 @@ test.describe('accessibility', () => {
     await openApp(page);
     await populate(page);
 
-    expect(await undersizedControls(page, '[data-testid="shelf-card"]', 44)).toEqual([]);
+    await openBook(page);
+    expect(await undersizedControls(page, '[data-testid="book-detail"]', 44)).toEqual([]);
+    await page.getByRole('button', { name: 'Close' }).click();
     await goTo(page, 'add');
     expect(await undersizedControls(page, '.manual-form', 44)).toEqual([]);
   });

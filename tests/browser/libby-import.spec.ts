@@ -16,10 +16,8 @@ test('imports a Libby snapshot idempotently and reports invalid files without wr
   // record at its word rather than parking it in a queue.
   await goTo(page, 'shelf');
   await expect(shelfCards(page)).toHaveCount(2);
-  await expect(shelfCards(page).getByRole('heading', { name: 'The Moonlit Kite' })).toBeVisible();
-  await expect(
-    shelfCards(page).getByRole('heading', { name: 'Bear Counts the Stars' }),
-  ).toBeVisible();
+  await expect(shelfCards(page).filter({ hasText: 'The Moonlit Kite' })).toHaveCount(1);
+  await expect(shelfCards(page).filter({ hasText: 'Bear Counts the Stars' })).toHaveCount(1);
   await expect(page.getByTestId('tasks-badge')).toHaveCount(0);
 
   await importLibby(page, fixture);

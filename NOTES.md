@@ -2,19 +2,21 @@
 
 ## Re-entry
 
-- **Phase:** Audit remediation, Increment 4 — App shell and routing (complete 2026-08-16)
+- **Phase:** Audit remediation, Increment 5 — Covers and detail view (complete 2026-08-16)
 - **Last state:** The production PWA is complete, and the local workflow now has a unified
   `pnpm bookshelf` CLI for setup/login, one-command sync, status, recommendation refresh, and
   encrypted PWA-compatible backup. Phase 3's personal live-card acceptance run remains pending a
   user-owned authenticated session. The UX audit's findings are now encoded as executable tests;
   see `tests/browser/README.md`. Finding IDs (F-01, F-04, …) refer to that audit, which is kept
   locally and is not tracked in this repository.
-- **Next action:** Increment 5 — covers and the book detail view (N3/N6). Migration 8 adds
-  `cover_images`, covers render from blob URLs so the CSP needs no change, and the detail drawer
-  is where an automatic attribution finally becomes reversible for a book already on the shelf,
-  completing ADR 0012's mitigation. Requires an ADR: _"Cover images are local blobs, not remote
-  URLs."_ The archive format gains cover blobs, which is a versioned change that must still
-  import old archives.
+- **Next action:** Increment 6 — scale (N2/F-04): virtualization, search, and a paged query
+  surface. This is the breaking protocol change of the project: whole-state responses give way to
+  `listShelf({readerId, query, sort, group, cursor, limit})` plus a counts endpoint. Requires an
+  ADR: _"The browser query surface is paged and filtered."_ Two cheap wins are already identified
+  and waiting there: the worker calls `prepareResolutionQueue` in its tail after a branch has
+  already recomputed, so a manual add does the O(n) work twice, and per-work cover fetches should
+  fold into the paged query. Virtualization must set `aria-setsize`/`aria-posinset` or it breaks
+  screen-reader traversal.
 - **Source plan:** Obsidian `Efforts/Read It Again.md`
 - **Important constraint:** KCLS OpenSearch did not return CORS permission headers on
   2026-08-12. Browser-only catalog access is not currently viable.
@@ -232,3 +234,44 @@ Two layout defects were caught by looking at the result rather than by the asser
 specificity bug where `.first-run > p` outranked `.first-run-privacy` and collapsed its spacing to
 zero, and a bottom tab bar that handed Settings half its width because the destination list and
 Settings both claimed `flex: 1`.
+
+Increment 5 result: ships N3 and N6, closing F-02 and F-15. The shelf is a grid of covers rather
+than a list of forms, and every book is one tap from a detail drawer. Recorded in ADR 0013.
+
+Covers are bytes this household holds, never a remote URL. A URL would tell whoever serves it
+which books this family owns, on every render, from the family's own IP — a continuous leak of
+exactly what ADR 0011 exists to prevent, and one that would look like ordinary image loading.
+Worth restating because it is the happy part: **the CSP did not change**. `img-src ... blob:`
+already permitted blob rendering, so the shelf gained faces at zero cost to the privacy posture.
+
+A book with no stored cover gets a generated one: the title in the serif face over one of eight
+muted hues chosen deterministically from the work id. Generated covers are drawn, never stored, so
+they cost nothing in OPFS or archive and are identical on every device. All eight hues were
+measured against the cream text rather than eyeballed — 8.14:1 to 10.90:1, against a 4.5:1 bar.
+
+The archive payload is now `read-it-again-logical-v2`. JSON cannot hold raw bytes, so binary
+columns are wrapped as `{"$bytes": "<base64>"}`; a Uint8Array would otherwise stringify to
+`{"0":137,"1":80,...}` and parse back as a plain object. v1 payloads contain no binary columns and
+are still accepted, with a test that builds a real v1 envelope and restores it.
+
+Moving the assessment form off every card and into the detail view — the audit's single biggest
+visual-density note — turned out to be the largest performance win so far, without any
+virtualization. At 1000 books: DOM nodes 45 136 -> 13 060, document height 309 979 px -> 51 276 px,
+add-one-more 28.2 s -> 12.4 s. Still over the F-04 budgets of 2000 nodes and 20 000 px, and those
+two tests stay annotated for Increment 6, but the gap is now a factor of six rather than twenty.
+
+Deliberate deviations. Thumbhash blur-up placeholders are not built: they pay off when thumbnails
+arrive slowly over a network, and these bytes come from local OPFS, so the real fix for scroll is
+virtualization. Cover bytes are excluded from the shelf payload and fetched per work, because a
+thousand covers at the 60 KB cap would be 60 MB through one postMessage.
+
+Choosing a cover from a file is included so that cover storage is real and testable now rather
+than speculative schema. On a phone `accept="image/*"` already offers the camera; the dedicated
+capture flow is Increment 8. Images are downscaled to the ADR 0013 caps before storage, encoding
+at descending JPEG quality until the result fits rather than guessing once, and refusing with a
+message if even the lowest quality is too large.
+
+Tests: 44 -> 52 browser (51 green, 2 F-04 annotations, 1 skipped) and 68 unit. Eight browser tests
+needed updating because assessment and provenance moved into the drawer, and shelf tiles no longer
+carry headings. A detail drawer is modal, so its scrim genuinely blocks navigation — the test
+helper now closes it first, which is what a person has to do.

@@ -40,13 +40,51 @@ const ARCHIVE_TABLES = [
   'recommendation_items',
   'holdings_cache',
   'recommendation_item_holdings',
+  'cover_images',
 ] as const;
 
+/**
+ * Cover bytes are the first binary column in the archive, and the payload is JSON.
+ * A Uint8Array would stringify to {"0":137,"1":80,...}: bloated, and it parses back
+ * as a plain object rather than bytes. Binary values are therefore wrapped in a
+ * tagged object and base64-encoded, which is what makes this a v2 payload.
+ *
+ * v1 archives contain no binary columns at all, so they still import unchanged —
+ * a household that backed up before covers existed can still restore.
+ */
+interface EncodedBytes {
+  readonly $bytes: string;
+}
+
+function isEncodedBytes(value: unknown): value is EncodedBytes {
+  return isObject(value) && typeof (value as { $bytes?: unknown }).$bytes === 'string';
+}
+
+function encodeRow(
+  row: Readonly<Record<string, SqlValue>>,
+): Readonly<Record<string, SqlValue | EncodedBytes>> {
+  const output: Record<string, SqlValue | EncodedBytes> = {};
+  for (const [column, value] of Object.entries(row)) {
+    output[column] = value instanceof Uint8Array ? { $bytes: base64(value) } : value;
+  }
+  return output;
+}
+
+function decodeValue(value: SqlValue | EncodedBytes | undefined): SqlValue {
+  if (value === undefined) return null;
+  if (isEncodedBytes(value)) return fromBase64(value.$bytes);
+  return value;
+}
+
+const PAYLOAD_FORMATS = ['read-it-again-logical-v1', 'read-it-again-logical-v2'] as const;
+
 interface ArchivePayload {
-  readonly format: 'read-it-again-logical-v1';
+  readonly format: (typeof PAYLOAD_FORMATS)[number];
   readonly schemaVersion: number;
   readonly exportedAt: string;
-  readonly tables: Readonly<Record<string, readonly Readonly<Record<string, SqlValue>>[]>>;
+  readonly tables: Readonly<
+    Record<string, readonly Readonly<Record<string, SqlValue | EncodedBytes>>[]>
+  >;
 }
 
 interface EncryptedEnvelope {
@@ -75,12 +113,13 @@ export async function exportEncryptedArchive(
   const migrations = await database.query<{ version: number }>(
     'SELECT max(version) AS version FROM schema_migrations',
   );
-  const tables: Record<string, readonly Readonly<Record<string, SqlValue>>[]> = {};
+  const tables: Record<string, readonly Readonly<Record<string, SqlValue | EncodedBytes>>[]> = {};
   for (const table of ARCHIVE_TABLES) {
-    tables[table] = await database.query<Record<string, SqlValue>>(`SELECT * FROM ${table}`);
+    const rows = await database.query<Record<string, SqlValue>>(`SELECT * FROM ${table}`);
+    tables[table] = rows.map(encodeRow);
   }
   const payload: ArchivePayload = {
-    format: 'read-it-again-logical-v1',
+    format: 'read-it-again-logical-v2',
     schemaVersion: migrations[0]?.version ?? 0,
     exportedAt,
     tables,
@@ -143,7 +182,7 @@ export async function importEncryptedArchive(
           throw new Error('Archive contains an invalid column');
         await database.run(
           `INSERT INTO ${table} (${columns.join(', ')}) VALUES (${columns.map(() => '?').join(', ')})`,
-          columns.map((column) => row[column] ?? null),
+          columns.map((column) => decodeValue(row[column])),
         );
         rowCount += 1;
       }
@@ -181,7 +220,7 @@ function parsePayload(value: string): ArchivePayload {
   const parsed = JSON.parse(value) as unknown;
   if (
     !isObject(parsed) ||
-    parsed.format !== 'read-it-again-logical-v1' ||
+    !(PAYLOAD_FORMATS as readonly unknown[]).includes(parsed.format) ||
     typeof parsed.schemaVersion !== 'number' ||
     typeof parsed.exportedAt !== 'string' ||
     !isObject(parsed.tables)

@@ -67,6 +67,11 @@ export interface ReadingModelView {
     readonly estimatedReadMinutes: number | null;
     readonly traits: readonly ReadingTrait[];
     readonly sourceKinds: readonly string[];
+    readonly authors: readonly string[];
+    /** Whether stored cover bytes exist. The bytes themselves are fetched per
+     *  visible card: a thousand covers at the 60 KB cap would be 60 MB through
+     *  one postMessage. */
+    readonly hasCover: boolean;
   }[];
 }
 
@@ -148,6 +153,23 @@ export async function saveWorkAssessment(
   );
 }
 
+function parseAuthorDisplays(authorsJson: string | null): readonly string[] {
+  if (!authorsJson) return [];
+  try {
+    const value = JSON.parse(authorsJson) as unknown;
+    if (!Array.isArray(value)) return [];
+    return value
+      .map((author) =>
+        typeof author === 'string'
+          ? author
+          : ((author as { display?: unknown })?.display as string | undefined),
+      )
+      .filter((display): display is string => typeof display === 'string' && display.length > 0);
+  } catch {
+    return [];
+  }
+}
+
 export async function getReadingModel(database: Database): Promise<ReadingModelView> {
   const checkoutRows = await database.query<{
     id: string;
@@ -205,10 +227,17 @@ export async function getReadingModel(database: Database): Promise<ReadingModelV
     estimated_read_minutes: number | null;
     traits_json: string | null;
     source_kinds: string | null;
+    authors_json: string | null;
+    has_cover: number;
   }>(
-    `SELECT p.household_id, s.work_id, w.canonical_title AS title, s.person_id, p.display_name AS reader_name, s.episode_count, s.preference_score, a.child_engagement, a.adult_tolerance, a.asks_by_name, a.veto, a.estimated_read_minutes, a.traits_json, src.kinds AS source_kinds
+    `SELECT p.household_id, s.work_id, w.canonical_title AS title, s.person_id, p.display_name AS reader_name, s.episode_count, s.preference_score, a.child_engagement, a.adult_tolerance, a.asks_by_name, a.veto, a.estimated_read_minutes, a.traits_json, src.kinds AS source_kinds,
+            ed.authors_json,
+            (SELECT count(*) FROM cover_images ci WHERE ci.work_id = s.work_id) AS has_cover
      FROM preference_summaries s JOIN works w ON w.id = s.work_id JOIN people p ON p.id = s.person_id
      LEFT JOIN work_assessments a ON a.work_id = s.work_id AND a.person_id = s.person_id
+     LEFT JOIN (SELECT work_id, min(id) AS edition_id FROM editions GROUP BY work_id) fe
+       ON fe.work_id = s.work_id
+     LEFT JOIN editions ed ON ed.id = fe.edition_id
      LEFT JOIN (
        SELECT e.work_id AS work_id, group_concat(DISTINCT sa.kind) AS kinds
        FROM import_records r JOIN source_accounts sa ON sa.id = r.source_account_id
@@ -264,6 +293,8 @@ export async function getReadingModel(database: Database): Promise<ReadingModelV
       estimatedReadMinutes: row.estimated_read_minutes,
       traits: JSON.parse(row.traits_json ?? '[]') as ReadingTrait[],
       sourceKinds: (row.source_kinds ?? '').split(',').filter(Boolean),
+      authors: parseAuthorDisplays(row.authors_json),
+      hasCover: row.has_cover > 0,
     })),
   };
 }

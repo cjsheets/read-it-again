@@ -21,12 +21,15 @@ import {
 } from '@read-it-again/application';
 import { openOpfsDatabase } from '@read-it-again/storage-browser';
 import {
+  deleteCoverImage,
   getAppMetadata,
+  getCoverImage,
   getReadingModel,
   getRecommendations,
   LAST_BACKUP_AT,
   listAttributionTriage,
   migrate,
+  saveCoverImage,
 } from '@read-it-again/storage-schema';
 import type { CompositionDefaults } from '@read-it-again/application';
 import type { WorkerRequest, WorkerResponse } from './protocol.js';
@@ -111,6 +114,24 @@ async function handle(request: WorkerRequest): Promise<void> {
       return;
     }
 
+    if (request.type === 'getCover') {
+      const cover = await getCoverImage(database, request.workId);
+      worker.postMessage({
+        id: request.id,
+        ok: true,
+        cover: cover ? { bytes: cover.bytes, mime: cover.mime } : null,
+        inbox: await getHouseholdImportInbox(database),
+        resolutionQueue: (
+          await prepareResolutionQueue(database, emptyCatalog, { defaults: BROWSER_DEFAULTS })
+        ).queue,
+        attributionTriage: await listAttributionTriage(database),
+        readingModel: await getReadingModel(database),
+        recommendations: await getRecommendations(database),
+        lastBackupAt: (await getAppMetadata(database, LAST_BACKUP_AT)) ?? null,
+      } satisfies WorkerResponse);
+      return;
+    }
+
     if (request.type === 'importManual') {
       const manual = await importManualBook(database, {
         ...request,
@@ -158,6 +179,18 @@ async function handle(request: WorkerRequest): Promise<void> {
       await deferCase(database, request.caseId);
     } else if (request.type === 'correctAttribution') {
       await correctAttribution(database, { ...request, defaults: BROWSER_DEFAULTS });
+    } else if (request.type === 'saveCover') {
+      await saveCoverImage(database, {
+        workId: request.workId,
+        bytes: request.bytes,
+        mime: request.mime,
+        width: request.width,
+        height: request.height,
+        source: 'user_file',
+        now: new Date().toISOString(),
+      });
+    } else if (request.type === 'removeCover') {
+      await deleteCoverImage(database, request.workId);
     } else if (request.type === 'assessWork') {
       await assessWork(database, request);
     } else if (request.type === 'recordReadingSession') {

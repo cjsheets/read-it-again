@@ -474,6 +474,28 @@ export const migrations: readonly Migration[] = [
       ) STRICT, WITHOUT ROWID;
     `,
   },
+  {
+    version: 8,
+    name: 'cover_images',
+    sql: `
+      -- ADR 0013. Covers are bytes this household holds, never a remote URL:
+      -- a URL would leak the shelf to whoever serves it, on every render.
+      -- One current cover per work; source records where the bytes came from so a
+      -- better source can replace a weaker one without guessing.
+      CREATE TABLE cover_images (
+        work_id TEXT PRIMARY KEY NOT NULL REFERENCES works(id) ON DELETE CASCADE,
+        edition_id TEXT REFERENCES editions(id) ON DELETE SET NULL,
+        bytes BLOB NOT NULL,
+        mime TEXT NOT NULL CHECK (mime IN ('image/jpeg', 'image/png', 'image/webp')),
+        width INTEGER NOT NULL CHECK (width > 0),
+        height INTEGER NOT NULL CHECK (height > 0),
+        byte_length INTEGER NOT NULL CHECK (byte_length > 0),
+        source TEXT NOT NULL CHECK (source IN ('user_photo', 'user_file', 'catalog')),
+        source_ref TEXT,
+        created_at TEXT NOT NULL
+      ) STRICT;
+    `,
+  },
 ];
 
 export async function migrate(database: Database): Promise<void> {

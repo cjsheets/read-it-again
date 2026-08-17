@@ -8,6 +8,6 @@ test('SQLite-WASM/OPFS satisfies the shared repository contract and persists dat
   const result = page.locator('#result');
   await expect(result).toHaveAttribute('data-status', 'passed', { timeout: 30_000 });
   await expect(result).toContainText('"persistent":true');
-  await expect(result).toContainText('"migrationCount":7');
+  await expect(result).toContainText('"migrationCount":8');
   await expect(result).toContainText('"householdCount":2');
 });

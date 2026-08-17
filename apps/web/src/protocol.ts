@@ -30,6 +30,19 @@ export type WorkerRequest =
       readonly format?: string;
     }
   | { readonly id: string; readonly type: 'exportArchive'; readonly passphrase: string }
+  // Cover bytes are fetched per work rather than shipped with the shelf: a
+  // thousand covers at the 60 KB cap would be 60 MB in one message (ADR 0013).
+  | { readonly id: string; readonly type: 'getCover'; readonly workId: string }
+  | {
+      readonly id: string;
+      readonly type: 'saveCover';
+      readonly workId: string;
+      readonly bytes: Uint8Array;
+      readonly mime: string;
+      readonly width: number;
+      readonly height: number;
+    }
+  | { readonly id: string; readonly type: 'removeCover'; readonly workId: string }
   | {
       readonly id: string;
       readonly type: 'importArchive';
@@ -117,6 +130,7 @@ export type WorkerResponse =
       readonly lastBackupAt: string | null;
       readonly result?: ImportBatchResult;
       readonly archiveText?: string;
+      readonly cover?: { readonly bytes: Uint8Array; readonly mime: string } | null;
     }
   | {
       readonly id: string;

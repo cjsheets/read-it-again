@@ -42,7 +42,7 @@ test('supports CSV and manual offline inputs and ships an installable shell', as
   await importArchive(page, archive, PASSPHRASE);
   await expect(page.getByTestId('import-status')).toHaveText('Encrypted archive restored.');
   await goTo(page, 'shelf');
-  await expect(shelfCards(page).getByRole('heading', { name: 'The Paper Moon' })).toBeVisible();
+  await expect(shelfCards(page).filter({ hasText: 'The Paper Moon' })).toHaveCount(1);
 
   const manifest = await page.request.get('http://127.0.0.1:4175/manifest.webmanifest');
   expect(manifest.ok()).toBe(true);
@@ -58,5 +58,5 @@ test('supports CSV and manual offline inputs and ships an installable shell', as
   await page.context().setOffline(true);
   await page.reload();
   await expect(shelfCards(page)).toHaveCount(2);
-  await expect(shelfCards(page).getByRole('heading', { name: 'The Paper Moon' })).toBeVisible();
+  await expect(shelfCards(page).filter({ hasText: 'The Paper Moon' })).toHaveCount(1);
 });

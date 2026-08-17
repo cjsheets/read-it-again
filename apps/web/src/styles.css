@@ -478,13 +478,151 @@ h3 {
 .shelf-tasks {
   margin: -6px 0 14px;
 }
-.shelf-grid {
+/* Uniform 2:3 tracks rather than a justified layout: book covers cluster near that
+   ratio, so a uniform grid is more legible and far cheaper to lay out (audit 7.2). */
+.cover-grid {
   display: grid;
-  /* min() keeps the track from forcing a 300px column into a 288px viewport. */
-  grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr));
-  gap: 14px;
+  grid-template-columns: repeat(auto-fill, minmax(min(150px, 100%), 1fr));
+  gap: 20px 16px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
 }
-.assessment-card,
+.cover-button {
+  background: none;
+  border: 0;
+  cursor: pointer;
+  display: block;
+  padding: 0;
+  text-align: left;
+  width: 100%;
+}
+.cover {
+  aspect-ratio: 2 / 3;
+  border-radius: 6px;
+  box-shadow: 0 6px 18px rgb(54 43 29 / 18%);
+  display: block;
+  width: 100%;
+}
+.cover-image {
+  object-fit: cover;
+}
+.cover-button:hover .cover {
+  box-shadow: 0 10px 24px rgb(54 43 29 / 28%);
+}
+.cover-caption {
+  display: block;
+  padding-top: 8px;
+}
+.cover-title {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  font-weight: 650;
+  font-size: 0.88rem;
+  line-height: 1.25;
+}
+.cover-author,
+.cover-meta {
+  color: var(--ink-muted);
+  display: block;
+  font-size: 0.78rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cover-meta {
+  color: var(--brand);
+  letter-spacing: 0.08em;
+  margin-top: 2px;
+}
+.cover-meta-dim {
+  color: var(--ink-muted);
+  letter-spacing: normal;
+}
+.cover-flag {
+  color: var(--accent);
+  letter-spacing: normal;
+  margin-left: 8px;
+}
+
+/* ── Book detail ────────────────────────────────────────────────────────── */
+.detail-scrim {
+  background: rgb(40 37 31 / 45%);
+  inset: 0;
+  position: fixed;
+  z-index: 20;
+}
+.detail {
+  background: var(--page);
+  height: 100%;
+  margin-left: auto;
+  max-width: 480px;
+  overflow-y: auto;
+  padding: 28px;
+  width: 100%;
+}
+.detail:focus {
+  outline: none;
+}
+.detail-head {
+  display: grid;
+  grid-template-columns: 96px minmax(0, 1fr) auto;
+  gap: 16px;
+  margin-bottom: 22px;
+}
+.detail-head h2 {
+  font-size: 1.4rem;
+  margin-bottom: 2px;
+}
+.detail-author {
+  color: var(--ink-soft);
+  margin-bottom: 4px;
+}
+.detail-close {
+  align-self: start;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+  min-height: var(--tap);
+  min-width: var(--tap);
+}
+.detail-cover-actions {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 22px;
+}
+.detail-section {
+  border-top: 1px solid var(--border-soft);
+  margin-bottom: 20px;
+  padding-top: 16px;
+}
+.detail-history {
+  line-height: 1.5;
+  padding-left: 18px;
+}
+.detail-history li {
+  margin-bottom: 10px;
+}
+.detail-actions {
+  margin-top: 8px;
+}
+
+@media (max-width: 640px) {
+  .detail {
+    max-width: none;
+    padding: 20px 16px calc(var(--bottom-bar) + 32px);
+  }
+  .detail-head {
+    grid-template-columns: 72px minmax(0, 1fr) auto;
+  }
+}
+
 .resolution-card,
 .recommendation-card {
   background: var(--surface);

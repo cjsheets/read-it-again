@@ -6,7 +6,7 @@ import {
   importCsv,
   importLibby,
   openApp,
-  shelfCards,
+  openBook,
 } from './support/shelf.js';
 
 /**
@@ -76,28 +76,27 @@ test.describe('ratings distinguish unrated from middling', () => {
   test('a new book is unrated, with nothing selected and saving unavailable', async ({ page }) => {
     await openApp(page);
     await addBookManually(page, { title: 'The Gruffalo', author: 'Julia Donaldson' });
-    await goTo(page, 'shelf');
 
-    const card = shelfCards(page).first();
-    await expect(card.getByTestId('rating-unset')).toBeVisible();
-    await expect(card.getByRole('button', { pressed: true })).toHaveCount(0);
-    await expect(card.getByRole('button', { name: 'Save assessment' })).toBeDisabled();
+    // Assessment lives in the detail view since Increment 5, not on every card.
+    const detail = await openBook(page);
+    await expect(detail.getByTestId('rating-unset')).toBeVisible();
+    await expect(detail.getByRole('button', { pressed: true })).toHaveCount(0);
+    await expect(detail.getByRole('button', { name: 'Save assessment' })).toBeDisabled();
   });
 
   test('saving becomes available once a rating is chosen, and persists', async ({ page }) => {
     await openApp(page);
     await addBookManually(page, { title: 'The Gruffalo', author: 'Julia Donaldson' });
-    await goTo(page, 'shelf');
 
-    const card = shelfCards(page).first();
-    await card.getByRole('button', { name: 'Child engagement: 3 of 3 — loved it' }).click();
-    const save = card.getByRole('button', { name: 'Save assessment' });
+    const detail = await openBook(page);
+    await detail.getByRole('button', { name: 'Child engagement: 3 of 3 — loved it' }).click();
+    const save = detail.getByRole('button', { name: 'Save assessment' });
     await expect(save).toBeEnabled();
     await save.click();
     await expect(page.getByTestId('import-status')).toHaveText('Assessment saved.');
 
     await page.reload();
-    const reloaded = shelfCards(page).first();
+    const reloaded = await openBook(page);
     await expect(reloaded.getByTestId('rating-unset')).toHaveCount(0);
     await expect(
       reloaded.getByRole('button', { name: 'Child engagement: 3 of 3 — loved it' }),
@@ -115,9 +114,10 @@ test.describe('provenance is named honestly', () => {
   test('a typed-in book is labelled as added by you, not as a checkout', async ({ page }) => {
     await openApp(page);
     await addBookManually(page, { title: 'The Gruffalo', author: 'Julia Donaldson' });
-    await goTo(page, 'shelf');
 
-    await expect(shelfCards(page).first()).toContainText('Added by you');
+    const detail = await openBook(page);
+    await expect(detail.getByTestId('detail-provenance')).toContainText('Added by you');
+    await page.getByRole('button', { name: 'Close' }).click();
 
     // Library facts live under Activity, and a typed-in book is not one.
     await goTo(page, 'activity');
@@ -130,8 +130,8 @@ test.describe('provenance is named honestly', () => {
     await openApp(page);
     await importCsv(page, csvSnapshot(1));
     await expect(page.getByTestId('import-status')).toHaveText('Imported 1 new of 1 rows.');
-    await goTo(page, 'shelf');
 
-    await expect(shelfCards(page).first()).toContainText('Imported from a CSV file');
+    const detail = await openBook(page);
+    await expect(detail.getByTestId('detail-provenance')).toContainText('Imported from a CSV file');
   });
 });

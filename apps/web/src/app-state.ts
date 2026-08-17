@@ -80,6 +80,9 @@ export interface AppState {
   readonly archivePassphrase: string;
   readonly setArchivePassphrase: (value: string) => void;
   readonly dismissWipeNotice: () => void;
+  /** Re-reads everything from the worker. Needed after a change made outside the
+   *  usual action helpers, such as storing a cover. */
+  readonly refresh: () => Promise<void>;
   readonly importLibbyFile: (file: File) => Promise<void>;
   readonly importCsvFile: (file: File) => Promise<void>;
   readonly importArchiveFile: (file: File) => Promise<void>;

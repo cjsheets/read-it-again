@@ -35,9 +35,19 @@ export async function openApp(page: Page, url = PRODUCTION_URL): Promise<void> {
   await expect(page.getByTestId('import-status')).not.toHaveText('Opening your private bookshelf…');
 }
 
-/** Navigates via the shell, the way a person would, rather than by URL. */
+/** Navigates via the shell, the way a person would, rather than by URL. The book
+ *  detail drawer is modal, so its scrim genuinely blocks the nav — closing it
+ *  first is what a person has to do too. */
 export async function goTo(page: Page, route: Route): Promise<void> {
+  await closeDetail(page);
   await page.getByTestId(`nav-${route}`).click();
+}
+
+export async function closeDetail(page: Page): Promise<void> {
+  const detail = page.getByTestId('book-detail');
+  if ((await detail.count()) === 0) return;
+  await page.keyboard.press('Escape');
+  await expect(detail).toHaveCount(0);
 }
 
 /**
@@ -112,4 +122,14 @@ export async function pendingDecisions(page: Page): Promise<number> {
   const badge = page.getByTestId('tasks-badge');
   if ((await badge.count()) === 0) return 0;
   return Number.parseInt((await badge.innerText()).trim(), 10) || 0;
+}
+
+/** Opens a book's detail drawer, which is where assessment, provenance and
+ *  attribution live since Increment 5. */
+export async function openBook(page: Page, index = 0): Promise<Locator> {
+  await goTo(page, 'shelf');
+  await shelfCards(page).nth(index).getByRole('button').click();
+  const detail = page.getByTestId('book-detail');
+  await expect(detail).toBeVisible();
+  return detail;
 }

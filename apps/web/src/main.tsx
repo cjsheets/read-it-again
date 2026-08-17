@@ -63,6 +63,7 @@ function App() {
       clearWipeMarker();
       setWiped(false);
     },
+    refresh: refreshBookshelf,
     importLibbyFile,
     importCsvFile,
     importArchiveFile,

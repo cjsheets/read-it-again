@@ -1,19 +1,26 @@
-import { useApp, taskCount } from '../app-state.js';
-import { AssessmentCard } from '../components/book-controls.js';
+import { useState } from 'react';
+import type { ReadingModelView } from '@read-it-again/storage-schema';
+import { taskCount, useApp } from '../app-state.js';
+import { BookDetail } from '../components/book-detail.js';
+import { Cover } from '../components/cover.js';
+import { useCover } from '../components/use-cover.js';
 import type { Route } from '../router.js';
 
+type ShelfItem = ReadingModelView['shelf'][number];
+
 /**
- * The home screen, and the object the product is about. Everything that used to
- * sit above the bookshelf — an import panel, a capability disclaimer, two review
- * queues — has moved to where it belongs (audit §6.3).
- *
- * Covers and virtualization arrive in Increments 5 and 6; this is the same card
- * grid as before, finally sited as the front door.
+ * The home screen, and the object the product is about. A grid of covers rather
+ * than a list of forms: the audit's single biggest visual-density note was that
+ * every card rendered a full assessment form — two dials, seven chips, three
+ * checkboxes, a number input and two buttons — simultaneously. That form now lives
+ * in the detail view, one tap away (F-15, audit §7.1).
  */
 export function Shelf({ go }: { readonly go: (route: Route) => void }) {
   const { bookshelf } = useApp();
+  const [openBook, setOpenBook] = useState<string | null>(null);
   const shelf = bookshelf.readingModel.shelf;
   const tasks = taskCount(bookshelf);
+  const selected = shelf.find((item) => keyOf(item) === openBook);
 
   if (shelf.length === 0) return <FirstRun go={go} hasRecords={bookshelf.records.length > 0} />;
 
@@ -35,12 +42,54 @@ export function Shelf({ go }: { readonly go: (route: Route) => void }) {
           </button>
         </p>
       )}
-      <div className="shelf-grid">
+      <ul className="cover-grid">
         {shelf.map((item) => (
-          <AssessmentCard key={`${item.workId}:${item.personId}`} item={item} />
+          <ShelfTile key={keyOf(item)} item={item} onOpen={() => setOpenBook(keyOf(item))} />
         ))}
-      </div>
+      </ul>
+      {selected && <BookDetail item={selected} onClose={() => setOpenBook(null)} />}
     </section>
+  );
+}
+
+function keyOf(item: ShelfItem): string {
+  return `${item.workId}:${item.personId}`;
+}
+
+function ShelfTile({ item, onOpen }: { readonly item: ShelfItem; readonly onOpen: () => void }) {
+  const cover = useCover(item.workId, item.hasCover);
+  const author = item.authors[0] ?? null;
+  const rated = item.childEngagement !== null;
+
+  return (
+    <li className="cover-tile" data-testid="shelf-card">
+      <button type="button" className="cover-button" onClick={onOpen}>
+        <Cover
+          workId={item.workId}
+          title={item.title}
+          author={author}
+          bytes={cover?.bytes}
+          mime={cover?.mime}
+        />
+        <span className="cover-caption">
+          <span className="cover-title">{item.title}</span>
+          {author && <span className="cover-author">{author}</span>}
+          <span className="cover-meta">
+            {rated ? (
+              <span aria-label={`Child engagement: ${String(item.childEngagement)} of 3`}>
+                {'●'.repeat((item.childEngagement ?? 0) + 1)}
+                <span className="cover-meta-dim">
+                  {'○'.repeat(3 - (item.childEngagement ?? 0))}
+                </span>
+              </span>
+            ) : (
+              <span className="cover-meta-dim">Not rated</span>
+            )}
+            {item.veto && <span className="cover-flag">Veto</span>}
+          </span>
+        </span>
+      </button>
+    </li>
   );
 }
 

@@ -3,6 +3,16 @@ export type { Database, SqlParameters, SqlRow, SqlValue } from './database.js';
 export { runRepositoryConformance } from './conformance.js';
 export type { ConformanceResult } from './conformance.js';
 export { getAppMetadata, LAST_BACKUP_AT, setAppMetadata } from './app-metadata.js';
+export {
+  deleteCoverImage,
+  getCoverImage,
+  listWorkIdsWithCovers,
+  MAX_COVER_BYTES,
+  MAX_COVER_HEIGHT,
+  MAX_COVER_WIDTH,
+  saveCoverImage,
+} from './covers.js';
+export type { CoverImage, CoverSource } from './covers.js';
 export { createHousehold, listHouseholds } from './households.js';
 export type { Household } from './households.js';
 export {
