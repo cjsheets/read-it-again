@@ -4,8 +4,6 @@ import {
   type CatalogMetadata,
 } from '@read-it-again/domain';
 import {
-  getEffectiveMetadata,
-  getOverride,
   inTransaction,
   listAttributionTriage,
   saveAttributionOverride,
@@ -30,6 +28,16 @@ interface ResolvedRow {
   readonly bibid: string | null;
   readonly exclusive_owner_id: string | null;
   readonly exclusive: number | null;
+  readonly household_id: string;
+}
+
+interface CurrentResult {
+  readonly state: string;
+  readonly method: string;
+  readonly confidence: number;
+  readonly score: number;
+  readonly explanation: string;
+  readonly readerIds: readonly string[];
 }
 
 export async function enrichResolvedCatalogRecords(
@@ -79,14 +87,21 @@ export async function recomputeAttributions(
     readonly idFactory?: () => string;
     readonly now?: string;
     readonly defaults?: CompositionDefaults;
+    readonly workIds?: readonly string[];
   } = {},
 ): Promise<number> {
   const idFactory = options.idFactory ?? (() => crypto.randomUUID());
   const now = options.now ?? new Date().toISOString();
-  const rows = await resolvedRows(database);
+  if (options.workIds?.length === 0) return 0;
+  const rows = await resolvedRows(database, options.workIds);
+  const overrides = await currentOverrides(database);
+  const readersByHousehold = await activeReadersByHousehold(database);
+  const metadataByEdition = await effectiveMetadataByEdition(database);
+  const currentResults = await currentAttributionResults(database);
   let changed = 0;
   for (const row of rows) {
-    const override = await getOverride(database, row.import_record_id, row.work_id);
+    const override =
+      overrides.checkout.get(row.import_record_id) ?? overrides.work.get(row.work_id);
     let method:
       'checkout_override' | 'work_override' | 'exclusive_card' | 'evidence_rules' | 'unresolved';
     let assessment: AttributionAssessment;
@@ -112,15 +127,8 @@ export async function recomputeAttributions(
         algorithmVersion: 'attribution-v1',
       };
     } else {
-      const readers = await database.query<{ person_id: string }>(
-        `SELECT p.person_id FROM reader_profiles p JOIN people r ON r.id = p.person_id
-         JOIN source_accounts s ON s.household_id = r.household_id
-         JOIN import_records i ON i.source_account_id = s.id
-         WHERE i.id = ? AND p.kind = 'child' AND p.archived_at IS NULL
-         ORDER BY p.person_id`,
-        [row.import_record_id],
-      );
-      const metadata = await getEffectiveMetadata(database, 'edition', row.edition_id);
+      const readerIds = readersByHousehold.get(row.household_id) ?? [];
+      const metadata = metadataByEdition.get(row.edition_id) ?? {};
       assessment = assessAttribution({
         callNumber: row.call_number ?? metadata.callNumber,
         sourceFormat: row.source_format ?? undefined,
@@ -128,17 +136,14 @@ export async function recomputeAttributions(
         juvenileHeading: metadata.juvenileHeading,
         genres: metadata.genres,
         pageCount: metadata.pageCount,
-        candidateReaderIds: readers.map(({ person_id }) => person_id),
+        candidateReaderIds: readerIds,
       });
       if (options.defaults?.assignSingleReader) {
-        assessment = applySingleReaderDefault(
-          assessment,
-          readers.map(({ person_id }) => person_id),
-        );
+        assessment = applySingleReaderDefault(assessment, readerIds);
       }
       method = assessment.evidence.length > 0 ? 'evidence_rules' : 'unresolved';
     }
-    if (await resultMatches(database, row.import_record_id, method, assessment)) continue;
+    if (resultMatches(currentResults.get(row.import_record_id), method, assessment)) continue;
     await writeAttributionResult(database, {
       id: idFactory(),
       importRecordId: row.import_record_id,
@@ -163,22 +168,33 @@ export async function correctAttribution(
     readonly note?: string;
     readonly idFactory?: () => string;
     readonly now?: () => Date;
-    // Must be threaded through: recomputeAttributions re-derives every record, so
-    // correcting one book without the composition's defaults would revert all the
-    // others to review.
+    // Threaded through so a corrected book follows the same household defaults as
+    // the bulk attribution pass.
     readonly defaults?: CompositionDefaults;
   },
 ): Promise<void> {
   const idFactory = input.idFactory ?? (() => crypto.randomUUID());
   const now = (input.now ?? (() => new Date()))().toISOString();
-  const { rebuildReadingModel } = await import('./reading.js');
-  // One transaction for the whole correction. The recompute and rebuild it
-  // triggers each touch every record, so committing them separately made a single
-  // added book pay two full passes of durability cost.
+  const workIds =
+    input.scope === 'work' && input.workId
+      ? [input.workId]
+      : await workIdsForImportRecord(database, input.importRecordId);
+  const { rebuildReadingModelForWorks } = await import('./reading.js');
+  // A correction can only affect the targeted work. Keeping the write, attribution
+  // result, and derived projection together preserves the audit trail without
+  // making a one-book action reprocess the whole shelf.
   await inTransaction(database, async () => {
     await saveAttributionOverride(database, { ...input, id: idFactory(), now });
-    await recomputeAttributions(database, { idFactory, now, defaults: input.defaults });
-    await rebuildReadingModel(database, { idFactory, now: () => new Date(now) });
+    await recomputeAttributions(database, {
+      idFactory,
+      now,
+      defaults: input.defaults,
+      workIds,
+    });
+    await rebuildReadingModelForWorks(database, workIds, {
+      idFactory,
+      now: () => new Date(now),
+    });
   });
 }
 
@@ -224,10 +240,15 @@ export async function repointResolutionAndRecompute(
   });
 }
 
-async function resolvedRows(database: Database): Promise<readonly ResolvedRow[]> {
+async function resolvedRows(
+  database: Database,
+  workIds?: readonly string[],
+): Promise<readonly ResolvedRow[]> {
+  const workFilter = workIds ? ` AND e.work_id IN (${workIds.map(() => '?').join(', ')})` : '';
   return database.query<ResolvedRow>(
     `SELECT r.id AS import_record_id, d.edition_id, e.work_id, r.call_number, r.source_format,
             x.value AS bibid, card.owner_person_id AS exclusive_owner_id, card.exclusive
+            , s.household_id
      FROM import_records r
      JOIN resolution_cases c ON c.import_record_id = r.id AND c.status = 'resolved'
      JOIN resolution_decisions d ON d.resolution_case_id = c.id AND d.current = 1
@@ -237,8 +258,26 @@ async function resolvedRows(database: Database): Promise<readonly ResolvedRow[]>
        AND x.namespace = 'kcls-bibid'
      LEFT JOIN source_accounts s ON s.id = r.source_account_id
      LEFT JOIN library_cards card ON card.id = s.card_id
+     WHERE 1 = 1${workFilter}
      ORDER BY r.occurred_at, r.id`,
+    workIds ? [...workIds] : [],
   );
+}
+
+async function workIdsForImportRecord(
+  database: Database,
+  importRecordId?: string,
+): Promise<readonly string[]> {
+  if (!importRecordId) throw new Error('checkout override requires its target');
+  const rows = await database.query<{ work_id: string }>(
+    `SELECT DISTINCT e.work_id FROM resolution_cases c
+     JOIN resolution_decisions d ON d.resolution_case_id = c.id AND d.current = 1
+       AND d.action IN ('accept', 'repoint')
+     JOIN editions e ON e.id = d.edition_id
+     WHERE c.import_record_id = ?`,
+    [importRecordId],
+  );
+  return rows.map(({ work_id }) => work_id);
 }
 
 function humanAssessment(
@@ -256,25 +295,11 @@ function humanAssessment(
   };
 }
 
-async function resultMatches(
-  database: Database,
-  importRecordId: string,
+function resultMatches(
+  row: CurrentResult | undefined,
   method: string,
   assessment: AttributionAssessment,
-): Promise<boolean> {
-  const rows = await database.query<{
-    id: string;
-    state: string;
-    method: string;
-    confidence: number;
-    score: number;
-    explanation: string;
-  }>(
-    `SELECT id, state, method, confidence, score, explanation FROM attribution_results
-     WHERE import_record_id = ? AND current = 1`,
-    [importRecordId],
-  );
-  const row = rows[0];
+): boolean {
   if (
     !row ||
     row.state !== assessment.state ||
@@ -284,12 +309,120 @@ async function resultMatches(
     row.explanation !== assessment.explanation
   )
     return false;
-  const readers = await database.query<{ person_id: string }>(
-    'SELECT person_id FROM attribution_result_readers WHERE attribution_result_id = ? ORDER BY person_id',
-    [row.id],
+  return JSON.stringify(row.readerIds) === JSON.stringify([...assessment.readerIds].sort());
+}
+
+async function activeReadersByHousehold(
+  database: Database,
+): Promise<ReadonlyMap<string, readonly string[]>> {
+  const rows = await database.query<{ household_id: string; person_id: string }>(
+    `SELECT p.household_id, p.id AS person_id FROM people p
+     JOIN reader_profiles r ON r.person_id = p.id
+     WHERE r.kind = 'child' AND r.archived_at IS NULL ORDER BY p.household_id, p.id`,
   );
-  return (
-    JSON.stringify(readers.map(({ person_id }) => person_id)) ===
-    JSON.stringify([...assessment.readerIds].sort())
+  return groupValues(rows, 'household_id', 'person_id');
+}
+
+async function effectiveMetadataByEdition(
+  database: Database,
+): Promise<ReadonlyMap<string, Partial<CatalogMetadata>>> {
+  const rows = await database.query<{
+    entity_id: string;
+    field: string;
+    value_json: string;
+  }>(
+    `SELECT entity_id, field, value_json FROM metadata_facts WHERE entity_kind = 'edition'
+     ORDER BY entity_id, field, precedence DESC, fetched_at DESC, id DESC`,
   );
+  const output = new Map<string, Partial<CatalogMetadata>>();
+  const seen = new Set<string>();
+  for (const row of rows) {
+    const key = `${row.entity_id}\u0000${row.field}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    const metadata = output.get(row.entity_id) ?? {};
+    Object.assign(metadata, { [row.field]: JSON.parse(row.value_json) as unknown });
+    output.set(row.entity_id, metadata);
+  }
+  return output;
+}
+
+type OverrideView = {
+  readonly method: 'checkout_override' | 'work_override';
+  readonly state: 'assigned' | 'excluded';
+  readonly readerIds: readonly string[];
+};
+
+async function currentOverrides(database: Database): Promise<{
+  readonly checkout: ReadonlyMap<string, OverrideView>;
+  readonly work: ReadonlyMap<string, OverrideView>;
+}> {
+  const rows = await database.query<{
+    id: string;
+    scope: 'checkout' | 'work';
+    import_record_id: string | null;
+    work_id: string | null;
+    state: 'assigned' | 'excluded';
+    person_id: string | null;
+  }>(
+    `SELECT o.id, o.scope, o.import_record_id, o.work_id, o.state, r.person_id
+     FROM attribution_overrides o LEFT JOIN attribution_override_readers r ON r.override_id = o.id
+     WHERE o.current = 1 ORDER BY o.id, r.person_id`,
+  );
+  const checkout = new Map<string, OverrideView>();
+  const work = new Map<string, OverrideView>();
+  for (const row of rows) {
+    const target = row.scope === 'checkout' ? row.import_record_id : row.work_id;
+    if (!target) continue;
+    const map = row.scope === 'checkout' ? checkout : work;
+    const existing = map.get(target);
+    map.set(target, {
+      method: row.scope === 'checkout' ? 'checkout_override' : 'work_override',
+      state: row.state,
+      readerIds: row.person_id
+        ? [...(existing?.readerIds ?? []), row.person_id]
+        : (existing?.readerIds ?? []),
+    });
+  }
+  return { checkout, work };
+}
+
+async function currentAttributionResults(
+  database: Database,
+): Promise<ReadonlyMap<string, CurrentResult>> {
+  const rows = await database.query<{
+    import_record_id: string;
+    state: string;
+    method: string;
+    confidence: number;
+    score: number;
+    explanation: string;
+    person_id: string | null;
+  }>(
+    `SELECT a.import_record_id, a.state, a.method, a.confidence, a.score, a.explanation,
+            r.person_id FROM attribution_results a
+     LEFT JOIN attribution_result_readers r ON r.attribution_result_id = a.id
+     WHERE a.current = 1 ORDER BY a.import_record_id, r.person_id`,
+  );
+  const output = new Map<string, CurrentResult>();
+  for (const row of rows) {
+    const existing = output.get(row.import_record_id);
+    output.set(row.import_record_id, {
+      ...row,
+      readerIds: row.person_id
+        ? [...(existing?.readerIds ?? []), row.person_id]
+        : (existing?.readerIds ?? []),
+    });
+  }
+  return output;
+}
+
+function groupValues<K extends string, V extends string>(
+  rows: readonly Record<K | V, string>[],
+  key: K,
+  value: V,
+): ReadonlyMap<string, readonly string[]> {
+  const output = new Map<string, string[]>();
+  for (const row of rows) output.set(row[key], [...(output.get(row[key]) ?? []), row[value]]);
+  return output;
 }

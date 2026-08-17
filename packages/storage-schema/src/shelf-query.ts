@@ -1,5 +1,5 @@
 import { searchText } from '@read-it-again/domain';
-import type { Database } from './database.js';
+import { inTransaction, type Database } from './database.js';
 import type { ReadingTrait } from './reading.js';
 
 /**
@@ -191,13 +191,15 @@ export async function indexWorksForSearch(database: Database): Promise<number> {
      LEFT JOIN work_search ws ON ws.work_id = w.id
      WHERE ws.work_id IS NULL`,
   );
-  for (const row of rows) {
-    const authors = parseAuthorDisplays(row.authors_json).join(' ');
-    await database.run('INSERT OR REPLACE INTO work_search (work_id, text) VALUES (?, ?)', [
-      row.id,
-      searchText(`${row.canonical_title} ${authors}`),
-    ]);
-  }
+  await inTransaction(database, async () => {
+    for (const row of rows) {
+      const authors = parseAuthorDisplays(row.authors_json).join(' ');
+      await database.run('INSERT OR REPLACE INTO work_search (work_id, text) VALUES (?, ?)', [
+        row.id,
+        searchText(`${row.canonical_title} ${authors}`),
+      ]);
+    }
+  });
   return rows.length;
 }
 

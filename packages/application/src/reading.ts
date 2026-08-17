@@ -22,6 +22,32 @@ export async function rebuildReadingModel(
     readonly thresholds?: EpisodeThresholds;
   } = {},
 ): Promise<ReadingModelView> {
+  await rebuildReadingModelProjection(database, undefined, options);
+  return getReadingModel(database);
+}
+
+export async function rebuildReadingModelForWorks(
+  database: Database,
+  workIds: readonly string[],
+  options: {
+    readonly idFactory?: () => string;
+    readonly now?: () => Date;
+    readonly thresholds?: EpisodeThresholds;
+  } = {},
+): Promise<void> {
+  if (workIds.length === 0) return;
+  await rebuildReadingModelProjection(database, workIds, options);
+}
+
+async function rebuildReadingModelProjection(
+  database: Database,
+  workIds: readonly string[] | undefined,
+  options: {
+    readonly idFactory?: () => string;
+    readonly now?: () => Date;
+    readonly thresholds?: EpisodeThresholds;
+  },
+): Promise<void> {
   const idFactory = options.idFactory ?? (() => crypto.randomUUID());
   const now = (options.now ?? (() => new Date()))().toISOString();
   const households = await database.query<{
@@ -34,9 +60,24 @@ export async function rebuildReadingModel(
   // Routed through inTransaction so this can nest inside a bulk import pass,
   // which is what lets a 1000-row import commit once instead of per row.
   await inTransaction(database, async () => {
-    await database.run('DELETE FROM acquisition_episode_checkouts');
-    await database.run('DELETE FROM acquisition_episodes');
-    await database.run('DELETE FROM preference_summaries');
+    if (workIds) {
+      const placeholders = workIds.map(() => '?').join(', ');
+      await database.run(
+        `DELETE FROM acquisition_episode_checkouts WHERE acquisition_episode_id IN
+         (SELECT id FROM acquisition_episodes WHERE work_id IN (${placeholders}))`,
+        [...workIds],
+      );
+      await database.run(`DELETE FROM acquisition_episodes WHERE work_id IN (${placeholders})`, [
+        ...workIds,
+      ]);
+      await database.run(`DELETE FROM preference_summaries WHERE work_id IN (${placeholders})`, [
+        ...workIds,
+      ]);
+    } else {
+      await database.run('DELETE FROM acquisition_episode_checkouts');
+      await database.run('DELETE FROM acquisition_episodes');
+      await database.run('DELETE FROM preference_summaries');
+    }
     for (const household of households) {
       const thresholds = options.thresholds ?? {
         mergeDays: household.merge_days ?? 7,
@@ -47,9 +88,10 @@ export async function rebuildReadingModel(
          ON CONFLICT (household_id) DO UPDATE SET merge_days = excluded.merge_days, strong_repeat_days = excluded.strong_repeat_days, algorithm_version = excluded.algorithm_version, updated_at = excluded.updated_at`,
         [household.id, thresholds.mergeDays, thresholds.strongRepeatDays, now],
       );
+      const workFilter = workIds ? ` AND e.work_id IN (${workIds.map(() => '?').join(', ')})` : '';
       const groups = await database.query<{ work_id: string; person_id: string }>(
-        `SELECT DISTINCT e.work_id, ar.person_id FROM import_records r JOIN source_accounts s ON s.id = r.source_account_id JOIN resolution_cases c ON c.import_record_id = r.id JOIN resolution_decisions d ON d.resolution_case_id = c.id AND d.current = 1 JOIN editions e ON e.id = d.edition_id JOIN attribution_results a ON a.import_record_id = r.id AND a.current = 1 AND a.state = 'assigned' JOIN attribution_result_readers ar ON ar.attribution_result_id = a.id WHERE s.household_id = ? ORDER BY e.work_id, ar.person_id`,
-        [household.id],
+        `SELECT DISTINCT e.work_id, ar.person_id FROM import_records r JOIN source_accounts s ON s.id = r.source_account_id JOIN resolution_cases c ON c.import_record_id = r.id JOIN resolution_decisions d ON d.resolution_case_id = c.id AND d.current = 1 JOIN editions e ON e.id = d.edition_id JOIN attribution_results a ON a.import_record_id = r.id AND a.current = 1 AND a.state = 'assigned' JOIN attribution_result_readers ar ON ar.attribution_result_id = a.id WHERE s.household_id = ?${workFilter} ORDER BY e.work_id, ar.person_id`,
+        workIds ? [household.id, ...workIds] : [household.id],
       );
       for (const group of groups) {
         const checkouts = await database.query<{ import_record_id: string; occurred_at: string }>(
@@ -114,9 +156,19 @@ export async function rebuildReadingModel(
         );
       }
     }
-    await database.run('DELETE FROM derived_rebuilds');
+    if (workIds) {
+      const placeholders = workIds.map(() => '?').join(', ');
+      await database.run(
+        `DELETE FROM derived_rebuilds WHERE work_id IN (${placeholders}) OR import_record_id IN
+         (SELECT c.import_record_id FROM resolution_cases c
+          JOIN resolution_decisions d ON d.resolution_case_id = c.id AND d.current = 1
+          JOIN editions e ON e.id = d.edition_id WHERE e.work_id IN (${placeholders}))`,
+        [...workIds, ...workIds],
+      );
+    } else {
+      await database.run('DELETE FROM derived_rebuilds');
+    }
   });
-  return getReadingModel(database);
 }
 
 export async function recordReadingSession(

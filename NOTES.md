@@ -15,10 +15,10 @@
   barcode scanning is. Cover storage and the file-picker path from Increment 5 are already in
   place, so X2 is mostly wiring the camera to `downscaleCover`.
 - **Increment 7 is now complete:** X4 and X8 landed alongside N4.
-- **Known remaining performance gap:** adding one book to a 1000-book shelf takes ~3.9 s against a
-  500 ms budget, because `recomputeAttributions` and `rebuildReadingModel` both re-derive the whole
-  library on every write. ADR 0014 bounded the read path; making the write path incremental is a
-  separate piece of domain work and the one F-04 budget still annotated.
+- **F-04 write budget resolved:** one-book attribution and reading projections now update only the
+  affected work, while bulk search indexing commits as one transaction. The 500- and 1000-book
+  performance tests pass without an expected-failure annotation, including the 500 ms add budget
+  and 10 s-per-1000-row import budget.
 - **Source plan:** Obsidian `Efforts/Read It Again.md`
 - **Important constraint:** KCLS OpenSearch did not return CORS permission headers on
   2026-08-12. Browser-only catalog access is not currently viable.

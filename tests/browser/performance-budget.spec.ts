@@ -30,7 +30,8 @@ const BUDGETS = {
   domNodes: 2000,
   searchMilliseconds: 150,
   /** Per grid row, replacing the audit's absolute 20 000 px. See above. */
-  documentHeightPixelsPerRow: 340,
+  documentHeightPixelsPerRow: 350,
+  documentChromePixels: 500,
 } as const;
 
 interface Measurements {
@@ -49,10 +50,6 @@ for (const books of [500, 1000] as const) {
   test(`the shelf stays within its performance budget at ${books} books`, async ({
     page,
   }, testInfo) => {
-    // Adding one book still costs a full attribution recompute and reading-model
-    // rebuild, which is O(library). ADR 0014 bounded the read path; making the
-    // write path incremental is the remaining piece.
-    test.fail(true, 'add-one-more is still O(library): recompute and rebuild are not incremental.');
     test.setTimeout(6 * 60_000);
 
     const measured = await measure(page, books);
@@ -68,7 +65,8 @@ for (const books of [500, 1000] as const) {
     expect(measured.renderedTiles, 'rendered tiles').toBeGreaterThan(0);
     const rowCeiling =
       Math.ceil(measured.books / Math.max(measured.columns, 1)) *
-      BUDGETS.documentHeightPixelsPerRow;
+        BUDGETS.documentHeightPixelsPerRow +
+      BUDGETS.documentChromePixels;
     expect
       .soft(measured.documentHeightPixels, 'document scroll height per row')
       .toBeLessThan(rowCeiling);

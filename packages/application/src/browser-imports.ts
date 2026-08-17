@@ -9,7 +9,6 @@ import {
   type Database,
   type ImportBatchResult,
 } from '@read-it-again/storage-schema';
-import { rebuildReadingModel } from './reading.js';
 
 export async function importCsvSnapshot(
   database: Database,
@@ -134,10 +133,8 @@ export async function importManualBook(
       authorsJson: JSON.stringify(author ? [{ display: author }] : []),
       now,
     });
-    await rebuildReadingModel(database, { idFactory, now: () => new Date(now) });
     return { workId, created: true };
   }
-  await rebuildReadingModel(database, { idFactory, now: () => new Date(now) });
   const resolved = (
     await database.query<{ work_id: string }>(
       `SELECT e.work_id FROM resolution_cases c
