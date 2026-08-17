@@ -1,7 +1,4 @@
-/* Design tokens. The warm cream and forest green are deliberately kept — the audit
-   was explicit that the palette is well judged and that what needed replacing was
-   the structure, not the skin. Border values are the 3:1 contrast pair verified in
-   Increment 1: #8a8072 is 3.82:1 and #5f7d6d is 4.45:1 on the card surface. */
+/* Warm neutral palette. Both border colors clear 3:1 against the card surface. */
 :root {
   --page: #f6f1e8;
   --surface: #fffdf8;
@@ -314,7 +311,7 @@ h3 {
   width: 1px;
 }
 
-/* ── First run (N9) ─────────────────────────────────────────────────────── */
+/* ── First run ──────────────────────────────────────────────────────────── */
 .first-run {
   background: var(--surface);
   border: 1px solid var(--border-soft);
@@ -701,7 +698,7 @@ h3 {
   margin-left: 8px;
 }
 
-/* ── Selection (X4) ─────────────────────────────────────────────────────── */
+/* ── Selection ──────────────────────────────────────────────────────────── */
 .cover-tile {
   position: relative;
 }
@@ -752,7 +749,7 @@ h3 {
   }
 }
 
-/* ── Session editing (F-18) ─────────────────────────────────────────────── */
+/* ── Session editing ────────────────────────────────────────────────────── */
 .session-edit {
   display: flex;
   flex-wrap: wrap;
@@ -838,6 +835,11 @@ h3 {
   flex-wrap: wrap;
   gap: 12px;
   margin-bottom: 22px;
+}
+.detail-cover-actions .link-button {
+  align-items: center;
+  display: inline-flex;
+  min-height: var(--tap);
 }
 .detail-section {
   border-top: 1px solid var(--border-soft);
@@ -973,8 +975,7 @@ h3 {
   color: var(--brand);
   font-weight: 700;
 }
-/* Save is disabled until something actually changes (F-12), so it has to read as
-   unavailable rather than being inert when pressed. */
+/* Disabled save buttons should look unavailable. */
 .decision-actions button:disabled,
 .decision-actions button:first-child:disabled {
   border-color: #cfc6b8;

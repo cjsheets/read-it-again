@@ -3,7 +3,7 @@ import { NodeSqliteDatabase } from '@read-it-again/storage-node';
 import { indexWorksForSearch, listShelf, migrate } from '@read-it-again/storage-schema';
 
 /**
- * ADR 0014 and F-03. The shelf is one card per book, not one per reader-book pair:
+ * The shelf is one card per book, not one per reader-book pair:
  * a book both children have read must appear once, with a chip each.
  */
 describe('listShelf', () => {

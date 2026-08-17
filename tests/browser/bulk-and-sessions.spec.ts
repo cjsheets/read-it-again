@@ -19,11 +19,7 @@ async function addReader(page: Page, name: string): Promise<void> {
   await expect(page.getByTestId('reader-list').getByRole('listitem')).toHaveCount(before + 1);
 }
 
-/**
- * X4. The audit's example is "assign 200 imported books to Ada". Without bulk
- * assignment the only route is opening each book in turn — the same per-book tax
- * that F-01 removed from importing, reintroduced at the filing step.
- */
+/** Bulk reader assignment from Tasks and the shelf. */
 test.describe('selecting several books at once', () => {
   test('files a whole queue at once after a second reader arrives', async ({ page }) => {
     await openApp(page);
@@ -103,11 +99,7 @@ test.describe('selecting several books at once', () => {
   });
 });
 
-/**
- * F-18. "Read tonight" hardcoded the context, the current timestamp and a single
- * participant, so a book read to two children recorded one and last night could
- * not be logged this morning.
- */
+/** Quick reading logs remain editable after they are created. */
 test.describe('logging a reading', () => {
   test('one tap logs, and the session stays correctable', async ({ page }) => {
     await openApp(page);

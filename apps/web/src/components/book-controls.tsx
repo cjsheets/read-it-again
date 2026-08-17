@@ -16,8 +16,7 @@ export const TRAITS: readonly { readonly value: ReadingTrait; readonly label: st
 
 const RATING_MEANINGS = ['no', 'a little', 'a lot', 'loved it'] as const;
 
-/** ADR 0009 separates a library checkout from a book you simply added. These are
- *  the plain-language names for that distinction (F-13). */
+/** Plain-language source names for the observation types in ADR 0009. */
 const SOURCE_LABELS: Readonly<Record<string, string>> = {
   manual: 'Added by you',
   csv: 'Imported from a CSV file',
@@ -45,8 +44,7 @@ export function RatingButtons({
   readonly value: number | null;
   readonly onChange: (value: number) => void;
 }) {
-  // role="group" rather than fieldset/legend: a <legend> cannot be laid out
-  // reliably, and the float hack it forced was the 320px overflow (F-10).
+  // A group avoids the layout problems caused by fieldset and legend here.
   return (
     <div className="rating-row" role="group" aria-label={label}>
       <span className="rating-label">{label}</span>

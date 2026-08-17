@@ -25,6 +25,7 @@ import {
   archiveReader,
   createReader,
   deleteCoverImage,
+  enqueueMissingCatalogCovers,
   findWorkByIsbn,
   getAppMetadata,
   getCoverImage,
@@ -41,20 +42,18 @@ import {
   saveCoverImage,
 } from '@read-it-again/storage-schema';
 import type { Database } from '@read-it-again/storage-schema';
-import type { Summary, WorkerRequest, WorkerResponse } from './protocol.js';
+import type { Summary, WorkerEvent, WorkerRequest, WorkerResponse } from './protocol.js';
+import { drainCatalogCoverQueue } from './catalog-cover.js';
 
 const SOURCE_ACCOUNT_ID = 'default-libby-source';
 const CSV_SOURCE_ACCOUNT_ID = 'default-csv-source';
 const MANUAL_SOURCE_ACCOUNT_ID = 'default-manual-source';
 const HOUSEHOLD_ID = 'default-household';
 const worker = self as unknown as DedicatedWorkerGlobalScope;
+let coverDrain: Promise<void> | undefined;
+let coverDrainRequested = false;
 
-/**
- * ADR 0012. The browser has no catalog (ADR 0002), so the conservative domain
- * rules have nothing to work with and every imported book stalls in a review
- * queue (F-01). These defaults let imports land on the shelf; the decisions they
- * write are append-only and any human choice supersedes them.
- */
+/** Browser-only defaults for imports that have no catalog evidence. */
 const BROWSER_DEFAULTS = {
   acceptSourceDetails: true,
   assignSingleReader: true,
@@ -83,6 +82,8 @@ const databasePromise = openOpfsDatabase('/read-it-again.sqlite3').then(async (d
   );
   // Catches up any works created before migration 9 existed.
   await indexWorksForSearch(database);
+  await enqueueMissingCatalogCovers(database, now);
+  queueMicrotask(() => scheduleCoverDrain(database));
   return database;
 });
 
@@ -140,6 +141,14 @@ async function handle(request: WorkerRequest): Promise<void> {
     let archiveText;
     let sessionId;
     let manualCreated;
+    const mayAddCoverCandidates = new Set<WorkerRequest['type']>([
+      'importLibby',
+      'importCsv',
+      'importManual',
+      'importArchive',
+      'acceptCandidate',
+      'manualResolve',
+    ]).has(request.type);
 
     if (request.type === 'importLibby') {
       result = await importLibbySnapshot(database, {
@@ -164,8 +173,7 @@ async function handle(request: WorkerRequest): Promise<void> {
         householdId: HOUSEHOLD_ID,
       });
       manualCreated = manual.created;
-      // Attributed to whoever the household is looking at, rather than a
-      // hardcoded 'default-reader' (F-03). Falls back to the only active reader.
+      // Prefer the selected reader; otherwise use the only active reader.
       const active = await listReaders(database);
       const readerId =
         request.readerId && active.some((reader) => reader.id === request.readerId)
@@ -240,8 +248,7 @@ async function handle(request: WorkerRequest): Promise<void> {
     } else if (request.type === 'reviseReadingSession') {
       await reviseReadingSession(database, { ...request, id: request.sessionId });
     } else if (request.type === 'assignReaders') {
-      // One transaction for the whole selection: assigning two hundred imported
-      // books should not pay two hundred recomputes (X4).
+      // Keep a bulk assignment in one transaction.
       for (const workId of request.workIds) {
         await correctAttribution(database, {
           scope: 'work',
@@ -253,7 +260,11 @@ async function handle(request: WorkerRequest): Promise<void> {
       }
     }
 
+    if (mayAddCoverCandidates) {
+      await enqueueMissingCatalogCovers(database, new Date().toISOString());
+    }
     await reply(request.id, database, { result, archiveText, sessionId, manualCreated });
+    if (mayAddCoverCandidates) scheduleCoverDrain(database);
   } catch (error) {
     worker.postMessage({
       id: request.id,
@@ -265,6 +276,20 @@ async function handle(request: WorkerRequest): Promise<void> {
           : undefined,
     } satisfies WorkerResponse);
   }
+}
+
+function scheduleCoverDrain(database: Database): void {
+  if (coverDrain) {
+    coverDrainRequested = true;
+    return;
+  }
+  coverDrainRequested = false;
+  coverDrain = drainCatalogCoverQueue(database, (workId) => {
+    worker.postMessage({ type: 'catalogCoverStored', workId } satisfies WorkerEvent);
+  }).finally(() => {
+    coverDrain = undefined;
+    if (coverDrainRequested) scheduleCoverDrain(database);
+  });
 }
 
 /**

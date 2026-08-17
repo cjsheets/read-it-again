@@ -2,7 +2,7 @@ import { StrictMode, useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import type { AttributionTriageItem, IsbnMatch } from '@read-it-again/storage-schema';
 import { AppProvider, EMPTY_SUMMARY, type AppState, type ErrorState } from './app-state.js';
-import { requestWorker } from './client.js';
+import { onWorkerEvent, requestWorker } from './client.js';
 import { ErrorBoundary } from './components/error-boundary.js';
 import { Shell } from './components/shell.js';
 import {
@@ -59,6 +59,9 @@ function App() {
   useEffect(() => {
     void refreshBookshelf();
     void readPersistence().then(setPersistence);
+    return onWorkerEvent((event) => {
+      if (event.type === 'catalogCoverStored') setRevision((current) => current + 1);
+    });
   }, []);
 
   const state: AppState = {

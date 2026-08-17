@@ -14,17 +14,7 @@ type Phase =
   | { readonly step: 'known'; readonly isbn: string; readonly match: IsbnMatch }
   | { readonly step: 'failed'; readonly reason: string };
 
-/**
- * Audit §8.5, kept to the scope the audit sets for a first version: point the
- * camera at a barcode, decode EAN-13, and ask the *local* database about it.
- * There is no catalog lookup here — the browser has none (ADR 0002) — so a book
- * this household has never seen resolves to an ISBN and nothing else, and the
- * person still has to say what it is called.
- *
- * Everything this does is also reachable by typing, which matters more than the
- * camera does: scanning is a shortcut for people holding a stack of books, not a
- * route anyone is required to take.
- */
+/** Reads an EAN-13 ISBN and checks it against the local shelf. */
 export function ScanDialog({
   onIsbn,
   onShowShelf,

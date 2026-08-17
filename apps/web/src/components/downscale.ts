@@ -19,8 +19,14 @@ export interface DownscaledCover {
  * message, which is better than silently storing something that breaks the cap.
  */
 export async function downscaleCover(file: File): Promise<DownscaledCover> {
-  if (!file.type.startsWith('image/')) throw new Error('That file is not an image.');
-  const bitmap = await createImageBitmap(file).catch(() => {
+  return downscaleCoverBlob(file);
+}
+
+/** The catalog path receives a Blob rather than a File, but it must pass through
+ * the exact same storage caps as a household-selected image. */
+export async function downscaleCoverBlob(blob: Blob): Promise<DownscaledCover> {
+  if (!blob.type.startsWith('image/')) throw new Error('That file is not an image.');
+  const bitmap = await createImageBitmap(blob).catch(() => {
     throw new Error('That image could not be read.');
   });
   try {

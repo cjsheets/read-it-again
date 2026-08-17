@@ -9,12 +9,7 @@ import {
   shelfCards,
 } from './support/shelf.js';
 
-/**
- * F-03. There was exactly one reader, hardcoded as "Child", and no UI to create,
- * rename or select another. The schema has supported multiple readers since
- * migration 1 — the audit calls this the largest gap between built and exposed
- * capability in the product.
- */
+/** Multiple-reader creation, selection, archiving, and attribution. */
 /** Reader rows show the name in an editable input, so `hasText` cannot find them;
  *  the labelled field is the reliable handle. */
 function readerRow(page: Page, name: string) {
@@ -94,7 +89,7 @@ test.describe('reader management', () => {
 test.describe('the reader switcher', () => {
   test('appears only once there is a choice to make', async ({ page }) => {
     await openApp(page);
-    // With one reader a switcher is a control with a single option (§2.3-B).
+    // Hide the switcher until there is a choice.
     await expect(page.getByTestId('reader-everyone')).toHaveCount(0);
 
     await addReader(page, 'Ada');
@@ -151,7 +146,7 @@ test.describe('the reader switcher', () => {
     await page.getByTestId('reader-everyone').click();
     await goTo(page, 'shelf');
     // One book with two chips, not the same book listed once per reader — the
-    // card anatomy in audit §7.5.
+    // shelf card.
     await expect(shelfCards(page)).toHaveCount(1);
     await expect(shelfCards(page).first().locator('.reader-chip')).toHaveCount(2);
 

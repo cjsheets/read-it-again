@@ -1,6 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 import { FIXTURE_ISBN } from './support/barcode.js';
-import { addBookManually, goTo, openApp, shelfCards } from './support/shelf.js';
+import { addBookManually, goTo, openApp, openBook, shelfCards } from './support/shelf.js';
 
 /** Turning the experiment on is a deliberate act, so every scanning test starts
  *  by performing it rather than by reaching into storage. */
@@ -11,10 +11,7 @@ async function enableScanning(page: Page): Promise<void> {
   await expect(page.getByTestId('open-scanner')).toBeVisible();
 }
 
-/**
- * Audit §8.4. Feasible with no network and no catalog: the check digit is
- * arithmetic, so a mistyped ISBN can be caught the moment it is typed.
- */
+/** ISBN check digits can be validated without a network or catalog. */
 test.describe('typing an ISBN', () => {
   test('a mistyped ISBN is refused before it becomes a book', async ({ page }) => {
     await openApp(page);
@@ -41,12 +38,7 @@ test.describe('typing an ISBN', () => {
   });
 });
 
-/**
- * Audit §8.5's v0 scope: camera, decode EAN-13, check the ISBN against the local
- * database, then either open what is already there or start a new book from it.
- * Chromium plays a generated barcode through its fake camera, so this decodes for
- * real rather than stubbing the part most likely to break.
- */
+/** Runs the real EAN-13 decoder against Chromium's generated camera video. */
 test.describe('scanning a barcode', () => {
   test('scanning is off until it is switched on', async ({ page }) => {
     await openApp(page);
@@ -68,6 +60,16 @@ test.describe('scanning a barcode', () => {
   });
 
   test('a scanned ISBN fills the form for a book the shelf has never seen', async ({ page }) => {
+    await page.route('https://covers.openlibrary.org/**', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'image/png',
+        body: Buffer.from(
+          'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
+          'base64',
+        ),
+      });
+    });
     await openApp(page);
     await enableScanning(page);
 
@@ -84,6 +86,11 @@ test.describe('scanning a barcode', () => {
     await page.getByLabel('Book title').fill('Structure and Interpretation');
     await page.getByRole('button', { name: 'Add to bookshelf' }).click();
     await expect(page.getByTestId('import-status')).toHaveText('Book added.');
+
+    // The scanned number is stored on the same work-level path as a typed or
+    // imported ISBN, so it can find a cover without scanner-specific wiring.
+    const detail = await openBook(page);
+    await expect(detail.locator('img.cover-image')).toBeVisible({ timeout: 15_000 });
   });
 
   test('scanning a book already on the shelf says so instead of duplicating it', async ({
@@ -92,7 +99,7 @@ test.describe('scanning a barcode', () => {
     await openApp(page);
     // Deliberately the ten-digit spelling of the thirteen-digit barcode. They are
     // the same edition, and a lookup that only matched what it was handed would
-    // put a second copy of this book on the shelf (audit §8.2).
+    // put a second copy of this book on the shelf.
     await addBookManually(page, {
       title: 'Structure and Interpretation',
       author: 'Abelson and Sussman',

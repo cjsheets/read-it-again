@@ -131,8 +131,7 @@ export type WorkerRequest =
       readonly type: 'assessWork';
       readonly workId: string;
       readonly personId: string;
-      // Optional because "not rated yet" is a real state the storage layer already
-      // persists as NULL. Defaulting these to 2 fabricated assessments (F-12).
+      // Missing values mean the work has not been rated yet.
       readonly childEngagement?: number;
       readonly adultTolerance?: number;
       readonly asksByName: boolean;
@@ -150,8 +149,7 @@ export type WorkerRequest =
       readonly context: 'bedtime' | 'daytime' | 'travel' | 'school' | 'other';
       readonly occurredAt?: string;
     }
-  // F-18: a session used to be write-once with a hardcoded context, the current
-  // time and one participant. Correcting it is what makes one-tap logging safe.
+  // Corrects a session created by the one-tap logging path.
   | {
       readonly id: string;
       readonly type: 'reviseReadingSession';
@@ -212,8 +210,7 @@ export type WorkerResponse =
       /** null means the ISBN resolved to nothing on this device. Absent means the
        *  request was not a lookup at all. */
       readonly isbnMatch?: IsbnMatch | null;
-      /** The session just written, so the UI can offer an inline correction
-       *  without a second lookup (F-18). */
+      /** The session just written, for an immediate inline correction. */
       readonly sessionId?: string;
       /** Manual entry reports whether it created a book or matched one already on
        *  the shelf, so the UI never celebrates a no-op as a new addition. */
@@ -225,3 +222,5 @@ export type WorkerResponse =
       readonly message: string;
       readonly issues?: readonly string[];
     };
+
+export type WorkerEvent = { readonly type: 'catalogCoverStored'; readonly workId: string };

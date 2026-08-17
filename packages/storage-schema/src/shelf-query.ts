@@ -62,9 +62,8 @@ const ORDER_BY: Readonly<Record<ShelfSort, string>> = {
 };
 
 /**
- * One row per work, not per reader-work pair. A book both children have read is
- * one book on the shelf with two chips, which is what the card anatomy in audit
- * §7.5 describes — and it means the "everyone" view does not look like duplicates.
+ * One row per work, not per reader-work pair. A book shared by two readers appears
+ * once with both reader labels.
  *
  * The representative reader is chosen deterministically with `min(person_id)`
  * rather than left to SQLite's bare-column behaviour, so the assessment shown on a

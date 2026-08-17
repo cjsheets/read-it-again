@@ -9,19 +9,8 @@ export interface GridWindow {
 }
 
 /**
- * ADR 0014. Renders only the rows near the viewport, so DOM size stops tracking
- * library size (F-04). The audit measured 19 274 nodes and a 279 685 px document
- * at 1200 books; a full-page screenshot exceeded a 30 s timeout.
- *
- * The grid is uniform — every cell is a 2:3 cover with a fixed caption — which is
- * what makes this arithmetic rather than measurement. That uniformity was chosen
- * back in Increment 5 for exactly this reason (audit §7.2).
- *
- * Screen-reader traversal is the risk the audit calls out: with only a window
- * rendered, assistive technology is told "1 of 24" when the shelf holds a thousand
- * books. `aria-setsize` and `aria-posinset` on every cell restore the real
- * position, and `virtual-grid.spec` asserts it rather than trusting axe, which
- * cannot know the list is windowed.
+ * Renders the fixed-size rows near the viewport. Each tile reports its position
+ * in the complete shelf, not only the rendered window.
  */
 export function VirtualGrid<T>({
   total,

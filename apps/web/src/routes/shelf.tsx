@@ -226,11 +226,7 @@ function useDebounced(value: string, delay: number): string {
   return settled;
 }
 
-/**
- * X4. The audit's example is "assign 200 imported books to Ada". Without this the
- * only route is opening each book in turn, which is the same per-book tax F-01
- * removed from importing.
- */
+/** Applies one reader assignment to the selected books. */
 function SelectionBar({
   count,
   readers,
@@ -357,13 +353,7 @@ function ShelfTile({
   );
 }
 
-/**
- * N9. The old first screen led with "Import a Libby timeline snapshot" — a
- * product-defining sentence about the journey most people will never take — and
- * followed it with a green box explaining what the app cannot do. This leads with
- * the thing that works, and states the privacy boundary once, briefly, as a
- * capability rather than an apology.
- */
+/** Empty-state copy for a household that has not added its first book. */
 function FirstRun({
   go,
   hasRecords,

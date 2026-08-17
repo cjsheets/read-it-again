@@ -9,14 +9,9 @@ import {
   openBook,
 } from './support/shelf.js';
 
-/**
- * Increment 1's copy and labelling work: contextual errors (F-06, N10), an honest
- * unrated state (F-12, N11), and provenance that does not describe a typed-in book
- * as a library checkout (F-13, N12).
- */
+/** Contextual errors, honest unrated state, and accurate provenance labels. */
 test.describe('errors name the artefact they are about', () => {
-  // F-06: all five of these once shared the headline "Libby file could not be
-  // validated", which sent users to debug the wrong file.
+  // A backup failure must not be reported as a Libby validation error.
   test('a bad passphrase does not blame the Libby file', async ({ page }) => {
     await openApp(page);
     await goTo(page, 'settings');
@@ -72,13 +67,12 @@ test.describe('errors name the artefact they are about', () => {
 });
 
 test.describe('ratings distinguish unrated from middling', () => {
-  // F-12: the dials defaulted to 2 and rendered aria-pressed="true", so an
-  // untouched shelf looked fully assessed and a stray save wrote a fabricated 2/2.
+  // New books must not start with fabricated ratings.
   test('a new book is unrated, with nothing selected and saving unavailable', async ({ page }) => {
     await openApp(page);
     await addBookManually(page, { title: 'The Gruffalo', author: 'Julia Donaldson' });
 
-    // Assessment lives in the detail view since Increment 5, not on every card.
+    // Assessments live in the detail view, not on every card.
     const detail = await openBook(page);
     await expect(detail.getByTestId('rating-unset')).toBeVisible();
     // Scoped to the rating dials: the reader buttons legitimately use aria-pressed
@@ -112,8 +106,7 @@ test.describe('ratings distinguish unrated from middling', () => {
 });
 
 test.describe('provenance is named honestly', () => {
-  // F-13: ADR 0009 turns on checkout != acquisition != reading. The UI had
-  // collapsed all three, captioning typed-in books as "imported library facts".
+  // ADR 0009 keeps manual additions separate from library checkouts.
   test('a typed-in book is labelled as added by you, not as a checkout', async ({ page }) => {
     await openApp(page);
     await addBookManually(page, { title: 'The Gruffalo', author: 'Julia Donaldson' });

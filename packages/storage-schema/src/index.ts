@@ -5,14 +5,18 @@ export type { ConformanceResult } from './conformance.js';
 export { getAppMetadata, LAST_BACKUP_AT, setAppMetadata } from './app-metadata.js';
 export {
   deleteCoverImage,
+  enqueueMissingCatalogCovers,
+  finishCatalogCoverFetch,
   getCoverImage,
+  listCoverIsbns,
   listWorkIdsWithCovers,
   MAX_COVER_BYTES,
   MAX_COVER_HEIGHT,
   MAX_COVER_WIDTH,
+  nextCatalogCoverFetch,
   saveCoverImage,
 } from './covers.js';
-export type { CoverImage, CoverSource } from './covers.js';
+export type { CatalogCoverFetch, CoverImage, CoverSource } from './covers.js';
 export { findWorkByIsbn } from './isbn-lookup.js';
 export type { IsbnMatch } from './isbn-lookup.js';
 export { indexWorksForSearch, listShelf } from './shelf-query.js';

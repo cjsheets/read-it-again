@@ -5,12 +5,7 @@ import { ScanDialog } from '../components/scan-dialog.js';
 import type { Route } from '../router.js';
 import { cameraSupported } from '../scanner.js';
 
-/**
- * Every way a book gets onto the shelf, in one place, ordered by how often it is
- * used rather than by how the pipeline is built (audit §6.3). Typing a book in is
- * the journey that works for everyone, so it comes first; importing a file is a
- * power-user path, so it comes last.
- */
+/** Entry points for manual books, barcode scans, and file imports. */
 export function Add({ go }: { readonly go: (route: Route) => void }) {
   const { busy, importCsvFile, importLibbyFile } = useApp();
   return (
@@ -80,17 +75,13 @@ function TypeItIn({ go }: { readonly go: (route: Route) => void }) {
   // put the cursor where the work happens.
   useEffect(() => titleField.current?.focus(), []);
 
-  // A blank ISBN is fine, since most books here are typed in without one. A
-  // non-blank one that fails its own check digit is a typo or a misread, and the
-  // arithmetic can say so straight away without asking any catalog (audit §8.4).
+  // ISBN is optional, but a supplied value must have a valid check digit.
   const isbnBad = isbn.trim().length > 0 && !isValidIsbn(isbn);
 
   return (
     <article>
       <h3>Type it in</h3>
-      {/* Behind an opt-in flag, because the audit gates scanning on a field trial
-          that has not been run (§8.5). Hidden entirely where there is no camera,
-          rather than offered and then failing. */}
+      {/* Scanning is opt-in until the field test is complete. */}
       {scanningEnabled && cameraSupported() && (
         <button
           type="button"

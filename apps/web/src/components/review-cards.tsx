@@ -1,8 +1,7 @@
 import type { AttributionTriageItem, ResolutionQueueItem } from '@read-it-again/storage-schema';
 import { useApp } from '../app-state.js';
 
-/** Actions read as outcomes rather than pipeline stages (F-14): "Keep as typed"
- *  rather than "Use source details", "Ask me later" rather than "Defer". */
+/** Resolution actions use the outcome a reader will see. */
 export function ResolutionCard({ item }: { readonly item: ResolutionQueueItem }) {
   const { applyDecision } = useApp();
   return (

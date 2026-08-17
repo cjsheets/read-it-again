@@ -1,12 +1,7 @@
 import { expect, test } from '@playwright/test';
 import { PRODUCTION_URL } from './support/shelf.js';
 
-/**
- * F-17 / X9. The manifest previously offered a single SVG icon with `sizes: "any"`
- * and nothing else: iOS ignores SVG icons for home-screen install, and Chromium
- * needs raster icons plus screenshots to show a rich install card. The product's
- * core promise is an installable offline app, so this is the install step working.
- */
+/** Manifest fields and assets required for an installable PWA. */
 interface Manifest {
   readonly id?: string;
   readonly display_override?: readonly string[];
@@ -78,7 +73,7 @@ test('the Add a book shortcut lands on the form, not just the app', async ({ pag
   await expect(page.getByLabel('Book title')).toBeFocused();
 });
 
-// Already-installed shortcuts still point at the pre-Increment-4 URL.
+// Keep the older query-string shortcut working.
 test('the older ?action=add shortcut still reaches Add', async ({ page }) => {
   await page.goto(new URL('?action=add', PRODUCTION_URL).href);
   await expect(page.getByTestId('import-status')).not.toHaveText('Opening your private bookshelf…');

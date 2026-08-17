@@ -6,11 +6,7 @@ import { cameraSupported } from '../scanner.js';
 /** Nag once a shelf is worth losing, not on the first book. */
 const BACKUP_REMINDER_THRESHOLD = 5;
 
-/**
- * Administrative, not daily (audit §6.4), so it is reachable from the shell but is
- * not one of the five destinations. Backup and restore live here rather than above
- * the bookshelf, where passphrase entry used to sit above the fold.
- */
+/** Backup, sources, readers, experiments, and privacy settings. */
 export function Settings() {
   const {
     summary,
@@ -113,13 +109,7 @@ export function Settings() {
   );
 }
 
-/**
- * Audit §8. Scanning is genuinely feasible in a browser, and it is also gated on a
- * 100-book, six-device trial (§8.5) that has not been run. Shipping it here is how
- * that trial becomes possible without betting every household's first impression
- * on an untested hit rate — so it is opt-in, named as an experiment, and says what
- * it does and does not do before anyone turns it on.
- */
+/** Opt-in features that still need field testing. */
 function Experiments() {
   const { scanningEnabled, setScanningEnabled } = useApp();
   if (!cameraSupported()) return null;
@@ -145,14 +135,7 @@ function Experiments() {
   );
 }
 
-/**
- * F-03. The schema has supported multiple readers since migration 1 and the UI
- * exposed exactly one, hardcoded as "Child" — the largest gap between built and
- * exposed capability in the product.
- *
- * Names are the household's own business. Any label works, "Kid 1" included;
- * nothing here asks for a real name and nothing leaves the device.
- */
+/** Reader labels are local and do not need to be real names. */
 function Readers() {
   const { summary, busy, manageReaders } = useApp();
   const readers = useWorkerData({ type: 'listReaders' }, (response) => response.readers);
@@ -256,10 +239,7 @@ function Readers() {
   );
 }
 
-/**
- * F-05. ADR 0011 warns that browser storage disappears when a profile is cleared,
- * and the UI said nothing. This states where the data stands in plain language.
- */
+/** Reports browser persistence and the most recent encrypted backup. */
 function DurabilityNote({
   persistence,
   lastBackupAt,

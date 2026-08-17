@@ -7,7 +7,7 @@ import { prepareResolutionQueue } from './resolution.js';
 
 /**
  * ADR 0012. These defaults exist only for a composition with no catalog. They must
- * close the import loop (F-01) without weakening the audit trail: every automatic
+ * close the import loop without weakening the decision history: every automatic
  * decision stays append-only and a human choice supersedes rather than replaces it.
  */
 const NO_CATALOG = {

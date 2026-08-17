@@ -13,8 +13,7 @@ import { useEffect, useState } from 'react';
  * Why not a router library: the requirement is five flat destinations with no
  * params, no nesting, and no data loading. A library would add bundle weight and
  * an upgrade surface for a `switch` statement. Revisit if nested routes with
- * parameters arrive — the book detail view in Increment 5 is the first candidate,
- * and it is a drawer over the shelf rather than a nested route.
+ * parameters arrive; the book detail view is currently a drawer over the shelf.
  */
 export const DESTINATIONS = [
   { id: 'shelf', label: 'Shelf', hint: 'Every book in the house' },
@@ -26,8 +25,7 @@ export const DESTINATIONS = [
 
 export type Destination = (typeof DESTINATIONS)[number]['id'];
 
-/** Settings is reachable but is not a tab: it is administrative, not daily
- *  (audit §6.4), so it sits beside the destinations rather than among them. */
+/** Settings is reachable from the shell but is not a daily-use tab. */
 export type Route = Destination | 'settings';
 
 const ROUTES: readonly Route[] = [...DESTINATIONS.map(({ id }) => id), 'settings'];

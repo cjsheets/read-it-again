@@ -1,10 +1,5 @@
 /**
- * Audit finding F-05. Browser storage is evictable, `navigator.storage.persist()`
- * was never called anywhere in the source, and clearing OPFS returned the app to
- * "No books imported yet." with no warning and no recovery path. ADR 0011 names
- * this risk and the UI did nothing about it.
- *
- * Two facts live here, and they are deliberately stored in different places:
+ * Two durability facts live here and are stored in different places:
  *
  * - Whether this *browser* granted persistent storage is device-local and is
  *   queried live from the Storage API, never cached, so it cannot go stale.
@@ -113,12 +108,7 @@ export function storeReaderFilter(readerId: string | null): void {
 /**
  * Whether this device has opted in to camera scanning.
  *
- * Off by default, and device-local like the reader filter. The audit gates the
- * feature on a 100-book, 6-device field trial (§8.5) that has not been run, so
- * shipping it on by default would mean asking every household for camera
- * permission on the strength of an untested guess about hit rates in real
- * lighting. Opting in is cheap; a bad first impression of a reading tracker
- * asking for the camera is not.
+ * Off by default until the planned 100-book, six-device field test is complete.
  */
 export function readScanningEnabled(): boolean {
   return safeGet(SCANNING) === 'yes';

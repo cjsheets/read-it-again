@@ -31,7 +31,7 @@ describe('parseLibbySnapshot', () => {
     } catch (error) {
       const { issues } = error as LibbySnapshotError;
       expect(issues).toContain('Entry 1: the title is missing or invalid.');
-      // F-06: a parent must never be shown a raw Zod path such as `0.title.text`.
+      // Import errors must not expose raw Zod paths such as `0.title.text`.
       expect(issues.some((issue) => /\d\.[a-z]+\./iu.test(issue))).toBe(false);
     }
   });

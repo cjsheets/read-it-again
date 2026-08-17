@@ -11,15 +11,7 @@ import {
   shelfCards,
 } from './support/shelf.js';
 
-/**
- * Audit §11 Tier 3: zero serious axe violations, and `scrollWidth <= clientWidth`
- * at 320 px in every state. Findings F-07 (no focus styles), F-09 (trait chips
- * never expose `aria-pressed`), F-10 (320 px overflow clips the rating control),
- * and F-16 (2.13:1 and 1.47:1 component borders) all live here.
- *
- * Both states are scanned. An empty first-run screen and a populated shelf fail
- * differently, and the populated one is where the household actually spends time.
- */
+/** Axe checks plus the layout and control states it cannot infer on its own. */
 const SERIOUS = new Set(['serious', 'critical']);
 
 async function populate(page: Page): Promise<void> {
@@ -111,8 +103,7 @@ test.describe('accessibility', () => {
     expect(await undersizedControls(page, 'body', 24)).toEqual([]);
   });
 
-  // The audit's own bar: 44x44 on the surfaces used one-handed while holding a
-  // child — the shelf card (rating dials, chips, options) and the add-book form.
+  // Use 44x44 targets on the detail and add-book controls.
   test('shelf and add-book controls meet the 44x44 platform norm', async ({ page }) => {
     await openApp(page);
     await populate(page);

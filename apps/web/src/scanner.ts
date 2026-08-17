@@ -1,9 +1,6 @@
 import { booklandIsbn } from '@read-it-again/domain';
-// Self-hosted on purpose. zxing-wasm defaults to fetching its binary from a CDN,
-// which `connect-src 'self'` forbids outright and which would make the feature
-// fail on exactly the trip to the library where there is no signal. Vite emits
-// this under /assets/, so it is same-origin, and the service worker's crawler
-// picks the URL up out of the bundle and precaches it (audit §8.1).
+// Keep the decoder same-origin so CSP permits it and the service worker can
+// precache it for offline scans.
 import wasmUrl from 'zxing-wasm/reader/zxing_reader.wasm?url';
 
 /**

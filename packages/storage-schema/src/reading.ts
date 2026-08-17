@@ -113,11 +113,7 @@ export async function saveReadingSession(
   });
 }
 
-/**
- * F-18. A session was written once with a hardcoded context, the current time and
- * a single participant, and could never be corrected. The schema always supported
- * five contexts, any date and multiple participants; only the write path did not.
- */
+/** Replaces the editable fields on an existing reading session. */
 export async function updateReadingSession(
   database: Database,
   input: {

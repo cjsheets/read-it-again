@@ -18,17 +18,7 @@ const READING_CONTEXTS: readonly ReadingContext[] = [
   'other',
 ];
 
-/**
- * F-15. There was nowhere to see a book's provenance, metadata, episode history or
- * attribution evidence — all of which the schema stores richly, and none of which
- * was reachable. ADR 0008 goes to some length to preserve that audit trail; this is
- * where it finally becomes visible.
- *
- * It is also where ADR 0012's mitigation lands: an automatic attribution is
- * reversible here, by supersession, for a book already on the shelf. Until now the
- * only correction path was the review queue, which a one-reader household never
- * sees.
- */
+/** Detail and correction surface for one shelf work. */
 export function BookDetail({
   item,
   onClose,
@@ -138,12 +128,7 @@ export function BookDetail({
   );
 }
 
-/**
- * F-18. One tap still logs in under a second — that instinct was right — but the
- * session it writes is no longer final. Participants, context and date become
- * editable immediately afterwards, so a book read to two children can record two,
- * and last night can be logged this morning.
- */
+/** Quick logging followed by optional participant, context, and date correction. */
 function LogReading({ item }: { readonly item: ShelfItem }) {
   const { summary, applyReadingChange, reviseSession } = useApp();
   const [sessionId, setSessionId] = useState<string | null>(null);
@@ -255,7 +240,7 @@ function LogReading({ item }: { readonly item: ShelfItem }) {
   );
 }
 
-/** N11 lives here now rather than on every shelf card. */
+/** Assessment editing stays in the detail view rather than every shelf tile. */
 function Assessment({ item }: { readonly item: ShelfItem }) {
   const { applyReadingChange } = useApp();
   const [engagement, setEngagement] = useState<number | null>(item.childEngagement);
@@ -358,11 +343,7 @@ function Assessment({ item }: { readonly item: ShelfItem }) {
   );
 }
 
-/**
- * ADR 0012 promised that an automatic attribution would say so and be reversible.
- * The explanation was written into `attribution_results` in Increment 2 but had
- * nowhere to appear; this is that promise being kept.
- */
+/** Shows the current attribution explanation and its supporting evidence. */
 function WhyThisReader({ item }: { readonly item: ShelfItem }) {
   const { summary, reassignWork } = useApp();
   const tasks = useWorkerData({ type: 'getTasks' }, (response) => response.tasks);
@@ -415,12 +396,7 @@ function WhyThisReader({ item }: { readonly item: ShelfItem }) {
   );
 }
 
-/**
- * A cover the household chooses from its own files. On a phone this is the camera,
- * because `accept="image/*"` offers it — the dedicated capture flow is Increment 8.
- * Bytes are downscaled before they are stored, so the archive and the OPFS quota
- * stay inside the caps ADR 0013 sets.
- */
+/** Saves a selected image after reducing it to the limits in ADR 0013. */
 function CoverChooser({
   workId,
   hasCover,

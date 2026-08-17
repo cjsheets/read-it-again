@@ -9,7 +9,7 @@ import { dirname } from 'node:path';
  * one part that can really fail unexercised. A synthetic barcode is a clean,
  * head-on, perfectly lit read, so it proves the decoder is wired up and reachable;
  * it says nothing about hit rates on a creased paperback in a dim hallway, which
- * is what the audit's field trial (§8.5) exists to answer.
+ * still needs a real-device field trial.
  */
 
 /** The ISBN the fake camera shows. 978-0-306-40615-7, whose check digit was

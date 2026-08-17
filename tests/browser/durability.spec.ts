@@ -15,7 +15,7 @@ import {
 const PASSPHRASE = 'a sufficiently long passphrase';
 
 /**
- * Audit finding F-05. `navigator.storage.persist()` was called nowhere in the
+ * Browser persistence, wipe detection, and backup timestamps.
  * source, `persisted()` returned false, and wiping OPFS returned the app to the
  * first-run empty state with no warning, no last-backup date, and no hint that a
  * backup had ever existed. ADR 0011 names this risk; the UI ignored it.
@@ -83,7 +83,7 @@ test.describe('storage durability', () => {
 
     const archive = await exportArchive(page, PASSPHRASE);
 
-    // Exactly the audit's scenario: the database is destroyed while the browser
+    // The database is destroyed while the browser
     // profile survives, which is what storage eviction does.
     //
     // The deletion runs from a same-origin document that never boots the app.

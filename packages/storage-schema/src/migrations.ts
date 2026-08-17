@@ -528,6 +528,26 @@ export const migrations: readonly Migration[] = [
       ALTER TABLE reader_profiles ADD COLUMN archived_at TEXT;
     `,
   },
+  {
+    version: 11,
+    name: 'catalog_cover_fetch_cache',
+    sql: `
+      -- Automatic cover sourcing is persistent work, not a render side effect.
+      -- Positive results live in cover_images; this table queues work and caches
+      -- misses so reopening the shelf does not repeat a remote ISBN disclosure.
+      CREATE TABLE catalog_cover_fetches (
+        work_id TEXT PRIMARY KEY NOT NULL REFERENCES works(id) ON DELETE CASCADE,
+        isbn TEXT NOT NULL,
+        status TEXT NOT NULL CHECK (status IN ('pending', 'found', 'not_found', 'failed')),
+        attempts INTEGER NOT NULL DEFAULT 0 CHECK (attempts >= 0),
+        last_attempted_at TEXT,
+        updated_at TEXT NOT NULL
+      ) STRICT;
+
+      CREATE INDEX catalog_cover_fetches_queue
+        ON catalog_cover_fetches (status, updated_at, work_id);
+    `,
+  },
 ];
 
 export async function migrate(database: Database): Promise<void> {

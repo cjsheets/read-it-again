@@ -14,11 +14,7 @@ import {
 
 const PASSPHRASE = 'a sufficiently long passphrase';
 
-/**
- * F-02 and F-15. The audit measured zero `<img>` elements on a populated shelf and
- * no cover column in any migration; there was also no per-book surface at all, so
- * the provenance ADR 0008 preserves so carefully was unreachable.
- */
+/** Generated, selected, catalog, archived, and deleted cover behavior. */
 test.describe('covers', () => {
   test('a book with no cover still gets a distinctive one, never a grey box', async ({ page }) => {
     await openApp(page);
@@ -86,6 +82,49 @@ test.describe('covers', () => {
     const restoredDetail = await openBook(restoredPage);
     await expect(restoredDetail.locator('img.cover-image')).toBeVisible();
     await restored.close();
+  });
+
+  test('a catalog cover uses the ISBN attached by the add path and is stored locally', async ({
+    page,
+  }) => {
+    let catalogRequests = 0;
+    await page.route('https://covers.openlibrary.org/**', async (route) => {
+      catalogRequests += 1;
+      await route.fulfill({ status: 200, contentType: 'image/png', body: solidPng() });
+    });
+    await openApp(page);
+    await addBookManually(page, {
+      title: 'Cloud Boat',
+      author: 'Ada Fox',
+      isbn: '9780306406157',
+    });
+
+    const detail = await openBook(page);
+    const image = detail.locator('img.cover-image');
+    await expect(image).toBeVisible({ timeout: 15_000 });
+    expect(await image.getAttribute('src')).toMatch(/^blob:/u);
+
+    // Reloading must use the local bytes without another catalog request.
+    await page.reload();
+    const reopened = await openBook(page);
+    await expect(reopened.locator('img.cover-image')).toBeVisible();
+    await page.waitForTimeout(250);
+    expect(catalogRequests).toBe(1);
+  });
+
+  test('an ISBN imported in a CSV reaches the same catalog-cover path', async ({ page }) => {
+    await page.route('https://covers.openlibrary.org/**', async (route) => {
+      await route.fulfill({ status: 200, contentType: 'image/png', body: solidPng() });
+    });
+    await openApp(page);
+    await importCsv(
+      page,
+      Buffer.from('Title,Author,ISBN,Date\nCloud Boat,Ada Fox,9780306406157,2026-08-01'),
+    );
+    await expect(page.getByTestId('import-status')).toHaveText('Imported 1 new of 1 rows.');
+
+    const detail = await openBook(page);
+    await expect(detail.locator('img.cover-image')).toBeVisible({ timeout: 15_000 });
   });
 
   test('a cover can be removed, falling back to the generated one', async ({ page }) => {

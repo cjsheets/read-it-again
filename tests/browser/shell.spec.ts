@@ -9,11 +9,7 @@ import {
   shelfCards,
 } from './support/shelf.js';
 
-/**
- * Increment 4. The previous build was a single scrolling page whose sections were
- * pipeline stages, with no navigation, no `nav` landmark, no skip link, and no
- * error boundary (audit §6.1, F-20). These assert the shell that replaced it.
- */
+/** Routing, landmarks, keyboard navigation, and render-failure recovery. */
 test.describe('app shell', () => {
   test('the shelf is the front door, and daily destinations stay simple', async ({ page }) => {
     await openApp(page);
@@ -77,7 +73,7 @@ test.describe('app shell', () => {
     await expect(page.locator('#content')).toBeFocused();
   });
 
-  /** F-14: review work is a badge, never a section standing in the way. */
+  /** Review work appears only when a decision is needed. */
   test('the tasks badge appears only when a decision is genuinely needed', async ({ page }) => {
     await openApp(page);
     await addBookManually(page, { title: 'The Gruffalo', author: 'Julia Donaldson' });
@@ -97,7 +93,7 @@ test.describe('app shell', () => {
 });
 
 test.describe('error boundary', () => {
-  // F-20: a render throw used to yield a blank cream page with no way back.
+  // A render failure should leave a usable recovery screen.
   test('a render failure explains itself and says the books are safe', async ({ page }) => {
     await openApp(page);
     await addBookManually(page, { title: 'The Gruffalo', author: 'Julia Donaldson' });

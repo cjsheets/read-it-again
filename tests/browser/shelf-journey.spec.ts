@@ -18,12 +18,7 @@ import {
 const libbyFixture = path.resolve('packages/test-fixtures/libby/timeline.json');
 const PASSPHRASE = 'a sufficiently long passphrase';
 
-/**
- * Audit finding F-01. Every documented input path must end with a book the
- * household can rate, read, and be recommended against. ADR 0012 closed this: the
- * browser has no catalog, so it takes source records at their word rather than
- * parking them in a queue no one can clear.
- */
+/** Every documented input path must end with a usable shelf book. */
 test.describe('every input path reaches the bookshelf', () => {
   test('manual entry lands a book on the bookshelf with no decisions', async ({ page }) => {
     await openApp(page);
@@ -91,12 +86,7 @@ test.describe('every input path reaches the bookshelf', () => {
     expect(await pendingDecisions(page)).toBe(0);
   });
 
-  /**
-   * A one-reader household has no question to answer, so it must never be shown a
-   * queue (audit §2.3-B). This also guards the class of defect that hid behind the
-   * old shared error headline: a worker request violating a database constraint
-   * used to surface as a generic alert and leave the queue stuck.
-   */
+  /** A one-reader household has no attribution question to answer. */
   test('a single-reader household is never asked to review anything', async ({ page }) => {
     await openApp(page);
 

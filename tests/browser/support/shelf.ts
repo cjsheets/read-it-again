@@ -12,11 +12,11 @@ export const PRODUCTION_URL = 'http://127.0.0.1:4175/';
  * attributed, and folded into the reading model, so import duration scales with
  * row count — a 50-row file exceeds Playwright's 5s default on CI hardware.
  * These assertions are waiting for completion, not asserting a time bound; the
- * actual timing bar lives in `performance-budget.spec.ts` (F-04).
+ * actual timing bar lives in `performance-budget.spec.ts`.
  */
 export const BULK_IMPORT_TIMEOUT = 60_000;
 
-/** The five destinations plus settings, as of the Increment 4 shell. */
+/** The five destinations plus settings. */
 export type Route = 'shelf' | 'add' | 'activity' | 'discover' | 'tasks' | 'settings';
 
 /** Generates a CSV whose rows the generic adapter can infer without a mapping. */
@@ -59,7 +59,7 @@ export function shelfCards(page: Page): Locator {
   return page.getByTestId('shelf-card');
 }
 
-/** Imports live under Add since Increment 4, so the helper goes there first. */
+/** Opens Add before selecting an import file. */
 export async function importCsv(page: Page, contents: Buffer, name = 'books.csv'): Promise<void> {
   await goTo(page, 'add');
   await page
@@ -92,7 +92,7 @@ export async function addBookManually(
   await expect(submit).toBeEnabled(options);
 }
 
-/** Backup and restore live under Settings since Increment 4. */
+/** Imports an encrypted archive from Settings. */
 export async function exportArchive(page: Page, passphrase: string): Promise<Buffer> {
   await goTo(page, 'settings');
   await page.getByLabel('Archive passphrase').fill(passphrase);
@@ -125,7 +125,7 @@ export async function pendingDecisions(page: Page): Promise<number> {
 }
 
 /** Opens a book's detail drawer, which is where assessment, provenance and
- *  attribution live since Increment 5. */
+ *  attribution live. */
 export async function openBook(page: Page, index = 0): Promise<Locator> {
   await goTo(page, 'shelf');
   await shelfCards(page).nth(index).getByRole('button').click();

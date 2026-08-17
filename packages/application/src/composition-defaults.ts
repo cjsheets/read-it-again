@@ -5,7 +5,7 @@ import type { AttributionAssessment } from '@read-it-again/domain';
  * decide. See ADR 0012. The local runtime passes none of these: it has a catalog,
  * so its rules have real evidence and should stay conservative. The browser has
  * no catalog by construction (ADR 0002), so without these defaults every imported
- * book stalls in a review queue forever — audit finding F-01.
+ * book stalls in review.
  *
  * These are defaults, not bypasses. Every decision they produce is written as an
  * append-only record that a human choice supersedes.
@@ -25,9 +25,7 @@ export interface CompositionDefaults {
   readonly assignSingleReader?: boolean;
 }
 
-/** Confidence recorded for a resolution the composition made without asking.
- *  A human decision records 1, so the two are distinguishable in the audit
- *  trail without needing a schema change. */
+/** Automatic resolutions use a lower confidence than human decisions. */
 export const AUTOMATIC_RESOLUTION_CONFIDENCE = 0.5;
 
 /** Signals that come from a real catalog record. If any of these are present the

@@ -1,15 +1,6 @@
 import type { Database } from './database.js';
 
-/**
- * F-03. The schema has supported multiple readers since migration 1 — `people`,
- * `reader_profiles`, `attribution_result_readers`, per-`person_id` preference
- * summaries — and the UI exposed exactly one, hardcoded as "Child". The audit
- * calls this the largest gap between built and exposed capability in the product.
- *
- * Privacy: these are children's names, held in a browser on a family's own device.
- * Names are optional in the sense that any label works — "Kid 1" is fine — nothing
- * requires a real name, and nothing here ever leaves the device.
- */
+/** A local reader label; a nickname such as "Kid 1" is enough. */
 export interface Reader {
   readonly id: string;
   readonly displayName: string;

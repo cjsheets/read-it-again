@@ -1,177 +1,125 @@
 # Read It Again
 
-A local-first family bookshelf and read-aloud tracker with physical-history ingestion,
-explainable attribution, a reading model, deterministic recommendations, and an offline PWA.
+Read It Again is a family bookshelf and read-aloud tracker. It imports library history, keeps
+track of who a book belongs to, records actual reading sessions, and builds a short list of books
+to borrow next.
 
-## Prerequisites
+I built it for a household with children using King County Library System (KCLS), Libby, and
+physical library cards. The browser app also works as a standalone bookshelf if you would rather
+type books in or import a CSV.
 
-- Node.js 22 or newer
-- pnpm 11
-- Chromium installed for Playwright (`pnpm exec playwright install chromium`)
+Everything is stored locally. The browser app uses SQLite-WASM and OPFS; the command-line workflow
+uses native SQLite. There is no hosted account or sync service.
 
-## Development
+## Running the browser app
+
+You need Node.js 22 or newer and pnpm 11.
 
 ```sh
 pnpm install
-pnpm check
-```
-
-`pnpm check` verifies formatting, linting, TypeScript, native SQLite conformance, and
-browser SQLite-WASM/OPFS conformance.
-
-Start the current browser client with:
-
-```sh
 pnpm --filter @read-it-again/web dev
 ```
 
-The client stores snapshots and normalized inbox records in SQLite through browser OPFS.
+Open <http://localhost:4174>. Add a book manually, import a Libby timeline, or import a CSV with
+common title, author, ISBN, date, and format columns.
 
-## Personal bookshelf quick start
+The app supports multiple readers, reading sessions, ratings, local cover images, search, and
+encrypted backup. Books with an ISBN may request a cover from Open Library once. The image bytes
+are stored locally and later renders use the stored copy.
 
-Configure a reader and sign in to KCLS in the browser that opens:
+Barcode scanning is available under **Settings → Experiments**. It reads an ISBN and checks the
+local shelf; it does not look up the title. The scanner is still opt-in because it has not been
+tested on the planned set of 100 physical books and six devices.
+
+## Importing a KCLS card
+
+The local workflow imports a complete BiblioCommons “Recently Returned” history, resolves the
+records against KCLS, adds MARC metadata, rebuilds the reading model, and generates recommendations.
+
+Start with:
 
 ```sh
 pnpm bookshelf setup
 ```
 
-### Important first-time setup for a child's card
+The setup command creates `data/bookshelf.json` and opens a browser for the KCLS login. The saved
+browser session lives under the ignored `secrets/` directory.
 
-A child's library account is often only a physical card, even when the adults in the household
-already use Libby, OverDrive, or another digital service. In that case, the parent or guardian
-must use **Log In/Register** in the KCLS catalog to create an online catalog profile linked to the
-child's existing card number and PIN/password. This does not create a new library card.
+A child's physical card may not have an online BiblioCommons profile yet. Use **Log In/Register**
+in the KCLS catalog to link the existing card number and PIN; this does not issue a new card.
 
-KCLS/BiblioCommons borrowing history is also off by default. Because enabling it opts the child
-into retention of a private borrowing record, Read It Again will never switch it on automatically.
-The setup browser guides the parent to **My Settings → Account Preferences → Borrowing History →
-Change**, where they can make that choice and save it. History starts with items returned after it
-is enabled; older physical checkouts cannot be recovered. The login and sync commands detect a
-signed-out session and known “history disabled” pages and explain what remains to be done.
+Borrowing History is a separate KCLS setting and is disabled by default. Read It Again will not
+change it. A parent or guardian must decide whether to enable it under **My Settings → Account
+Preferences → Borrowing History → Change**. The history begins with items returned after that
+setting is enabled. Older physical checkouts cannot be recovered.
 
-This physical borrowing history is separate from the Libby timeline used for ebooks and
-audiobooks.
-
-After setup, the normal recurring workflow is one command:
+After setup, the normal command is:
 
 ```sh
 pnpm bookshelf sync
 ```
 
-`sync` imports the complete BiblioCommons “Recently Returned” history, resolves catalog records,
-enriches metadata, rebuilds the reading model, and generates recommendations. It reports new
-records and any resolution or attribution reviews that remain. Configuration is stored in
-`data/bookshelf.json`; the reusable authenticated browser session stays under the ignored
-`secrets/` directory.
-
-Useful supporting commands are:
+Useful related commands:
 
 ```sh
 pnpm bookshelf status
-pnpm bookshelf login       # refresh an expired library session
-pnpm bookshelf recommend   # regenerate without importing
-pnpm bookshelf backup      # encrypted archive for the PWA
+pnpm bookshelf login
+pnpm bookshelf recommend
+pnpm bookshelf backup
 pnpm bookshelf help
 ```
 
-The backup passphrase is entered without terminal echo and must contain at least 12 characters.
-Backups default to the ignored `backups/` directory. Set `BOOKSHELF_BACKUP_PASSPHRASE` only for
-non-interactive backup automation, using an appropriate secret manager.
+Backups are compatible with the browser app. The passphrase is not stored and must be at least 12
+characters. Backups default to the ignored `backups/` directory. For unattended backups,
+`BOOKSHELF_BACKUP_PASSPHRASE` can be supplied through a secret manager.
 
-## Local catalog resolution
+## How the data is treated
 
-Build the workspace, import a Libby snapshot into a native database, then resolve it against
-the public KCLS catalog:
+A checkout is evidence that a book entered the household, not proof that anyone read it. Read It
+Again keeps three separate records:
 
-```sh
-pnpm build
-pnpm --filter @read-it-again/local-api import:libby -- timeline.json data/read-it-again.db
-pnpm --filter @read-it-again/local-api resolve -- data/read-it-again.db
-```
+- source observations imported from a library or file;
+- acquisition episodes inferred from nearby observations; and
+- reading sessions entered by a person.
 
-KCLS requests are sequential, delayed for courtesy, retried with exponential backoff, and
-persistently cached. The resolver automatically accepts only clear matches; ambiguous or
-missing results remain in the resolution queue.
+Attribution and catalog resolution decisions are append-only. Correcting a decision adds a new
+one and leaves the earlier evidence available for inspection. Derived shelf and preference data
+can then be rebuilt.
 
-## Advanced physical-history commands
+Recommendations are deterministic and limited to the KCLS catalog. They use known series,
+creators, subjects, genres, ratings, recurrence, and read-aloud traits. Known favorites appear in
+a separate “read it again” list. No LLM or optional recommendation service is involved.
 
-The unified `pnpm bookshelf` commands above are recommended for normal use. The underlying
-commands remain available for development and diagnostics. Create an authenticated Playwright
-storage-state file by signing into BiblioCommons in the opened browser, then close that browser:
+## Current limits
 
-```sh
-pnpm exec playwright codegen --save-storage=secrets/child-card.json \
-  https://kcls.bibliocommons.com/v2/print/recentlyreturned
-```
+- Live KCLS catalog access and BiblioCommons login work only in the local runtime. KCLS did not
+  return browser CORS headers when last checked on August 12, 2026.
+- The browser stores its database in OPFS. Clearing site data removes it. Export an encrypted
+  backup and keep the passphrase somewhere else.
+- Automatic cover lookup sends one ISBN to Open Library for a book that has no stored cover. Hits,
+  misses, and temporary failures are cached; remote image URLs are never used for rendering.
+- The physical-card workflow is specific to the current KCLS/BiblioCommons page structure. A real
+  household run still requires a user-owned authenticated session.
+- Barcode scanning works in automated Chromium tests, including offline use, but real-world scan
+  reliability has not been measured yet.
 
-Keep that session file private and outside version control. Import the full “Recently
-Returned” history and then resolve it:
+## Development
 
-```sh
-pnpm --filter @read-it-again/local-api import:bibliocommons -- \
-  secrets/child-card.json data/read-it-again.db
-pnpm --filter @read-it-again/local-api resolve -- data/read-it-again.db
-pnpm --filter @read-it-again/local-api enrich -- data/read-it-again.db
-pnpm --filter @read-it-again/local-api shelf -- data/read-it-again.db reader-child
-```
-
-The importer creates a separate browser context per configured card, walks “Load next 50”
-until it disappears, and fails instead of saving partial data when authentication,
-pagination, or selector validation fails. `CHILD_PERSON_NAME`, `CHILD_CARD_ID`, and the
-other `CHILD_*` environment variables customize the default exclusive-card identity.
-
-Enrichment fetches MARC once per resolved KCLS edition and recomputes attribution using
-explicit, explainable evidence. Ambiguous results appear in the browser attribution review;
-decisions may apply to one checkout or every checkout of a work.
-
-## Reading model
-
-Attributed checkouts are clustered into rebuildable acquisition episodes: observations within
-seven days merge, 8–89-day returns are reduced-weight near repeats, and 90+ days are strong
-recurrence. These are preference signals, not claims that a reading occurred.
-
-The family bookshelf separately supports explicit reading sessions and quick assessments:
-child engagement, adult tolerance, request-by-name, veto, estimated duration, and read-aloud
-traits. A checkout observation, an acquisition episode, and a confirmed session are displayed
-as three distinct concepts.
-
-## Deterministic recommendations
-
-After resolution and enrichment, generate a KCLS-constrained hold list for a reader:
+Install Chromium once if Playwright does not already have it:
 
 ```sh
-pnpm --filter @read-it-again/local-api recommend -- data/read-it-again.db reader-child
+pnpm exec playwright install chromium
 ```
 
-Set `MAX_READ_MINUTES=10` to apply a bedtime duration limit. Candidate searches are seeded from
-favored series, authors, illustrators, subjects, and genres. The engine excludes known and vetoed
-works from discovery, filters to juvenile-compatible formats, caps repeated authors and subjects,
-and records an explanation for every result. Known favorites appear separately under “read it
-again.” KCLS holdings are fetched sequentially only for the shortlist and cached for 24 hours.
+Run the full check with:
 
-Live generation is local-runtime-only because KCLS does not currently permit browser CORS. The
-browser client can render a cached recommendation snapshot without any optional service or LLM.
+```sh
+pnpm check
+```
 
-## Installable client-only PWA
+This runs formatting, ESLint, TypeScript, unit tests, browser tests, the production build, and the
+browser-boundary check. The storage contract is exercised against both native SQLite and
+SQLite-WASM/OPFS.
 
-The browser build is an installable offline application backed by SQLite-WASM/OPFS. It supports
-Libby JSON files, generic CSV files with common title/author/ISBN/date/format headers, manual or
-ISBN entry, manual resolution, bookshelf ratings, and cached recommendation display. It contains
-no BiblioCommons acquisition, credential handling, or live KCLS client.
-
-Bookshelf archives are encrypted in the browser with AES-256-GCM using a passphrase-derived key.
-Use at least 12 characters and store the passphrase separately; it cannot be recovered. Archives
-carry the logical shared schema, including resolved catalog and recommendation caches, so they are
-also the bridge from the full local runtime to the static client.
-
-Static hosting must apply the headers in `apps/web/public/_headers`, especially COOP/COEP for
-SQLite-WASM and the same-origin CSP. Automatic KCLS resolution remains available only through the
-local runtime until KCLS exposes a CORS-compatible catalog endpoint.
-
-`pnpm check:web-boundary` scans both source dependencies and the built PWA for forbidden local-only
-modules, patron/catalog hostnames, and credential configuration.
-
-## Architecture
-
-See [docs/architecture/README.md](docs/architecture/README.md) and the decision records in
-`docs/decisions/`.
+The main design notes are in [docs/architecture/README.md](docs/architecture/README.md). Individual
+tradeoffs are recorded under [docs/decisions](docs/decisions).

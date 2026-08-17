@@ -1,15 +1,7 @@
 import { useApp, useWorkerData } from '../app-state.js';
 import { AttributionCard, ResolutionCard } from '../components/review-cards.js';
 
-/**
- * One destination for every kind of review work, reached from a badge rather than
- * standing between a person and their bookshelf (F-14). The headings are the
- * questions the old eyebrows already asked — those were the right words, and the
- * pipeline-stage headings above them were undoing the work.
- *
- * Since ADR 0012 this is usually empty, which is the point: a one-reader household
- * with no catalog has nothing genuinely ambiguous to decide.
- */
+/** Resolution and attribution work that still needs a person. */
 export function Tasks() {
   const { summary, assignReaders } = useApp();
   const tasks = useWorkerData({ type: 'getTasks' }, (response) => response.tasks);
@@ -63,9 +55,7 @@ export function Tasks() {
               {attributionTriage.length} pending
             </span>
           </div>
-          {/* X4. Adding a second reader moves every automatically filed book here
-              at once (ADR 0012), so answering one book at a time is the same
-              per-book tax F-01 removed from importing. */}
+          {/* A second reader can move many automatic assignments here at once. */}
           {attributionTriage.length > 1 && (
             <div className="decision-actions bulk-actions" data-testid="bulk-attribution">
               <span className="model-note">All {attributionTriage.length}:</span>

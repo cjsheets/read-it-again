@@ -5,31 +5,16 @@ import { expect, test, type Page, type TestInfo } from '@playwright/test';
 import { addBookManually, csvSnapshot, goTo, importCsv, openApp } from './support/shelf.js';
 
 /**
- * Audit §11 Tier 3 — synthetic budgets that catch F-04-class regressions without
- * needing users. When these were written the shelf rendered every row: 1200 books
- * produced 19 274 DOM nodes and a 279 685 px document, and adding one more book
- * took 5.7 s because every mutation re-fetched and re-rendered everything.
- *
- * Budgets are absolute, not proportional: "DOM nodes at any library size" means the
- * 1000-book number and the 500-book number are held to the same ceiling. Import
- * time is the one budget the audit states per-scale, so it scales with row count.
- *
- * One budget is deliberately revised. The audit's 20 000 px document-height ceiling
- * was written against a list that rendered a full assessment form per row, where
- * 279 685 px was pathological. A virtualized *cover grid* keeps its real scroll
- * extent on purpose — that is what makes the scrollbar honest — and 1000 books at
- * six columns is inherently about 167 rows. Meeting 20 000 px would need roughly
- * sixteen columns of 68 px covers, which is not a bookshelf. The measure that
- * actually proxies render cost is DOM nodes, and that is now bounded. The height is
- * still recorded, held to a per-row ceiling so a regression to form-per-row
- * rendering would still be caught.
+ * Performance limits for 500- and 1,000-book shelves. DOM size is absolute;
+ * import time scales with row count. Document height is limited per virtualized
+ * row because the scrollbar still represents the complete shelf.
  */
 const BUDGETS = {
   importMillisecondsPerThousandRows: 10_000,
   addOneMoreMilliseconds: 500,
   domNodes: 2000,
   searchMilliseconds: 150,
-  /** Per grid row, replacing the audit's absolute 20 000 px. See above. */
+  /** Maximum height contributed by one grid row. */
   documentHeightPixelsPerRow: 350,
   documentChromePixels: 500,
 } as const;
@@ -73,8 +58,7 @@ for (const books of [500, 1000] as const) {
   });
 }
 
-/** The audit's fourth F-04 acceptance criterion: "Typing three characters returns
- *  matching books in < 150 ms at 1000 books." */
+/** Search latency includes the input debounce. */
 test('search responds within 150 ms at 1000 books', async ({ page }, testInfo) => {
   test.setTimeout(6 * 60_000);
   await openApp(page);
@@ -141,12 +125,7 @@ async function report(testInfo: TestInfo, measured: Measurements): Promise<void>
   });
 }
 
-/**
- * Audit §8.6, tier 3: the payload scanning adds must stay under 1.5 MB gzipped.
- * Measured over the build's own output rather than guessed, because the decoder
- * is the largest single thing the app has ever chosen to ship and the reason to
- * self-host it is precisely that its size is now the project's problem.
- */
+/** Keeps the production barcode decoder under 1.5 MB gzipped. */
 // Playwright requires the fixtures argument to be a destructuring pattern even
 // when a test uses no fixtures, and this one only reads the build output.
 // eslint-disable-next-line no-empty-pattern

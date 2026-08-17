@@ -41,7 +41,7 @@ export function canonicalIsbn(value: string | undefined): string | undefined {
 /**
  * Whether an ISBN's check digit is arithmetically consistent. Pure arithmetic, no
  * network, no catalog — it catches a mistyped digit the moment it is entered and
- * rejects a misread barcode before it becomes a book (audit §8.4).
+ * rejects a misread barcode before it becomes a book.
  *
  * A valid check digit does not mean the ISBN was ever assigned to anything; it
  * only means the number is not obviously wrong. ADR 0004's separation of works
@@ -73,7 +73,7 @@ export function isValidIsbn(value: string | undefined): boolean {
  * A scanned EAN-13 barcode always yields thirteen digits, but a book imported
  * from a CSV or a library timeline may have been recorded as ten. They identify
  * the same edition, so a lookup that only matched the spelling it was handed
- * would create a duplicate for a book already on the shelf (audit §8.2).
+ * would create a duplicate for a book already on the shelf.
  *
  * Only the 978 prefix converts: 979 ISBN-13s have no ISBN-10 equivalent, and
  * inventing one would produce a number belonging to a different book.

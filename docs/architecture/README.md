@@ -1,143 +1,103 @@
 # Architecture
 
-Read It Again uses a hexagonal core with runtime-specific compositions.
+Read It Again has one domain and application core with two runtime compositions.
 
 ```text
-web UI ── BookshelfService ── application ── domain
-                                  │
-                                  ├── repository ports ── SQLite adapters
-                                  └── source ports ────── ingestion/catalog adapters
+web UI ── worker protocol ── application ── domain
+                               │
+                               ├── repository ports ── SQLite adapters
+                               └── source ports ────── file and catalog adapters
 ```
 
-The user-owned local runtime can use all adapters. The client-only browser runtime uses
-only file/manual ingestion and OPFS storage. Credentialed BiblioCommons acquisition is a
-local-runtime dependency and must not appear in browser artifacts.
+The local runtime can use every adapter. It stores data in native SQLite and can sign in to
+BiblioCommons, query KCLS, read MARC records, and check holdings.
 
-Native SQLite and SQLite-WASM/OPFS share migrations and observable repository semantics.
-The credentialed adapter and its orchestration live in `adapter-bibliocommons` and
-`application-local`; neither is reachable from the browser application's dependency graph.
+The browser runtime accepts files and manual input and stores its database in SQLite-WASM/OPFS.
+It has no credential handling or live KCLS client. The dependency graph and the built assets are
+both checked so local-only modules, patron hostnames, and credential settings do not enter the PWA.
 
-The `pnpm bookshelf` command is the human-facing composition root for the local runtime. Its
-versioned JSON configuration names the reader, exclusive card, private Playwright session, and
-native database. `sync` invokes acquisition, resolution, enrichment/model rebuilding, and
-recommendation APIs in one process while reporting stage results and remaining review counts.
-The older stage-specific commands remain diagnostic entry points rather than the primary workflow.
+Both runtimes use the same migrations and repository contract tests.
 
-## Import pipeline
+## Local workflow
+
+`pnpm bookshelf` is the main entry point. Its JSON configuration names the reader, library card,
+saved Playwright session, and database. `bookshelf sync` runs acquisition, resolution, enrichment,
+reading-model rebuilds, and recommendation generation in one process.
+
+The package-specific commands remain available for debugging individual stages.
+
+## Import and resolution
 
 ```text
 complete source snapshot
-  → adapter validation
-  → versioned normalization
-  → transactional snapshot/run/record storage
-  → unresolved import inbox
+  → validate and normalize
+  → store snapshot, run, and records in one transaction
+  → consult the resolution cache
+  → search by ISBN, then normalized title and author
+  → accept a clear match or put it in review
+  → attach the edition to a local work
 ```
 
-Validation precedes all writes. Identical snapshot content and identical source observations
-are deduplicated independently, while successful zero-change imports remain visible in the
-audit history.
+Validation happens before the first write. Snapshot hashes and source keys handle duplicate
+imports separately, so a successful import with no new rows is still recorded.
 
-## Resolution pipeline
+KCLS traffic is sequential, retried with backoff, and cached in SQLite. The browser can use catalog
+data brought in through an archive, but it cannot make live KCLS requests.
 
-```text
-import record
-  → resolution cache
-  → ISBN catalog search
-  → normalized title + author search
-  → scored candidates (top score + runner-up margin)
-  → automatic decision or human queue
-  → edition → local work
-```
+## Physical cards and attribution
 
-Catalog traffic is local-runtime-only, sequential, backed off on retry, and cached in SQLite.
-The browser can display populated candidates and always supports manual resolution, rejection,
-and deferral without reaching KCLS directly.
+Each BiblioCommons card gets an isolated Playwright context. The importer opens every “Load next
+50” page and refuses to save a partial result. A signed-out session, disabled borrowing history,
+missing selector, or stalled page causes the import to fail.
 
-## Physical-history and attribution pipeline
+Once a row resolves, attribution follows this order:
 
 ```text
-isolated authenticated card context
-  → walk all “Load next 50” pages
-  → strict selector-contract validation
-  → versioned physical source-key hash
-  → snapshot/run/record storage
-  → ordinary resolution pipeline
-  → exclusive card owner at confidence 1.0
-  → reader shelf
-```
-
-Login failure, session expiry, missing selectors, or stalled/incomplete pagination makes the
-acquisition fail. No partial page is imported. Physical source identity is
-`SHA-256(card, canonical title, canonical author, normalized call number, checkout date)`
-under algorithm version `bibliocommons:v1`.
-
-Attribution decisions are append-only. A later human correction supersedes the deterministic
-decision without erasing it, and rerunning deterministic attribution never overwrites a
-current correction.
-
-## Enrichment and attribution triage
-
-```text
-resolved KCLS edition
-  → cached MARC fetch
-  → per-field facts with deterministic source precedence
-  → checkout override
+checkout override
   → work override
-  → exclusive-card owner
-  → explainable evidence rules
-  → assigned | excluded | review
+  → exclusive card owner
+  → metadata evidence
+  → assigned, excluded, or review
 ```
 
-MARC parsing extracts audience, juvenile headings, genre/form, contributors, pages, call
-number, summary, and series. Attribution outcomes are versioned and may reference multiple
-readers. Review cards present the actual evidence in plain language; corrections can target
-one checkout or every checkout resolved to a work. Corrections and identity operations produce
-rebuild markers, while source observations remain untouched.
+Decisions are append-only. A correction supersedes the current decision without deleting the
+source observation or the reasoning that produced the earlier result.
+
+Metadata is also stored as individual facts with provenance. Human values outrank MARC, which
+outranks the optional external metadata sources defined by the schema.
 
 ## Reading model
 
-```text
-assigned checkout observations
-  → configurable seven-day clustering
-  → initial | 8–89-day near repeat | 90+-day strong repeat
-  → reader/work preference summary
+Checkout observations are clustered into acquisition episodes. Observations within seven days
+merge; returns after 8–89 days count as weaker repeats, and returns after 90 days count as strong
+recurrence.
 
-explicit household action
-  → confirmed reading session with participants, duration, and context
-```
+These episodes are preference signals. They are not reading sessions. Reading sessions are entered
+explicitly and may include participants, duration, context, and notes. Assessments store child
+engagement, adult tolerance, request-by-name, veto, estimated duration, and read-aloud traits.
 
-Episodes and preference summaries are disposable projections rebuilt from immutable checkouts,
-current attribution, and work assessments. Reading sessions and assessments are user-authored
-base data. The UI labels all three separately and never treats a checkout as proof of reading.
+Episodes and preference summaries can be rebuilt after an attribution or identity change. Reading
+sessions and assessments are base records and are not discarded during a rebuild.
 
-## Recommendation snapshots
+## Recommendations
 
-The application recommendation workflow extracts a recency-weighted profile from acquisition
-episodes, assessments, MARC subjects/genres/series, contributors, creators, and read-aloud traits.
-It asks the catalog adapter for KCLS candidates, filters and scores them deterministically, applies
-format, duration, juvenile-audience, author, and subject constraints, and asks for holdings only
-after ranking. Catalog calls remain sequential through the KCLS client.
+The local workflow starts catalog searches from favored series, creators, subjects, and genres. It
+scores the returned books, applies audience, format, duration, author, and subject limits, then
+checks holdings for the shortlist. Holdings are cached for 24 hours.
 
-The result is persisted rather than recomputed while rendering. Each discovery or read-again item
-stores score components, plain-language evidence, its KCLS catalog key, and a holdings observation
-whose cache expires after 24 hours. No optional enrichment provider or LLM participates in the
-complete path. Browser code reads snapshots but does not perform live KCLS calls while the catalog
-lacks CORS permission.
+Each run is stored as a snapshot with score components, plain-language evidence, catalog identity,
+and observed holdings. The UI renders the snapshot rather than recomputing it. No LLM is used.
 
-## Client-only PWA and archive transfer
+## Browser storage and archives
 
-The PWA composes the shared application and schema packages with SQLite-WASM/OPFS, Libby and CSV
-file parsers, and manual entry. Its package graph excludes KCLS, BiblioCommons, and local
-orchestration. A build-time scanner repeats that assertion against source manifests and emitted
-assets, including hostnames and credential-related identifiers.
+The PWA service worker precaches the production asset graph, including the SQLite worker and the
+self-hosted barcode decoder. Static hosting must apply the headers in
+`apps/web/public/_headers`; SQLite-WASM requires cross-origin isolation.
 
-The service worker walks the built asset graph from `index.html` and precaches JavaScript workers,
-SQLite WASM/proxy assets, CSS, the manifest, and icon. Browser acceptance testing loads the
-production build, persists a manual book in OPFS, disables networking, reloads, and verifies the
-shelf remains usable. Static-host headers provide cross-origin isolation for SQLite-WASM and a
-same-origin-only CSP.
+The database lives in OPFS. Archives use a versioned logical-row format encrypted with AES-256-GCM.
+PBKDF2-SHA-256 derives the key from a passphrase and random salt. The passphrase is never stored.
+Import decrypts and validates the complete archive before replacing rows in one transaction.
 
-Archive transfer uses a versioned logical-row format inside authenticated AES-256-GCM encryption.
-PBKDF2-SHA-256 derives the key from a never-persisted passphrase and random salt. Decryption and
-shape/version checks precede a transactional replacement, so wrong keys and malformed archives
-write nothing. Catalog and recommendation snapshots travel inside the same encrypted artifact.
+Cover images are stored as bounded local blobs and included in the archive. If a book has an ISBN
+and no cover, the browser may fetch one image from Open Library, store the bytes, and cache the
+result. The remote URL is not used to render the shelf.

@@ -54,7 +54,7 @@ describe('encrypted bookshelf archives', () => {
       { sha256: 'a'.repeat(64) },
     ]);
     // The fourth row: exporting records when the backup was taken, and that fact
-    // belongs to the data, so a restored device reports it accurately (F-05).
+    // belongs to the data, so a restored device reports it accurately.
     expect(await getAppMetadata(target, LAST_BACKUP_AT)).toBe('2026-08-13T12:00:00.000Z');
   });
 

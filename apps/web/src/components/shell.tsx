@@ -2,11 +2,7 @@ import type { ReactNode } from 'react';
 import { ERROR_ACTIONS, ERROR_TITLES, useApp } from '../app-state.js';
 import { DESTINATIONS, type Route } from '../router.js';
 
-/**
- * Audit §7.3. A persistent sidebar at desktop widths and a bottom tab bar on
- * mobile, so navigation never disappears — the previous build had none at all,
- * and no `nav` landmark or skip link either (F-20).
- */
+/** Desktop sidebar and mobile tab bar around the current route. */
 export function Shell({
   route,
   go,
@@ -67,8 +63,7 @@ export function Shell({
       </nav>
 
       <main id="content" tabIndex={-1}>
-        {/* Only worth showing once there is a choice to make. With one reader a
-            switcher is a control with a single option (audit §2.3-B). */}
+        {/* A reader switcher is useful only when there is a choice. */}
         {summary.readers.length > 1 && (
           <div className="reader-switcher">
             <span id="reader-switcher-label">Showing books for</span>

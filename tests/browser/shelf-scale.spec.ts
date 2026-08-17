@@ -9,7 +9,7 @@ import {
 } from './support/shelf.js';
 
 /**
- * F-04 and ADR 0014. The shelf reads a page at a time and renders only what is
+ * ADR 0014. The shelf reads a page at a time and renders only what is
  * near the viewport. These assert the behaviour that makes that safe rather than
  * merely fast — the budgets in `performance-budget.spec.ts` cover the speed.
  */
@@ -30,7 +30,7 @@ test.describe('a virtualized shelf', () => {
   });
 
   /**
-   * The risk the audit names explicitly: a windowed grid tells assistive technology
+   * A windowed grid otherwise tells assistive technology
    * "1 of 24" when the shelf holds hundreds. axe cannot catch this, because it has
    * no way to know the list is windowed, so it is asserted directly.
    */

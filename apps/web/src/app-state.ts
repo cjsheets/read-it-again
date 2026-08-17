@@ -4,8 +4,7 @@ import { requestWorker } from './client.js';
 import type { PersistenceState } from './durability.js';
 import type { Summary, WorkerRequestInput, WorkerResponse } from './protocol.js';
 
-/** F-06: errors name the artefact they are actually about, so a mistyped backup
- *  passphrase never reports that a Libby file is invalid. */
+/** Identifies the operation that produced an error message. */
 export type ErrorOperation =
   | 'libby'
   | 'wrongSlot'
@@ -105,16 +104,14 @@ export interface AppState {
     state: 'assigned' | 'excluded',
     readerIds: readonly string[],
   ) => Promise<void>;
-  /** Resolves with the id of a session it just wrote, so the caller can offer an
-   *  immediate correction (F-18). */
+  /** Returns a new session ID so the caller can offer an immediate correction. */
   readonly applyReadingChange: (
     request: Extract<WorkerRequestInput, { type: 'assessWork' | 'recordReadingSession' }>,
   ) => Promise<string | null>;
   readonly reviseSession: (
     request: Extract<WorkerRequestInput, { type: 'reviseReadingSession' }>,
   ) => Promise<void>;
-  /** Assigns many books to readers at once, so cleaning up an import is a few
-   *  taps rather than one decision per book (X4). */
+  /** Assigns one set of readers to several books. */
   readonly assignReaders: (
     workIds: readonly string[],
     readerIds: readonly string[],

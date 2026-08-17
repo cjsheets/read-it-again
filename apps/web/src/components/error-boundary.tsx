@@ -1,11 +1,6 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react';
 
-/**
- * F-20: any render throw used to yield a blank cream page. The recovery path
- * deliberately offers a reload first and says plainly that the data is still on
- * disk, because the instinct after seeing a broken app is to clear site data —
- * which is the one action that would actually destroy the bookshelf.
- */
+/** Offers a reload without suggesting that the user clear local bookshelf data. */
 export class ErrorBoundary extends Component<
   { readonly children: ReactNode },
   { error: Error | null }

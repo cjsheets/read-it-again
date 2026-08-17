@@ -1,395 +1,105 @@
 # Project notes
 
-## Re-entry
+This file is the short handoff for returning to the project. The detailed design choices live in
+`docs/decisions/`; the tests are the current behavior contract.
 
-- **Phase:** Audit remediation, Increment 7 — Readers (complete 2026-08-17)
-- **Last state:** The production PWA is complete, and the local workflow now has a unified
-  `pnpm bookshelf` CLI for setup/login, one-command sync, status, recommendation refresh, and
-  encrypted PWA-compatible backup. Phase 3's personal live-card acceptance run remains pending a
-  user-owned authenticated session. The UX audit's findings are now encoded as executable tests;
-  see `tests/browser/README.md`. Finding IDs (F-01, F-04, …) refer to that audit, which is kept
-  locally and is not tracked in this repository.
-- **Next action:** Increment 8 — camera behind a flag (X1/X2/X3): ISBN barcode scanning with
-  `zxing-wasm` self-hosted, cover photo capture, and batch scan mode. The audit gates X1 on a
-  prototype (§8.5) and is explicit that cover OCR is _not_ feasible in this architecture — only
-  barcode scanning is. Cover storage and the file-picker path from Increment 5 are already in
-  place, so X2 is mostly wiring the camera to `downscaleCover`.
-- **Increment 7 is now complete:** X4 and X8 landed alongside N4.
-- **F-04 write budget resolved:** one-book attribution and reading projections now update only the
-  affected work, while bulk search indexing commits as one transaction. The 500- and 1000-book
-  performance tests pass without an expected-failure annotation, including the 500 ms add budget
-  and 10 s-per-1000-row import budget.
-- **Source plan:** Obsidian `Efforts/Read It Again.md`
-- **Important constraint:** KCLS OpenSearch did not return CORS permission headers on
-  2026-08-12. Browser-only catalog access is not currently viable.
+## Current state
+
+The browser PWA and the local KCLS workflow are both working.
+
+The PWA supports manual entry, Libby and CSV import, multiple readers, attribution correction,
+reading sessions, ratings, search, local cover images, encrypted archives, and an offline
+application shell. Barcode scanning is available as an opt-in experiment.
+
+The local workflow uses `pnpm bookshelf` for setup, login, status, sync, recommendation refresh,
+and encrypted PWA-compatible backup. A personal BiblioCommons acceptance run is still waiting on a
+user-owned authenticated session.
+
+Automatic cover lookup is now wired to Open Library for books with an ISBN. The browser stores the
+returned bytes and caches hits, misses, and failures. This work is currently uncommitted along with
+its migration and tests.
+
+The UX audit is not tracked in this repository. References such as F-04, N7, or X1 in older commit
+history refer to that local report.
+
+KCLS OpenSearch did not return CORS permission headers on August 12, 2026. Live catalog work
+therefore remains in the local runtime.
 
 ## Verification
 
-- `pnpm format:check`
-- `pnpm lint`
-- `pnpm typecheck`
-- `pnpm test:unit` — native SQLite contract and strict constraint tests
-- `pnpm test:browser` — SQLite-WASM/OPFS migration, repository contract, and persistence
-- `pnpm build`
-
-Phase 1 result: 8 unit/integration tests and 2 Chromium tests pass. The browser tests cover
-valid import, idempotent re-import, structured invalid-file errors, no-write failure behavior,
-and OPFS close/reopen persistence.
-
-Phase 2 result: normalization and a first golden scoring case are locked in; exact ISBN
-resolution, crowded-field quarantine, resolution-cache reuse, KCLS response caching/backoff,
-human/manual decisions, and audited merge/split/re-point operations have deterministic tests.
-A synthetic native vertical slice made three courteous live KCLS requests and left fictional
-zero-hit titles pending. A real “Gruffalo” probe verified repeated Atom IDs and Dublin Core
-identifier parsing.
-
-Phase 3 result: strict BiblioCommons HTML parsing and the complete physical import → resolution
-→ exclusive-card attribution → reader-shelf path are covered. Playwright tests prove isolated
-card contexts, pagination to exhaustion, and login failure classification. A personal live-card
-run is intentionally not performed without a user-owned authenticated session.
-
-Phase 4 result: MARC fixtures cover audience, juvenile headings, genre/form, contributors,
-pages, call number, summary, and series. Tests prove deterministic fact precedence, conservative
-tri-state rules, multi-reader work overrides, checkout precedence, idempotent enrichment, and
-immutable source observations.
-
-Phase 5 result: tests lock seven-day merging, 8–89-day reduced-weight near repeats, 90+-day
-strong recurrence, configurable/idempotent rebuilding, confirmed session participants and
-context, two-dial assessments, request-by-name, veto, duration, and all seven read-aloud traits.
-Attribution correction tests prove episode and preference projections rebuild immediately.
-
-Phase 6 result: deterministic tests prove known/veto/juvenile/format/duration exclusions,
-recency-weighted series/creator/subject/genre/trait scoring, author and subject batch caps,
-separate discovery/read-again output, human-readable evidence, sequential top-set holdings, and
-24-hour availability reuse. Live catalog generation remains local-runtime-only; optional services
-and LLMs are absent from the complete path.
-
-Phase 7 result: generic CSV and manual/ISBN workflows share the normalized provenance pipeline;
-AES-256-GCM archives round-trip logical data and reject wrong passphrases without writes; the
-production PWA registers a manifest/service worker and reloads offline with OPFS state intact.
-CI scans source and emitted assets for forbidden local-only dependencies, patron/catalog hosts,
-storage-state hooks, and card configuration, and validates CSP plus static isolation headers.
-
-Post-Phase 7 accessibility result: the recurring local workflow is reduced from five internal
-package commands to `pnpm bookshelf sync`. Interactive setup stores versioned non-secret config,
-login saves its authenticated state only under the ignored `secrets/` directory, status exposes
-freshness and review counts, and backup writes an encrypted archive compatible with the PWA.
-
-Increment 0 result: the audit's largest findings are now executable. Eighteen Chromium tests:
-nine contract tests that are green today, eight annotated safety-net tests carrying `test.fail()`
-with the finding and the increment that closes it, and one skipped placeholder for the search
-budget, which has nothing to measure until Increment 6 introduces a query surface. The suite asserts
-that every input path reaches the bookshelf (F-01), holds the Tier 3 budgets at 500 and 1000 books
-(F-04), and covers focus styles, trait-chip state, the 24x24 px target floor, and 320 px reflow
-(F-07, F-08, F-09, F-10). axe-core runs on the first-run screen and on a populated shelf and is
-green today, which is itself the finding: axe cannot detect missing focus styles, missing
-`aria-pressed` on a toggle, or non-text contrast, so those four needed explicit assertions.
-
-Measured on this machine at 1000 books: import 16.9 s (budget 10 s), add-one-more 2.4 s
-(budget 500 ms), 16 144 DOM nodes (budget 2000), 230 963 px document (budget 20 000). The node
-and pixel counts are hardware-independent, so the budget gate stays honest on any runner.
-Every run attaches its measurements to the HTML report, which CI uploads as an artifact.
-
-Two supporting changes: `pnpm typecheck` now also compiles `tests/tsconfig.json`, which nothing
-was checking before, and the shelf section and its cards carry `data-testid` hooks so these
-locators survive Increment 4's rewrite of `main.tsx`.
-
-Increment 1 result: ships N7, N10, N11, N12 and X9. Thirty Chromium tests, twenty-nine green;
-only the two F-01 journey tests and the two F-04 budget tests remain annotated. Four Increment 0
-annotations were removed after the work made them pass.
-
-- N7 (F-07/08/09/10/16): a global `:focus-visible` ring, plus `:focus-within` on the file-button
-  labels whose real input is a hidden 1px box. 44px primary targets and a 24px floor. Trait chips
-  expose `aria-pressed`; rating buttons carry names like "Child engagement: 3 of 3 - loved it".
-  Component borders moved to #8a8072 (3.82:1) and #5f7d6d (4.45:1), both verified against the
-  3:1 requirement rather than eyeballed. The floated-`legend` rating layout became a wrapping
-  flex row under `role="group"`, which is what removed the 320px overflow; `.shelf-grid` also
-  needed `minmax(min(300px, 100%), 1fr)` to stop forcing a 300px column into a 288px viewport.
-- N10 (F-06): errors carry an operation discriminator, so a mistyped passphrase no longer reports
-  that a Libby file is invalid. Six distinct headlines, five with a recovery action. Zod paths are
-  translated: `0.title.text` is now "Entry 1: the title is missing or invalid."
-- N11 (F-12): ratings start unset instead of defaulting to 2, and Save is disabled until something
-  changes. The storage layer already persisted NULL, so only the UI and the worker protocol needed
-  to admit the state.
-- N12 (F-13): the reading model carries `sourceKind` per checkout and `sourceKinds` per shelf work.
-  Only library kinds appear under "Checkout observations", acquisition episodes are shown only when
-  a real checkout produced them, and each shelf card names its provenance.
-- X9 (F-17): raster 192/512/maskable icons, an apple-touch-icon, screenshots for both form factors,
-  a stable id, `display_override`, and one working "Add a book" shortcut. Assets are generated by
-  `node scripts/generate-pwa-assets.mjs` from the SVG and the running app, so they can be
-  regenerated rather than hand-maintained. "Scan a book" is deliberately absent until Increment 8.
-
-Bug found while doing this, not in the audit: the PWA sent both `importRecordId` and `workId` on
-every attribution correction, but `attribution_overrides` has a CHECK constraint permitting exactly
-one target per scope. Every correction in Attribution review failed with SQLITE_CONSTRAINT_CHECK,
-so no imported book could reach the shelf even with the two decisions F-01 describes - F-01 was
-worse than measured. The old shared error headline hid it. The worker protocol is now split by
-scope so the invalid shape cannot be constructed, and a regression test covers it.
-
-Increment 2 result: ships N1 and closes F-01, the audit's highest-severity finding. A 50-row CSV
-and a Libby snapshot now land every book on the shelf with zero human decisions, and a one-reader
-household never sees a review queue. Recorded in ADR 0012.
-
-The mechanism is a `CompositionDefaults` object the browser passes and the local runtime does not.
-The domain rules are unchanged: they are conservative because they have a catalog, and the browser
-has none by construction (ADR 0002), so its assessments always found zero evidence and always
-concluded "a human should decide". Two defaults fill that vacuum — accept the source record's own
-title when no catalog candidate exists, and attribute to the household's only reader when the
-rules could not choose. The single-reader default is skipped whenever a catalog-derived signal is
-present, so a considered "this is adult material" is never overridden.
-
-The defaults must be threaded through `correctAttribution` as well, not just the import path:
-`recomputeAttributions` re-derives every record on every call, so correcting one book without them
-would silently revert every other book to review. That is the subtle part of this change.
-
-Audit trail is preserved. Automatic resolutions use the same append-only path with confidence 0.5
-instead of 1, which distinguishes them without a schema change. Automatic attributions are
-`method='evidence_rules'` with an explanation beginning "Attributed automatically…" and a
-`single_reader_default` evidence row. A human correction supersedes rather than replaces, and a
-unit test proves the superseded record is still on file with the correction pointing at it.
-
-Closing the loop made the F-04 numbers worse, which is expected and correct — a thousand imported
-books now render as shelf cards instead of stopping in a queue. At 1000 books, measured on this
-machine: import 16.9 s -> 49.1 s, add-one-more 2.4 s -> 28.2 s, DOM nodes 16 144 -> 45 136,
-document height 230 963 px -> 309 979 px. The cause is precise: `recomputeAttributions` scans every
-record with a resolved case, which used to be roughly zero in the browser and is now all of them.
-The worker compounds it by calling `prepareResolutionQueue` in its tail after a branch has already
-recomputed and rebuilt, so a manual add does the O(n) work twice. Both are Increment 6's to fix
-alongside the paged query surface; the redundant tail call is the cheap half.
-
-Tests: 30 -> 32 browser (29 green, 2 F-04 annotations, 1 skipped) and 62 -> 66 unit. Eight existing
-browser tests had encoded the broken behaviour by asserting books stop in a queue, and were
-updated. One of them, a regression test for the attribution CHECK-constraint bug, tested a UI path
-that no longer exists in a one-reader household; it was replaced by a test that no review queue
-ever appears, with the constraint-level coverage moved to the application tests.
-
-Increment 3 result: ships N8 and closes F-05. Browser storage is evictable, `navigator.storage.persist()`
-was called nowhere in the source, and wiping OPFS returned the app to the first-run empty state with
-no warning and no mention that a backup existed. ADR 0011 named the risk and the UI ignored it.
-
-Three facts now exist, deliberately stored in three different places:
-
-- Whether this browser granted persistent storage is device-local and queried live from the Storage
-  API on every load, never cached, so it cannot go stale. `persist()` is requested once per device
-  after the first successful add, because a real add is the user gesture a browser weighs most.
-- Whether this device has ever held books is a localStorage marker. It cannot live in the database,
-  since the entire point is to survive the database disappearing.
-- `last_backup_at` belongs to the data rather than the device, so it lives in `app_metadata` and
-  travels inside the encrypted archive. A restored device reports an accurate last backup because
-  the value is written before the snapshot is taken.
-
-Worth knowing: requesting persistence is not the same as getting it. A probe against a fresh
-Chromium profile showed the request being made and denied — Chromium decides on site-engagement
-heuristics, and installing the PWA is one of the stronger signals, which is a direct payoff from
-Increment 1's install work. The app therefore states the real state rather than implying safety,
-and the backup reminder is the mitigation that does not depend on a browser's goodwill.
-
-Wipe detection has a known limit, recorded here so it is not rediscovered as a bug: clearing _all_
-site data removes the localStorage marker too, so that case is indistinguishable from a first run
-and correctly shows the first-run screen. What it does catch is the failure `persist()` exists to
-prevent — the browser evicting origin storage on its own. A test proves a genuine first run, including
-the service-worker shell being cached on a reload, is never misreported as a wipe.
-
-The export path had a real defect this work surfaced: it discarded its own worker response, so a
-backup registered in the database but the UI still read "Last backup: Never" until a reload.
-
-Tests: 32 -> 37 browser and 66 unit. The archive round-trip now carries one extra row, which is
-`last_backup_at` itself, and asserts it restores intact.
-
-Increment 4 result: ships N5 and N9. `main.tsx` went from 1229 lines to 326, with the rest split
-across a router, a shared state module, four components, and six destinations — about 1600 lines
-total, so this is a redistribution rather than a rewrite. The single scrolling page whose sections
-were pipeline stages is gone.
-
-Routing is a 66-line hash router rather than a dependency, and the reasoning is recorded in
-`router.ts` itself. Hash over the History API because this ships as static files with an offline
-service worker: path routing would need either server rewrites, which the `_headers` deploy
-contract does not describe, or a service-worker navigation fallback that has to stay correct for
-every future route. A hash never leaves the document, cannot 404, and behaves identically offline.
-No library because the requirement is five flat destinations with no params, no nesting, and no
-data loading; revisit when nested parameterised routes arrive.
-
-Concepts moved to where audit §6.3 puts them. The Import inbox is deleted outright. Backup and
-restore, import history, and the privacy note are in Settings, where passphrase entry no longer
-sits above the fold. Library facts are under Activity. Review work is one Tasks destination reached
-from a badge, with actions renamed to outcomes: "Keep as typed", "Ask me later", "Remove". The
-first-run screen leads with a single "Add your first book" button and states the privacy boundary
-in one sentence, rather than opening with a Libby import panel and a box explaining what the app
-cannot do.
-
-F-20 is closed alongside: a `nav` landmark, a skip link, and an error boundary whose recovery copy
-deliberately says the books are still saved and warns against clearing site data, because that is
-the one instinct after a broken screen that would actually destroy the bookshelf.
-
-Two deliberate deviations from the audit. The intermediate 72px icon rail at 960–1279px is not
-built: it needs an icon set that does not exist yet, and text labels at 72px are illegible, so the
-sidebar switches straight to a bottom tab bar below 960px. And `record-count` moved to Settings
-where it belongs as an ingestion fact, so tests now assert the import status line or the shelf
-itself, which is what a person would actually look at.
-
-Tests: 37 -> 44 browser (43 green, 2 F-04 annotations, 1 skipped) and 66 unit. Every spec needed
-updating because the IA moved, which is what Increment 0 existed to make safe. Seven new tests
-cover the shell: destination reachability, deep links and reload, unknown-hash fallback, the nav
-landmark and `aria-current`, the skip link, the tasks badge, and the error boundary.
-
-Two layout defects were caught by looking at the result rather than by the assertions: a CSS
-specificity bug where `.first-run > p` outranked `.first-run-privacy` and collapsed its spacing to
-zero, and a bottom tab bar that handed Settings half its width because the destination list and
-Settings both claimed `flex: 1`.
-
-Increment 5 result: ships N3 and N6, closing F-02 and F-15. The shelf is a grid of covers rather
-than a list of forms, and every book is one tap from a detail drawer. Recorded in ADR 0013.
-
-Covers are bytes this household holds, never a remote URL. A URL would tell whoever serves it
-which books this family owns, on every render, from the family's own IP — a continuous leak of
-exactly what ADR 0011 exists to prevent, and one that would look like ordinary image loading.
-Worth restating because it is the happy part: **the CSP did not change**. `img-src ... blob:`
-already permitted blob rendering, so the shelf gained faces at zero cost to the privacy posture.
-
-A book with no stored cover gets a generated one: the title in the serif face over one of eight
-muted hues chosen deterministically from the work id. Generated covers are drawn, never stored, so
-they cost nothing in OPFS or archive and are identical on every device. All eight hues were
-measured against the cream text rather than eyeballed — 8.14:1 to 10.90:1, against a 4.5:1 bar.
-
-The archive payload is now `read-it-again-logical-v2`. JSON cannot hold raw bytes, so binary
-columns are wrapped as `{"$bytes": "<base64>"}`; a Uint8Array would otherwise stringify to
-`{"0":137,"1":80,...}` and parse back as a plain object. v1 payloads contain no binary columns and
-are still accepted, with a test that builds a real v1 envelope and restores it.
-
-Moving the assessment form off every card and into the detail view — the audit's single biggest
-visual-density note — turned out to be the largest performance win so far, without any
-virtualization. At 1000 books: DOM nodes 45 136 -> 13 060, document height 309 979 px -> 51 276 px,
-add-one-more 28.2 s -> 12.4 s. Still over the F-04 budgets of 2000 nodes and 20 000 px, and those
-two tests stay annotated for Increment 6, but the gap is now a factor of six rather than twenty.
-
-Deliberate deviations. Thumbhash blur-up placeholders are not built: they pay off when thumbnails
-arrive slowly over a network, and these bytes come from local OPFS, so the real fix for scroll is
-virtualization. Cover bytes are excluded from the shelf payload and fetched per work, because a
-thousand covers at the 60 KB cap would be 60 MB through one postMessage.
-
-Choosing a cover from a file is included so that cover storage is real and testable now rather
-than speculative schema. On a phone `accept="image/*"` already offers the camera; the dedicated
-capture flow is Increment 8. Images are downscaled to the ADR 0013 caps before storage, encoding
-at descending JPEG quality until the result fits rather than guessing once, and refusing with a
-message if even the lowest quality is too large.
-
-Tests: 44 -> 52 browser (51 green, 2 F-04 annotations, 1 skipped) and 68 unit. Eight browser tests
-needed updating because assessment and provenance moved into the drawer, and shelf tiles no longer
-carry headings. A detail drawer is modal, so its scrim genuinely blocks navigation — the test
-helper now closes it first, which is what a person has to do.
-
-Increment 6 result: ships N2 and closes most of F-04. Recorded in ADR 0014.
-
-The spike the audit asked for came back decisive and split: the `@sqlite.org/sqlite-wasm` build
-ships FTS5 (33 symbol hits in the .wasm), but `node:sqlite` does not — `CREATE VIRTUAL TABLE …
-USING fts5` fails with "no such module: fts5". Both drivers run the same migration list, so FTS5
-would have broken the local runtime and every unit test. Migration 9 therefore adds `work_search`,
-a derived projection holding normalised title and author, maintained incrementally. At this
-product's scale FTS5 would have bought recall rather than speed, and normalising delivers that on
-its own: "gruffalo" finds "The Gruffalo!" and "ecole" finds "L'École". The search normalisation
-deliberately keeps leading articles, unlike `canonicalTitle`, because someone typing "the gru"
-expects "The Gruffalo".
-
-The protocol change is the breaking one the audit anticipated. Mutations return a four-count
-`Summary` of constant size; each destination asks for what it renders. The shelf reads pages of 60
-and renders only rows near the viewport, with `aria-setsize`/`aria-posinset` on every tile so
-screen-reader traversal survives — asserted directly, because axe cannot know a list is windowed.
-
-Measured at 1000 books, against where Increment 5 left it:
-
-- DOM nodes 13 060 -> 839, and now identical at 500 and 1000 books. Under the 2000 budget.
-- Import 51.7 s -> 9.9 s. Under the 10 s budget.
-- Add one more 12.4 s -> 3.9 s. Still over the 500 ms budget.
-- Search at 1000 books is inside its 150 ms budget, debounce included.
-
-Most of the import win came from one thing: `inTransaction` was not nesting-aware, so bulk
-operations could not wrap per-row helpers that opened their own transaction, and every imported row
-committed separately. Making it savepoint-aware and wrapping the resolution pass took 1000-row
-import from 55 s to 25 s, and wrapping the recompute tail took it to 9.9 s. The same treatment on
-`correctAttribution` roughly halved add-one-more.
-
-Two honest caveats. The audit's 20 000 px document-height budget is deliberately revised: it was
-written against a list rendering a full assessment form per row, where 279 685 px was pathological.
-A virtualized cover grid keeps its real scroll extent on purpose, and 1000 books at six columns is
-inherently ~167 rows; meeting 20 000 px would need sixteen columns of 68 px covers, which is not a
-bookshelf. The budget is now per-row, so a regression to form-per-row rendering is still caught,
-and DOM nodes remain the real proxy for render cost.
-
-And a measurement bug worth remembering: the first virtualized run reported 58 DOM nodes, which
-looked like a triumph and was actually an empty grid — the page fetch had not landed when the
-measurement ran. The budget test now waits for tiles and records how many rendered, so a bounded
-DOM only counts when the shelf was actually drawn.
-
-Tests: 52 -> 60 browser and 68 unit. The previously skipped search budget is now a real test.
-
-Increment 7 result: ships N4 and closes F-03, the last of the audit's five highest-priority
-actions. Migration 10 adds `reader_profiles.archived_at`.
-
-Readers are archived, never deleted. A reader's name is on years of attribution results,
-acquisition episodes and reading sessions; removing the row would either cascade that history away
-or leave it dangling, and the architecture is built on not destroying observations (ADR 0008).
-A household always keeps at least one active reader, because attribution needs somewhere to go.
-Archived readers disappear from the switcher and from attribution choices while their history
-stays intact, and they can be restored.
-
-The shelf now shows one card per book rather than one per reader-book pair. A book both children
-have read is one book with two chips, which is the card anatomy in audit §7.5 and, more
-practically, stops the "everyone" view looking like duplicates. The representative reader is picked
-deterministically with `min(person_id)` rather than left to SQLite's bare-column behaviour, so the
-assessment shown on a card does not change between renders.
-
-The reader filter is device-local, in localStorage beside the wipe marker rather than in
-`app_metadata`: it describes how one person browses, not anything about the data, so it must not
-travel in a backup.
-
-ADR 0012's single-reader default stops applying the moment a second reader exists, because the
-question finally has more than one possible answer. That is correct and it is a visible change in
-behaviour, so Settings says so before you add anyone, and adding a reader re-derives the queues
-immediately rather than waiting for the next import.
-
-Privacy, per the audit: any label works. The copy says so — "A first name, a nickname or 'Kid 1'".
-Nothing asks for a real name and nothing leaves the device.
-
-Two real bugs found by writing the tests. The book detail drawer only offered reader reassignment
-when a book was already in review, which meant ADR 0012's promised reversibility was unreachable
-for the common case of a book filed automatically; reassignment is now always available. And the
-drawer was keyed by (work, reader), so reassigning a book from inside its own drawer changed which
-reader represented it and the drawer vanished mid-edit — it is keyed by work now.
-
-Tests: 60 -> 68 browser and 68 -> 72 unit, including four unit tests for `listShelf` that pin the
-one-card-per-book grouping, reader filtering, archived-reader exclusion and normalised search.
-Those went in after the browser test disagreed with the query: the unit tests proved the SQL right
-and sent me looking at the UI, where both bugs actually were.
-
-Increment 7 addendum: X4, X8 and the stale install assets, all of which were outstanding before
-Increment 8 could start.
-
-X8 (F-18) makes a logged reading correctable. One tap still logs in under a second — that instinct
-was right — but the session it writes is no longer final: participants, context and date become
-editable immediately afterwards, so a book read to two children records two and last night can be
-logged this morning. `recordReadingSession` now returns the session id so the UI can offer the
-correction without a second lookup, and `updateReadingSession` is the append-safe write behind it.
-The schema always supported five contexts, any date and multiple participants; only the write path
-did not. Activity now shows the date of a session too, which it never did.
-
-X4 turned out to belong somewhere other than the audit's example suggested, and finding that out
-was the useful part. Writing the test surfaced a behaviour worth stating plainly: **adding a second
-reader empties the shelf.** Books the app filed on its own move to Tasks, because with two readers
-it genuinely no longer knows whose they are (ADR 0012). That is correct, and it is harsh — a parent
-adds a second child and their bookshelf disappears. So bulk filing exists in two places: a
-selection bar on the shelf for re-filing books already there, and "File all under X" in the Tasks
-queue, which is where the books actually are after that transition. Settings now says what adding
-a reader will do before you do it, rather than leaving it to be discovered.
-
-The install screenshots were regenerated and the generator improved: it seeds eight books first, so
-the install card shows a shelf of covers rather than "Your shelf is empty", which advertises
-nothing. Doing that exposed a real visual bug — a two-line title pushed the caption past the fixed
-tile height and clipped the rating line. Tile height and the virtualization row height are now in
-step at 330/350px.
-
-One unexplained test failure appeared in a single `pnpm check` immediately after the asset
-regeneration, and did not reproduce across four subsequent full runs. The likely cause is the
-Playwright preview server being reused while `dist` was rebuilt underneath it. Recorded here rather
-than left silent; if it recurs in CI it will name itself.
-
-Tests: 67 -> 72 browser. 72 unit unchanged.
+Use the full check before committing:
+
+```sh
+pnpm check
+```
+
+That expands to formatting, ESLint, TypeScript, unit tests, browser tests, a production build, and
+the browser-boundary scan.
+
+The browser performance suite runs against the production preview on port 4175. Its measurements
+are attached to the Playwright report. The barcode tests use a generated camera video, and the
+payload test reads the built decoder files.
+
+## Implementation history
+
+The project was built in seven functional phases:
+
+1. Import snapshots transactionally into a schema shared by native SQLite and SQLite-WASM.
+2. Resolve ISBNs and title/author candidates while preserving every decision.
+3. Acquire complete BiblioCommons physical history from isolated authenticated card sessions.
+4. Store MARC facts with provenance and apply conservative reader attribution.
+5. Separate checkout observations, acquisition episodes, reading sessions, and assessments.
+6. Generate deterministic KCLS recommendations with cached holdings.
+7. Ship the file/manual browser composition as an installable offline PWA with encrypted transfer.
+
+The later UX work made the following changes:
+
+- Imported books now reach the shelf automatically in a one-reader browser household. The browser
+  accepts source details and assigns the only reader; the local runtime keeps its conservative
+  catalog rules.
+- Storage durability is visible. Persistent-storage state is queried from the browser,
+  `last_backup_at` travels with the archive, and localStorage records that a device previously
+  held books.
+- The single pipeline-shaped page became separate Shelf, Add, Activity, Discover, Tasks, and
+  Settings destinations using a small hash router.
+- Shelf cards became a virtualized cover grid with a book detail drawer. Cover files are downsized
+  before storage, and generated covers fill the gaps without using archive space.
+- Worker reads became paged and destination-specific. Search uses a normalized table rather than
+  FTS5 because `node:sqlite` does not include the extension.
+- Reader management exposes the multi-reader schema. Readers are archived instead of deleted, and
+  a book shared by several readers appears once with multiple reader labels.
+- Reading sessions can be corrected after the quick-log action. Bulk filing is available both on
+  the shelf and in Tasks.
+- Barcode scanning uses native EAN-13 support when available and falls back to a precached
+  `zxing-wasm` decoder.
+
+## Things worth remembering
+
+- Clearing all site data also clears the localStorage wipe marker. That case is indistinguishable
+  from a first run. The marker catches browser eviction where localStorage survives but OPFS does
+  not.
+- `navigator.storage.persist()` is only a request. Chromium may deny it based on site-engagement
+  rules, so encrypted backups remain the actual recovery path.
+- Hash routing avoids static-host rewrites and behaves the same way offline. Reconsider it only if
+  the app gains nested parameterized routes.
+- Search normalization intentionally differs from title identity normalization. It keeps leading
+  articles, so “the gru” finds “The Gruffalo,” and folds diacritics for searches such as “ecole.”
+- The virtual grid keeps the full scroll extent. DOM count, not total document height, is the main
+  render-cost limit.
+- Adding a second reader can move automatically filed books into Tasks because the app no longer
+  has a single obvious owner. The bulk action is the intended recovery path.
+- A generated barcode in Chromium proves the scanner is wired correctly. It does not replace the
+  planned test on 100 books across six real devices.
+- Cover images are local after the first fetch, but automatic lookup still reveals one ISBN to
+  Open Library. Keep that disclosure explicit in user-facing privacy documentation.
+
+## Open work
+
+- Run the authenticated physical-card workflow with a real household session.
+- Run the barcode field test and decide whether scanning should remain experimental.
+- Decide whether automatic Open Library cover lookup should remain implicit or become an explicit
+  opt-in. The code currently runs it automatically.
+- Regenerate and review install screenshots when the shelf or first-run layout changes.
+- Recheck the KCLS CORS boundary before designing any browser catalog feature.
+
+The external source plan is in Obsidian at `Efforts/Read It Again.md`.

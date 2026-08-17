@@ -193,8 +193,7 @@ export async function recordReadingSession(
     occurredAt: input.occurredAt ?? now().toISOString(),
     createdAt: now().toISOString(),
   });
-  // Returned so the UI can offer "logged — edit this" without a second lookup,
-  // which is what makes the one-tap default correctable (F-18).
+  // Return the ID so the UI can offer an immediate correction.
   return { sessionId, model: await getReadingModel(database) };
 }
 

@@ -50,9 +50,7 @@ export interface LibbyParseResult {
   readonly records: readonly NormalizedImportRecord[];
 }
 
-/** Plain-language names for the schema paths a parent might see. The CSV adapter's
- *  "Could not find a title column. Available columns: …" is the standard here; a
- *  raw Zod path like `0.title.text` is not something to show a reader (F-06). */
+/** Plain-language labels for schema paths that may appear in import errors. */
 const FIELD_LABELS: Readonly<Record<string, string>> = {
   'title.text': 'title',
   'title.titleId': 'title identifier',

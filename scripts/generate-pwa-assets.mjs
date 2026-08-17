@@ -4,7 +4,7 @@
 //   node scripts/generate-pwa-assets.mjs
 //
 // iOS ignores SVG icons for home-screen install and Chromium needs raster icons
-// plus screenshots for a rich install card (F-17), so these files have to exist
+// plus screenshots for a rich install card, so these files have to exist
 // as bitmaps. Generating them keeps them honest instead of hand-drawn.
 import { spawn } from 'node:child_process';
 import { readFile, writeFile } from 'node:fs/promises';

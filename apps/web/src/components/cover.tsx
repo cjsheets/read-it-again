@@ -1,18 +1,6 @@
 import { useEffect, useState } from 'react';
 
-/**
- * F-02. A book with no cover must never be a grey box: an all-manual shelf that
- * has never touched a catalog should look intentional, not broken. That matters
- * most for the two personas who will never connect a library account.
- *
- * The generated cover is drawn, not stored. It is deterministic from the work id,
- * so it is stable across devices and reloads without costing a byte of OPFS or a
- * byte of archive. Only real cover bytes — a photo, a file, later a catalog fetch
- * — are worth storing (ADR 0013).
- *
- * Every hue clears 4.5:1 against the cream text; measured, not assumed:
- * 10.13, 8.67, 9.18, 8.41, 8.14, 9.84, 10.90 and 8.45 to one.
- */
+/** Stable, contrast-checked colors for generated covers. */
 const COVER_HUES = [
   '#24473b',
   '#3c4a6b',
@@ -47,11 +35,7 @@ export function coverHue(workId: string): string {
   return COVER_HUES[hash(workId) % COVER_HUES.length] ?? COVER_HUES[0];
 }
 
-/**
- * Renders the stored cover when the household has one, and a generated cover
- * otherwise. Both are 2:3 — book covers cluster near that ratio, so a uniform grid
- * is more legible and much cheaper to lay out than a justified one (audit §7.2).
- */
+/** Renders stored bytes when present and a generated 2:3 cover otherwise. */
 export function Cover({
   workId,
   title,

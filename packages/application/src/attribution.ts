@@ -180,9 +180,7 @@ export async function correctAttribution(
       ? [input.workId]
       : await workIdsForImportRecord(database, input.importRecordId);
   const { rebuildReadingModelForWorks } = await import('./reading.js');
-  // A correction can only affect the targeted work. Keeping the write, attribution
-  // result, and derived projection together preserves the audit trail without
-  // making a one-book action reprocess the whole shelf.
+  // Rebuild only the work touched by this correction.
   await inTransaction(database, async () => {
     await saveAttributionOverride(database, { ...input, id: idFactory(), now });
     await recomputeAttributions(database, {

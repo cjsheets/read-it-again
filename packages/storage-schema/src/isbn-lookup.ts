@@ -9,8 +9,8 @@ export interface IsbnMatch {
 /**
  * The work this ISBN already belongs to, or null.
  *
- * Audit §8.2: a scan is an observation about an *edition*, and ADR 0004 keeps
- * editions distinct from the work they are printings of. So this asks the
+ * A scan is an observation about an edition, and ADR 0004 keeps editions
+ * distinct from the work they are printings of. This asks the
  * question three ways, because an ISBN can have arrived by three routes: carried
  * on an imported row, attached to an edition by a resolution, or recorded
  * directly against a work. A paperback scanned after the hardback was imported
