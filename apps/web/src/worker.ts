@@ -21,6 +21,8 @@ import {
 import type { CompositionDefaults } from '@read-it-again/application';
 import { openOpfsDatabase } from '@read-it-again/storage-browser';
 import {
+  archiveReader,
+  createReader,
   deleteCoverImage,
   getAppMetadata,
   getCoverImage,
@@ -29,8 +31,11 @@ import {
   indexWorksForSearch,
   LAST_BACKUP_AT,
   listAttributionTriage,
+  listReaders,
   listShelf,
   migrate,
+  renameReader,
+  restoreReader,
   saveCoverImage,
 } from '@read-it-again/storage-schema';
 import type { Database } from '@read-it-again/storage-schema';
@@ -111,6 +116,10 @@ async function handle(request: WorkerRequest): Promise<void> {
         return await reply(request.id, database, {
           importHistory: await getHouseholdImportInbox(database),
         });
+      case 'listReaders':
+        return await reply(request.id, database, {
+          readers: await listReaders(database, { includeArchived: true }),
+        });
       case 'getCover': {
         const cover = await getCoverImage(database, request.workId);
         return await reply(request.id, database, {
@@ -146,13 +155,22 @@ async function handle(request: WorkerRequest): Promise<void> {
         sourceAccountId: MANUAL_SOURCE_ACCOUNT_ID,
         householdId: HOUSEHOLD_ID,
       });
-      await correctAttribution(database, {
-        scope: 'work',
-        workId: manual.workId,
-        state: 'assigned',
-        readerIds: ['default-reader'],
-        defaults: BROWSER_DEFAULTS,
-      });
+      // Attributed to whoever the household is looking at, rather than a
+      // hardcoded 'default-reader' (F-03). Falls back to the only active reader.
+      const active = await listReaders(database);
+      const readerId =
+        request.readerId && active.some((reader) => reader.id === request.readerId)
+          ? request.readerId
+          : active[0]?.id;
+      if (readerId) {
+        await correctAttribution(database, {
+          scope: 'work',
+          workId: manual.workId,
+          state: 'assigned',
+          readerIds: [readerId],
+          defaults: BROWSER_DEFAULTS,
+        });
+      }
       await indexWorksForSearch(database);
     } else if (request.type === 'exportArchive') {
       archiveText = await exportEncryptedArchive(database, request.passphrase);
@@ -171,6 +189,25 @@ async function handle(request: WorkerRequest): Promise<void> {
       });
     } else if (request.type === 'removeCover') {
       await deleteCoverImage(database, request.workId);
+    } else if (request.type === 'createReader') {
+      await createReader(database, {
+        id: crypto.randomUUID(),
+        householdId: HOUSEHOLD_ID,
+        displayName: request.displayName,
+        now: new Date().toISOString(),
+      });
+      // A second reader changes what attribution can conclude on its own
+      // (ADR 0012), so the queues are re-derived immediately rather than at the
+      // next import.
+      await settle(database);
+    } else if (request.type === 'renameReader') {
+      await renameReader(database, request.personId, request.displayName);
+    } else if (request.type === 'archiveReader') {
+      await archiveReader(database, request.personId, new Date().toISOString());
+      await settle(database);
+    } else if (request.type === 'restoreReader') {
+      await restoreReader(database, request.personId);
+      await settle(database);
     } else if (request.type === 'acceptCandidate') {
       await decideCandidate(database, request.caseId, request.candidateId, {
         defaults: BROWSER_DEFAULTS,
@@ -242,10 +279,12 @@ async function summarize(database: Database): Promise<Summary> {
          AS tasks`,
   );
   const counts = rows[0];
+  const readers = await listReaders(database);
   return {
     bookCount: counts?.books ?? 0,
     recordCount: counts?.records ?? 0,
     taskCount: counts?.tasks ?? 0,
     lastBackupAt: (await getAppMetadata(database, LAST_BACKUP_AT)) ?? null,
+    readers: readers.map(({ id, displayName }) => ({ id, displayName })),
   };
 }

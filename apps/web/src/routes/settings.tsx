@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useApp, useWorkerData } from '../app-state.js';
 import type { PersistenceState } from '../durability.js';
 
@@ -69,6 +70,8 @@ export function Settings() {
         />
       </article>
 
+      <Readers />
+
       <article className="settings-card" aria-labelledby="sources-title">
         <h3 id="sources-title">Connected sources</h3>
         {!history || history.runs.length === 0 ? (
@@ -104,6 +107,117 @@ export function Settings() {
         </p>
       </article>
     </section>
+  );
+}
+
+/**
+ * F-03. The schema has supported multiple readers since migration 1 and the UI
+ * exposed exactly one, hardcoded as "Child" — the largest gap between built and
+ * exposed capability in the product.
+ *
+ * Names are the household's own business. Any label works, "Kid 1" included;
+ * nothing here asks for a real name and nothing leaves the device.
+ */
+function Readers() {
+  const { summary, busy, manageReaders } = useApp();
+  const readers = useWorkerData({ type: 'listReaders' }, (response) => response.readers);
+  const [name, setName] = useState('');
+  const active = (readers ?? []).filter((reader) => reader.archivedAt === null);
+  const archived = (readers ?? []).filter((reader) => reader.archivedAt !== null);
+
+  return (
+    <article className="settings-card" aria-labelledby="readers-title">
+      <h3 id="readers-title">Readers</h3>
+      <p>
+        Who this bookshelf is for. A first name, a nickname or “Kid 1” — whatever you use at home.
+        These names stay in this browser.
+      </p>
+
+      <ul className="reader-list" data-testid="reader-list">
+        {active.map((reader) => (
+          <li key={reader.id} data-testid={`reader-row-${reader.id}`}>
+            <input
+              aria-label={`Name for ${reader.displayName}`}
+              defaultValue={reader.displayName}
+              onBlur={(event) => {
+                const next = event.target.value.trim();
+                if (next && next !== reader.displayName)
+                  void manageReaders({
+                    type: 'renameReader',
+                    personId: reader.id,
+                    displayName: next,
+                  });
+              }}
+            />
+            <span className="model-note">
+              {reader.bookCount} {reader.bookCount === 1 ? 'book' : 'books'}
+            </span>
+            <button
+              type="button"
+              disabled={busy || active.length <= 1}
+              title={active.length <= 1 ? 'A household needs at least one reader.' : undefined}
+              onClick={() => void manageReaders({ type: 'archiveReader', personId: reader.id })}
+            >
+              Archive
+            </button>
+          </li>
+        ))}
+      </ul>
+
+      <form
+        className="reader-add"
+        onSubmit={(event) => {
+          event.preventDefault();
+          const displayName = name.trim();
+          if (!displayName) return;
+          void manageReaders({ type: 'createReader', displayName }).then(() => setName(''));
+        }}
+      >
+        <input
+          aria-label="New reader name"
+          data-testid="new-reader-name"
+          placeholder="Add a reader"
+          value={name}
+          onChange={(event) => setName(event.target.value)}
+        />
+        <button type="submit" disabled={busy || !name.trim()}>
+          Add reader
+        </button>
+      </form>
+
+      {summary.readers.length === 1 && (
+        <p className="model-note" data-testid="single-reader-note">
+          With one reader, books are filed automatically. Add a second and the app will start asking
+          who a book was for when it cannot tell.
+        </p>
+      )}
+
+      {archived.length > 0 && (
+        <>
+          <h4>Archived</h4>
+          <p className="model-note">
+            Their reading history is kept. Restoring brings them back to the switcher.
+          </p>
+          <ul className="reader-list" data-testid="archived-readers">
+            {archived.map((reader) => (
+              <li key={reader.id}>
+                <span>{reader.displayName}</span>
+                <span className="model-note">
+                  {reader.bookCount} {reader.bookCount === 1 ? 'book' : 'books'}
+                </span>
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => void manageReaders({ type: 'restoreReader', personId: reader.id })}
+                >
+                  Restore
+                </button>
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
+    </article>
   );
 }
 

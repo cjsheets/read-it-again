@@ -256,37 +256,53 @@ function Assessment({ item }: { readonly item: ShelfItem }) {
  * nowhere to appear; this is that promise being kept.
  */
 function WhyThisReader({ item }: { readonly item: ShelfItem }) {
-  const { applyAttribution } = useApp();
+  const { summary, reassignWork } = useApp();
   const tasks = useWorkerData({ type: 'getTasks' }, (response) => response.tasks);
   const triage = tasks?.attributionTriage.find((entry) => entry.workId === item.workId);
+  const assigned = new Set(item.readers.map((reader) => reader.id));
 
   return (
     <section className="detail-section" aria-labelledby={`why-${item.workId}`}>
       <h3 id={`why-${item.workId}`}>Why this reader</h3>
       <p className="model-note" data-testid="attribution-explanation">
         {triage?.explanation ??
-          `Attributed to ${item.readerName}. Change it below and your choice replaces what the app worked out.`}
+          `Filed under ${item.readers.map((reader) => reader.displayName).join(' and ') || item.readerName}. Change it below and your choice replaces whatever decided it.`}
       </p>
-      {triage && (
-        <div className="decision-actions">
-          {triage.readers.map((reader) => (
-            <button
-              key={reader.id}
-              type="button"
-              onClick={() => void applyAttribution(triage, 'work', 'assigned', [reader.id])}
-            >
-              Always for {reader.displayName}
-            </button>
-          ))}
+      {/* Offered whether or not the book is in review. A book filed automatically
+          is the common case and the one ADR 0012 promised to make reversible;
+          requiring a triage entry made that promise unreachable. */}
+      <div className="decision-actions">
+        {summary.readers.map((reader) => (
+          <button
+            key={reader.id}
+            type="button"
+            aria-pressed={assigned.has(reader.id)}
+            onClick={() => void reassignWork(item.workId, [reader.id])}
+          >
+            Always for {reader.displayName}
+          </button>
+        ))}
+        {summary.readers.length > 1 && (
           <button
             type="button"
-            data-testid="detail-not-for-a-child"
-            onClick={() => void applyAttribution(triage, 'checkout', 'excluded', [])}
+            onClick={() =>
+              void reassignWork(
+                item.workId,
+                summary.readers.map((reader) => reader.id),
+              )
+            }
           >
-            Not for a child
+            For everyone
           </button>
-        </div>
-      )}
+        )}
+        <button
+          type="button"
+          data-testid="detail-not-for-a-child"
+          onClick={() => void reassignWork(item.workId, [])}
+        >
+          Not for a child
+        </button>
+      </div>
     </section>
   );
 }

@@ -47,6 +47,7 @@ export const EMPTY_SUMMARY: Summary = {
   recordCount: 0,
   taskCount: 0,
   lastBackupAt: null,
+  readers: [],
 };
 
 /**
@@ -62,6 +63,10 @@ export interface AppState {
   readonly persistence: PersistenceState;
   readonly wiped: boolean;
   readonly archivePassphrase: string;
+  /** Which reader the shelf is filtered to, or null for everyone. Device-local
+   *  and persisted, so a household member's view survives a reload. */
+  readonly readerFilter: string | null;
+  readonly setReaderFilter: (readerId: string | null) => void;
   /** Bumped whenever a mutation lands, so destinations know to re-read. */
   readonly revision: number;
   readonly setArchivePassphrase: (value: string) => void;
@@ -70,7 +75,12 @@ export interface AppState {
   readonly importLibbyFile: (file: File) => Promise<void>;
   readonly importCsvFile: (file: File) => Promise<void>;
   readonly importArchiveFile: (file: File) => Promise<void>;
-  readonly addBook: (input: { title: string; author?: string; isbn?: string }) => Promise<void>;
+  readonly addBook: (input: {
+    title: string;
+    author?: string;
+    isbn?: string;
+    readerId?: string | null;
+  }) => Promise<void>;
   readonly exportArchive: () => Promise<void>;
   readonly applyDecision: (
     request: Extract<
@@ -86,6 +96,16 @@ export interface AppState {
   ) => Promise<void>;
   readonly applyReadingChange: (
     request: Extract<WorkerRequestInput, { type: 'assessWork' | 'recordReadingSession' }>,
+  ) => Promise<void>;
+  /** Reassigns a book to one or more readers, superseding whatever decided it —
+   *  automatic or human. This is ADR 0012's promised reversibility, and it has to
+   *  work for a book that is already filed, not only one sitting in review. */
+  readonly reassignWork: (workId: string, readerIds: readonly string[]) => Promise<void>;
+  readonly manageReaders: (
+    request: Extract<
+      WorkerRequestInput,
+      { type: 'createReader' | 'renameReader' | 'archiveReader' | 'restoreReader' }
+    >,
   ) => Promise<void>;
 }
 

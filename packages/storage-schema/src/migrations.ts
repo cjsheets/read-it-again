@@ -517,6 +517,17 @@ export const migrations: readonly Migration[] = [
       CREATE INDEX work_search_text ON work_search (text);
     `,
   },
+  {
+    version: 10,
+    name: 'archivable_readers',
+    sql: `
+      -- Readers are archived, never deleted. A reader's name appears on years of
+      -- attribution results, acquisition episodes and reading sessions; removing
+      -- the row would either cascade that history away or leave it dangling, and
+      -- the whole architecture is built on not destroying observations (ADR 0008).
+      ALTER TABLE reader_profiles ADD COLUMN archived_at TEXT;
+    `,
+  },
 ];
 
 export async function migrate(database: Database): Promise<void> {

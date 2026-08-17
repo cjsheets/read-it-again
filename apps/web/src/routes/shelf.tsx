@@ -27,7 +27,7 @@ const SORTS: readonly { readonly value: ShelfSort; readonly label: string }[] = 
  * thousand books pays for a screenful rather than a library.
  */
 export function Shelf({ go }: { readonly go: (route: Route) => void }) {
-  const { summary, revision } = useApp();
+  const { summary, revision, readerFilter } = useApp();
   const [query, setQuery] = useState('');
   const [sort, setSort] = useState<ShelfSort>('recent');
   const [openBook, setOpenBook] = useState<string | null>(null);
@@ -38,15 +38,22 @@ export function Shelf({ go }: { readonly go: (route: Route) => void }) {
     rowHeight: ROW_HEIGHT,
     totalRows: 0,
   });
-  const page = useShelfPage(query, sort, window.first, window.count, revision);
-  const selected = page?.entries.find((entry) => keyOf(entry) === openBook);
+  const page = useShelfPage(query, sort, window.first, window.count, revision, readerFilter);
+  // Keyed by work alone, not by (work, reader): reassigning a book from inside its
+  // own drawer changes which reader represents it, and a composite key would make
+  // the drawer vanish mid-edit.
+  const selected = page?.entries.find((entry) => entry.workId === openBook);
   const searching = query.trim().length > 0;
 
-  if (summary.bookCount === 0 && !searching) {
+  const total = page?.total ?? summary.bookCount;
+  const filtered = readerFilter !== null;
+  const readerName = summary.readers.find((reader) => reader.id === readerFilter)?.displayName;
+
+  // Only a genuinely empty household gets the first-run screen. A filter or a
+  // search that matches nothing is a different situation and must say which.
+  if (summary.bookCount === 0 && !searching && !filtered) {
     return <FirstRun go={go} hasRecords={summary.recordCount > 0} />;
   }
-
-  const total = page?.total ?? summary.bookCount;
 
   return (
     <section aria-labelledby="shelf-title" data-testid="shelf">
@@ -94,9 +101,14 @@ export function Shelf({ go }: { readonly go: (route: Route) => void }) {
         </p>
       )}
 
-      {searching && total === 0 ? (
+      {total === 0 && searching ? (
         <div className="empty" data-testid="no-matches">
           Nothing on your shelf matches “{query}”.
+        </div>
+      ) : total === 0 && filtered ? (
+        <div className="empty" data-testid="reader-empty">
+          No books are filed under {readerName ?? 'this reader'} yet. Switch to Everyone to see the
+          whole shelf.
         </div>
       ) : (
         <VirtualGrid
@@ -109,10 +121,10 @@ export function Shelf({ go }: { readonly go: (route: Route) => void }) {
         >
           {(entry, _index, aria) => (
             <ShelfTile
-              key={keyOf(entry)}
+              key={entry.workId}
               entry={entry}
               aria={aria}
-              onOpen={() => setOpenBook(keyOf(entry))}
+              onOpen={() => setOpenBook(entry.workId)}
             />
           )}
         </VirtualGrid>
@@ -121,10 +133,6 @@ export function Shelf({ go }: { readonly go: (route: Route) => void }) {
       {selected && <BookDetail item={selected} onClose={() => setOpenBook(null)} />}
     </section>
   );
-}
-
-function keyOf(entry: ShelfEntry): string {
-  return `${entry.workId}:${entry.personId}`;
 }
 
 /**
@@ -138,6 +146,7 @@ function useShelfPage(
   first: number,
   count: number,
   revision: number,
+  readerId: string | null,
 ) {
   const [page, setPage] = useState<
     { entries: readonly ShelfEntry[]; total: number; offset: number } | undefined
@@ -152,7 +161,7 @@ function useShelfPage(
 
   useEffect(() => {
     let cancelled = false;
-    void requestWorker({ type: 'listShelf', query: debounced, sort, offset, limit }).then(
+    void requestWorker({ type: 'listShelf', query: debounced, sort, offset, limit, readerId }).then(
       (response) => {
         if (cancelled || !response.ok || !response.shelf) return;
         setPage(response.shelf);
@@ -161,7 +170,7 @@ function useShelfPage(
     return () => {
       cancelled = true;
     };
-  }, [debounced, sort, offset, limit, revision]);
+  }, [debounced, sort, offset, limit, revision, readerId]);
 
   return page;
 }
@@ -210,6 +219,15 @@ function ShelfTile({
         <span className="cover-caption">
           <span className="cover-title">{entry.title}</span>
           {author && <span className="cover-author">{author}</span>}
+          {entry.readers.length > 1 && (
+            <span className="cover-readers">
+              {entry.readers.map((reader) => (
+                <span key={reader.id} className="reader-chip" title={reader.displayName}>
+                  {reader.displayName.slice(0, 1).toLocaleUpperCase('en-US')}
+                </span>
+              ))}
+            </span>
+          )}
           <span className="cover-meta">
             {rated ? (
               <span aria-label={`Child engagement: ${String(entry.childEngagement)} of 3`}>

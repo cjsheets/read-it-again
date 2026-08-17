@@ -1,5 +1,6 @@
 import type {
   AttributionTriageItem,
+  Reader,
   ImportBatchResult,
   ImportRecord,
   ImportRun,
@@ -29,12 +30,14 @@ export type WorkerRequest =
       readonly sort?: ShelfSort;
       readonly offset?: number;
       readonly limit?: number;
+      readonly readerId?: string | null;
     }
   | { readonly id: string; readonly type: 'getActivity' }
   | { readonly id: string; readonly type: 'getTasks' }
   | { readonly id: string; readonly type: 'getRecommendations' }
   | { readonly id: string; readonly type: 'getImportHistory' }
   | { readonly id: string; readonly type: 'getCover'; readonly workId: string }
+  | { readonly id: string; readonly type: 'listReaders' }
   // ── Mutations ────────────────────────────────────────────────────────────
   | {
       readonly id: string;
@@ -55,6 +58,9 @@ export type WorkerRequest =
       readonly author?: string;
       readonly isbn?: string;
       readonly format?: string;
+      /** Who the book is for. Omitted means the household's only reader, which is
+       *  the single-reader case ADR 0012 already handles. */
+      readonly readerId?: string | null;
     }
   | { readonly id: string; readonly type: 'exportArchive'; readonly passphrase: string }
   | {
@@ -73,6 +79,15 @@ export type WorkerRequest =
       readonly height: number;
     }
   | { readonly id: string; readonly type: 'removeCover'; readonly workId: string }
+  | { readonly id: string; readonly type: 'createReader'; readonly displayName: string }
+  | {
+      readonly id: string;
+      readonly type: 'renameReader';
+      readonly personId: string;
+      readonly displayName: string;
+    }
+  | { readonly id: string; readonly type: 'archiveReader'; readonly personId: string }
+  | { readonly id: string; readonly type: 'restoreReader'; readonly personId: string }
   | {
       readonly id: string;
       readonly type: 'acceptCandidate';
@@ -146,6 +161,9 @@ export interface Summary {
   readonly recordCount: number;
   readonly taskCount: number;
   readonly lastBackupAt: string | null;
+  /** Active readers. The shell needs this on every screen for the switcher, and
+   *  it is what decides whether attribution has a genuine choice to offer. */
+  readonly readers: readonly { readonly id: string; readonly displayName: string }[];
 }
 
 export type WorkerResponse =
@@ -167,6 +185,7 @@ export type WorkerResponse =
         readonly records: readonly ImportRecord[];
         readonly runs: readonly ImportRun[];
       };
+      readonly readers?: readonly Reader[];
     }
   | {
       readonly id: string;

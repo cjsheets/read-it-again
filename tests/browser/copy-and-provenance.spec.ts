@@ -81,7 +81,9 @@ test.describe('ratings distinguish unrated from middling', () => {
     // Assessment lives in the detail view since Increment 5, not on every card.
     const detail = await openBook(page);
     await expect(detail.getByTestId('rating-unset')).toBeVisible();
-    await expect(detail.getByRole('button', { pressed: true })).toHaveCount(0);
+    // Scoped to the rating dials: the reader buttons legitimately use aria-pressed
+    // to show which reader a book is filed under.
+    await expect(detail.locator('.rating-buttons button[aria-pressed="true"]')).toHaveCount(0);
     await expect(detail.getByRole('button', { name: 'Save assessment' })).toBeDisabled();
   });
 

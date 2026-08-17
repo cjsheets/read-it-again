@@ -91,12 +91,29 @@ test.describe('storage durability', () => {
     // it is open, so deleting from the app's own page races that handle and fails
     // with NoModificationAllowedError.
     await page.goto(new URL('manifest.webmanifest', PRODUCTION_URL).href);
-    await page.evaluate(async () => {
-      const root = await navigator.storage.getDirectory();
-      for await (const name of (root as unknown as { keys: () => AsyncIterable<string> }).keys()) {
-        await root.removeEntry(name, { recursive: true });
-      }
-    });
+    // Navigating away begins the worker's teardown but does not wait for it, and
+    // SQLite-WASM holds a sync access handle on the database file until it is
+    // fully gone. There is nothing observable to await, so poll until the delete
+    // is actually permitted rather than racing it once.
+    await expect
+      .poll(
+        async () =>
+          page.evaluate(async () => {
+            try {
+              const root = await navigator.storage.getDirectory();
+              for await (const name of (
+                root as unknown as { keys: () => AsyncIterable<string> }
+              ).keys()) {
+                await root.removeEntry(name, { recursive: true });
+              }
+              return 'deleted';
+            } catch {
+              return 'locked';
+            }
+          }),
+        { timeout: 20_000 },
+      )
+      .toBe('deleted');
     await openApp(page, PRODUCTION_URL);
 
     await expect(page.getByTestId('wipe-notice')).toBeVisible();

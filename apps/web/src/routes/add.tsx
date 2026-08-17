@@ -61,7 +61,7 @@ export function Add() {
 }
 
 function TypeItIn() {
-  const { busy, addBook } = useApp();
+  const { busy, addBook, readerFilter, summary } = useApp();
   const [title, setTitle] = useState('');
   const [author, setAuthor] = useState('');
   const [isbn, setIsbn] = useState('');
@@ -78,7 +78,12 @@ function TypeItIn() {
         className="manual-form"
         onSubmit={(event) => {
           event.preventDefault();
-          void addBook({ title, author: author || undefined, isbn: isbn || undefined }).then(() => {
+          void addBook({
+            title,
+            author: author || undefined,
+            isbn: isbn || undefined,
+            readerId: readerFilter,
+          }).then(() => {
             setTitle('');
             setAuthor('');
             setIsbn('');
@@ -108,6 +113,16 @@ function TypeItIn() {
           value={isbn}
           onChange={(event) => setIsbn(event.target.value)}
         />
+        {summary.readers.length > 1 && (
+          <p className="model-note" data-testid="add-for-reader">
+            For{' '}
+            {readerFilter
+              ? (summary.readers.find((reader) => reader.id === readerFilter)?.displayName ??
+                'everyone')
+              : (summary.readers[0]?.displayName ?? 'everyone')}
+            . Change with the reader switcher above.
+          </p>
+        )}
         <button type="submit" disabled={busy}>
           Add to bookshelf
         </button>

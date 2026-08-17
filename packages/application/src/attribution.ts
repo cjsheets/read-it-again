@@ -116,7 +116,8 @@ export async function recomputeAttributions(
         `SELECT p.person_id FROM reader_profiles p JOIN people r ON r.id = p.person_id
          JOIN source_accounts s ON s.household_id = r.household_id
          JOIN import_records i ON i.source_account_id = s.id
-         WHERE i.id = ? AND p.kind = 'child' ORDER BY p.person_id`,
+         WHERE i.id = ? AND p.kind = 'child' AND p.archived_at IS NULL
+         ORDER BY p.person_id`,
         [row.import_record_id],
       );
       const metadata = await getEffectiveMetadata(database, 'edition', row.edition_id);

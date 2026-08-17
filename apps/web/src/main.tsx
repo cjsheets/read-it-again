@@ -9,8 +9,10 @@ import {
   clearWipeMarker,
   looksWiped,
   readPersistence,
+  readStoredReaderFilter,
   rememberBooksExist,
   requestPersistenceOnce,
+  storeReaderFilter,
   type PersistenceState,
 } from './durability.js';
 import type { Summary, WorkerRequestInput, WorkerResponse } from './protocol.js';
@@ -22,6 +24,13 @@ import { Settings } from './routes/settings.js';
 import { Shelf } from './routes/shelf.js';
 import { Tasks } from './routes/tasks.js';
 import './styles.css';
+
+const READER_STATUS = {
+  createReader: 'Reader added.',
+  renameReader: 'Reader renamed.',
+  archiveReader: 'Reader archived. Their history is kept.',
+  restoreReader: 'Reader restored.',
+} as const;
 
 const BROWSER_OPERATION_ERRORS = {
   importCsv: 'csv',
@@ -38,6 +47,9 @@ function App() {
   const [persistence, setPersistence] = useState<PersistenceState>('unsupported');
   const [wiped, setWiped] = useState(false);
   const [archivePassphrase, setArchivePassphrase] = useState('');
+  const [readerFilter, setReaderFilterState] = useState<string | null>(() =>
+    readStoredReaderFilter(),
+  );
   const [route, go] = useRoute();
 
   useEffect(() => {
@@ -55,6 +67,11 @@ function App() {
     wiped,
     archivePassphrase,
     setArchivePassphrase,
+    readerFilter,
+    setReaderFilter: (next: string | null) => {
+      storeReaderFilter(next);
+      setReaderFilterState(next);
+    },
     dismissWipeNotice: () => {
       clearWipeMarker();
       setWiped(false);
@@ -68,6 +85,8 @@ function App() {
     applyDecision,
     applyAttribution,
     applyReadingChange,
+    reassignWork,
+    manageReaders,
   };
 
   return (
@@ -190,6 +209,43 @@ function App() {
     setBusy(false);
   }
 
+  async function reassignWork(workId: string, readerIds: readonly string[]) {
+    setBusy(true);
+    const response = await requestWorker({
+      type: 'correctAttribution',
+      scope: 'work',
+      workId,
+      state: readerIds.length === 0 ? 'excluded' : 'assigned',
+      readerIds,
+    });
+    if (response.ok) {
+      adopt(response);
+      setStatus('Attribution correction saved.');
+    } else setError({ operation: 'decision', issues: response.issues ?? [response.message] });
+    setBusy(false);
+  }
+
+  async function manageReaders(
+    request: Extract<
+      WorkerRequestInput,
+      { type: 'createReader' | 'renameReader' | 'archiveReader' | 'restoreReader' }
+    >,
+  ) {
+    setBusy(true);
+    setError(null);
+    const response = await requestWorker(request);
+    if (response.ok) {
+      adopt(response);
+      // A reader who is no longer active cannot stay selected.
+      if (readerFilter && !response.summary.readers.some((reader) => reader.id === readerFilter)) {
+        storeReaderFilter(null);
+        setReaderFilterState(null);
+      }
+      setStatus(READER_STATUS[request.type]);
+    } else setError({ operation: 'decision', issues: response.issues ?? [response.message] });
+    setBusy(false);
+  }
+
   async function applyReadingChange(
     request: Extract<WorkerRequestInput, { type: 'assessWork' | 'recordReadingSession' }>,
   ) {
@@ -209,7 +265,12 @@ function App() {
     );
   }
 
-  async function addBook(input: { title: string; author?: string; isbn?: string }) {
+  async function addBook(input: {
+    title: string;
+    author?: string;
+    isbn?: string;
+    readerId?: string | null;
+  }) {
     await applyBrowserOperation({ type: 'importManual', ...input, format: 'book' }, 'Book added.');
   }
 

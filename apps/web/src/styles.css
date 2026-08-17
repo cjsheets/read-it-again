@@ -474,6 +474,101 @@ h3 {
   line-height: 1.8;
 }
 
+/* ── Readers ────────────────────────────────────────────────────────────── */
+.reader-switcher {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  margin-bottom: 18px;
+}
+.reader-switcher > span {
+  color: var(--ink-muted);
+  font-size: 0.86rem;
+}
+.reader-switcher div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.reader-switcher button {
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+  min-height: var(--tap);
+  padding: 6px 16px;
+}
+.reader-switcher button[aria-pressed='true'] {
+  background: var(--brand);
+  border-color: var(--brand);
+  color: white;
+  font-weight: 700;
+}
+.reader-list {
+  display: grid;
+  gap: 8px;
+  list-style: none;
+  margin: 0 0 14px;
+  padding: 0;
+}
+.reader-list li {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.reader-list input {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  flex: 1 1 160px;
+  min-height: var(--tap);
+  min-width: 0;
+  padding: 8px 10px;
+}
+.reader-list button,
+.reader-add button {
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+  min-height: var(--tap);
+  padding: 6px 16px;
+}
+.reader-list button:disabled {
+  color: var(--border);
+  cursor: not-allowed;
+}
+.reader-add {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.reader-add input {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  flex: 1 1 180px;
+  min-height: var(--tap);
+  min-width: 0;
+  padding: 8px 10px;
+}
+.cover-readers {
+  display: flex;
+  gap: 3px;
+  margin-top: 3px;
+}
+.reader-chip {
+  background: var(--brand-tint);
+  border-radius: var(--radius-pill);
+  color: var(--brand);
+  font-size: 0.66rem;
+  font-weight: 700;
+  height: 18px;
+  line-height: 18px;
+  min-width: 18px;
+  text-align: center;
+}
+
 /* ── Shelf ──────────────────────────────────────────────────────────────── */
 .shelf-tasks {
   margin: -6px 0 14px;

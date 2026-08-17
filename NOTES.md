@@ -2,20 +2,20 @@
 
 ## Re-entry
 
-- **Phase:** Audit remediation, Increment 6 — Scale (complete 2026-08-16)
+- **Phase:** Audit remediation, Increment 7 — Readers (complete 2026-08-17)
 - **Last state:** The production PWA is complete, and the local workflow now has a unified
   `pnpm bookshelf` CLI for setup/login, one-command sync, status, recommendation refresh, and
   encrypted PWA-compatible backup. Phase 3's personal live-card acceptance run remains pending a
   user-owned authenticated session. The UX audit's findings are now encoded as executable tests;
   see `tests/browser/README.md`. Finding IDs (F-01, F-04, …) refer to that audit, which is kept
   locally and is not tracked in this repository.
-- **Next action:** Increment 7 — readers and multi-select (N4/F-03), the last of the audit's five
-  highest-priority actions still open. Reader CRUD, a reader switcher, per-reader filtering,
-  selection mode with a contextual action bar, and an Activity/Tasks pass. The schema already
-  supports multiple readers completely; only the UI is missing, which the audit calls the largest
-  gap between built and exposed capability. Privacy note from the audit: these are children's
-  names in local storage — make them optional, allow nicknames, never require them, never include
-  them in an export default.
+- **Next action:** Increment 8 — camera behind a flag (X1/X2/X3): ISBN barcode scanning with
+  `zxing-wasm` self-hosted, cover photo capture, and batch scan mode. The audit gates X1 on a
+  prototype (§8.5) and is explicit that cover OCR is _not_ feasible in this architecture — only
+  barcode scanning is. Cover storage and the file-picker path from Increment 5 are already in
+  place, so X2 is mostly wiring the camera to `downscaleCover`.
+- **Still open from Increment 7:** X4 (multi-select and bulk actions) and X8 (Activity view with
+  editable participants, context and date, F-18). N4 — the F-03 headline — is done.
 - **Known remaining performance gap:** adding one book to a 1000-book shelf takes ~3.9 s against a
   500 ms budget, because `recomputeAttributions` and `rebuildReadingModel` both re-derive the whole
   library on every write. ADR 0014 bounded the read path; making the write path incremental is a
@@ -322,3 +322,42 @@ measurement ran. The budget test now waits for tiles and records how many render
 DOM only counts when the shelf was actually drawn.
 
 Tests: 52 -> 60 browser and 68 unit. The previously skipped search budget is now a real test.
+
+Increment 7 result: ships N4 and closes F-03, the last of the audit's five highest-priority
+actions. Migration 10 adds `reader_profiles.archived_at`.
+
+Readers are archived, never deleted. A reader's name is on years of attribution results,
+acquisition episodes and reading sessions; removing the row would either cascade that history away
+or leave it dangling, and the architecture is built on not destroying observations (ADR 0008).
+A household always keeps at least one active reader, because attribution needs somewhere to go.
+Archived readers disappear from the switcher and from attribution choices while their history
+stays intact, and they can be restored.
+
+The shelf now shows one card per book rather than one per reader-book pair. A book both children
+have read is one book with two chips, which is the card anatomy in audit §7.5 and, more
+practically, stops the "everyone" view looking like duplicates. The representative reader is picked
+deterministically with `min(person_id)` rather than left to SQLite's bare-column behaviour, so the
+assessment shown on a card does not change between renders.
+
+The reader filter is device-local, in localStorage beside the wipe marker rather than in
+`app_metadata`: it describes how one person browses, not anything about the data, so it must not
+travel in a backup.
+
+ADR 0012's single-reader default stops applying the moment a second reader exists, because the
+question finally has more than one possible answer. That is correct and it is a visible change in
+behaviour, so Settings says so before you add anyone, and adding a reader re-derives the queues
+immediately rather than waiting for the next import.
+
+Privacy, per the audit: any label works. The copy says so — "A first name, a nickname or 'Kid 1'".
+Nothing asks for a real name and nothing leaves the device.
+
+Two real bugs found by writing the tests. The book detail drawer only offered reader reassignment
+when a book was already in review, which meant ADR 0012's promised reversibility was unreachable
+for the common case of a book filed automatically; reassignment is now always available. And the
+drawer was keyed by (work, reader), so reassigning a book from inside its own drawer changed which
+reader represented it and the drawer vanished mid-edit — it is keyed by work now.
+
+Tests: 60 -> 68 browser and 68 -> 72 unit, including four unit tests for `listShelf` that pin the
+one-card-per-book grouping, reader filtering, archived-reader exclusion and normalised search.
+Those went in after the browser test disagreed with the query: the unit tests proved the SQL right
+and sent me looking at the UI, where both bugs actually were.

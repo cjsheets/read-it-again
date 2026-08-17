@@ -12,16 +12,28 @@ export interface ShelfQuery {
   readonly sort?: ShelfSort;
   readonly offset?: number;
   readonly limit?: number;
+  /** Narrow to one reader. Omitted means everyone, which shows one card per book
+   *  with a chip for each reader rather than the same book once per reader. */
+  readonly readerId?: string | null;
 }
 
 export type ShelfSort = 'recent' | 'title' | 'author' | 'rating';
+
+export interface ShelfReader {
+  readonly id: string;
+  readonly displayName: string;
+}
 
 export interface ShelfEntry {
   readonly householdId: string;
   readonly workId: string;
   readonly title: string;
+  /** The reader whose assessment this card shows: the filtered one, or the first
+   *  attributed reader when showing everyone. */
   readonly personId: string;
   readonly readerName: string;
+  /** Everyone this book is attributed to, for the chips on the card. */
+  readonly readers: readonly ShelfReader[];
   readonly episodeCount: number;
   readonly childEngagement: number | null;
   readonly adultTolerance: number | null;
@@ -49,8 +61,24 @@ const ORDER_BY: Readonly<Record<ShelfSort, string>> = {
   rating: 'COALESCE(a.child_engagement, -1) DESC, s.preference_score DESC, w.canonical_title',
 };
 
+/**
+ * One row per work, not per reader-work pair. A book both children have read is
+ * one book on the shelf with two chips, which is what the card anatomy in audit
+ * §7.5 describes — and it means the "everyone" view does not look like duplicates.
+ *
+ * The representative reader is chosen deterministically with `min(person_id)`
+ * rather than left to SQLite's bare-column behaviour, so the assessment shown on a
+ * card is always the same reader's between renders.
+ */
 const FROM = `
-  FROM preference_summaries s
+  FROM (
+    SELECT ps.work_id, min(ps.person_id) AS person_id
+    FROM preference_summaries ps
+    JOIN reader_profiles rp ON rp.person_id = ps.person_id AND rp.archived_at IS NULL
+    WHERE (? IS NULL OR ps.person_id = ?)
+    GROUP BY ps.work_id
+  ) pick
+  JOIN preference_summaries s ON s.work_id = pick.work_id AND s.person_id = pick.person_id
   JOIN works w ON w.id = s.work_id
   JOIN people p ON p.id = s.person_id
   LEFT JOIN work_assessments a ON a.work_id = s.work_id AND a.person_id = s.person_id
@@ -68,7 +96,10 @@ export async function listShelf(database: Database, input: ShelfQuery = {}): Pro
   // wildcard, and at this product's scale it does not need to: a few thousand
   // rows scan in well under the 150 ms budget.
   const where = term ? 'WHERE ws.text LIKE ?' : '';
-  const filters = term ? [`%${term}%`] : [];
+  const readerId = input.readerId ?? null;
+  // Bound twice: `(? IS NULL OR ps.person_id = ?)` needs the value in both places.
+  const scope = [readerId, readerId];
+  const filters = term ? [...scope, `%${term}%`] : scope;
 
   const totals = await database.query<{ total: number }>(
     `SELECT count(*) AS total ${FROM} ${where}`,
@@ -91,6 +122,7 @@ export async function listShelf(database: Database, input: ShelfQuery = {}): Pro
     source_kinds: string | null;
     authors_json: string | null;
     has_cover: number;
+    readers: string | null;
   }>(
     `SELECT p.household_id, s.work_id, w.canonical_title AS title, s.person_id,
             p.display_name AS reader_name, s.episode_count,
@@ -103,7 +135,12 @@ export async function listShelf(database: Database, input: ShelfQuery = {}): Pro
              JOIN resolution_decisions d ON d.resolution_case_id = c.id AND d.current = 1
              JOIN editions e2 ON e2.id = d.edition_id
              WHERE e2.work_id = s.work_id) AS source_kinds,
-            (SELECT count(*) FROM cover_images ci WHERE ci.work_id = s.work_id) AS has_cover
+            (SELECT count(*) FROM cover_images ci WHERE ci.work_id = s.work_id) AS has_cover,
+            (SELECT group_concat(p2.id || ':' || p2.display_name, '|||')
+             FROM preference_summaries s2
+             JOIN people p2 ON p2.id = s2.person_id
+             JOIN reader_profiles rp2 ON rp2.person_id = p2.id AND rp2.archived_at IS NULL
+             WHERE s2.work_id = s.work_id) AS readers
      ${FROM} ${where}
      ORDER BY ${ORDER_BY[input.sort ?? 'recent']}
      LIMIT ? OFFSET ?`,
@@ -129,6 +166,7 @@ export async function listShelf(database: Database, input: ShelfQuery = {}): Pro
       sourceKinds: (row.source_kinds ?? '').split(',').filter(Boolean),
       authors: parseAuthorDisplays(row.authors_json),
       hasCover: row.has_cover > 0,
+      readers: parseReaders(row.readers),
     })),
   };
 }
@@ -161,6 +199,15 @@ export async function indexWorksForSearch(database: Database): Promise<number> {
     ]);
   }
   return rows.length;
+}
+
+function parseReaders(value: string | null): readonly ShelfReader[] {
+  if (!value) return [];
+  return value.split('|||').flatMap((entry) => {
+    const separator = entry.indexOf(':');
+    if (separator < 0) return [];
+    return [{ id: entry.slice(0, separator), displayName: entry.slice(separator + 1) }];
+  });
 }
 
 function parseAuthorDisplays(authorsJson: string | null): readonly string[] {

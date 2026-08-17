@@ -17,6 +17,7 @@
  */
 
 const HAD_BOOKS = 'read-it-again:had-books';
+const READER_FILTER = 'read-it-again:reader-filter';
 const PERSIST_REQUESTED = 'read-it-again:persist-requested';
 
 export type PersistenceState = 'persistent' | 'evictable' | 'unsupported';
@@ -94,4 +95,16 @@ function safeRemove(key: string): void {
   } catch {
     // ignored
   }
+}
+
+/** Which reader the shelf is filtered to. Device-local, like a view preference:
+ *  it describes how this person browses, not anything about the data, so it does
+ *  not belong in `app_metadata` and must not travel in a backup. */
+export function readStoredReaderFilter(): string | null {
+  return safeGet(READER_FILTER);
+}
+
+export function storeReaderFilter(readerId: string | null): void {
+  if (readerId === null) safeRemove(READER_FILTER);
+  else safeSet(READER_FILTER, readerId);
 }

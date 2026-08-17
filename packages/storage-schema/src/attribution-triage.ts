@@ -159,7 +159,8 @@ export async function listAttributionTriage(
        JOIN reader_profiles profile ON profile.person_id = p.id
        JOIN source_accounts s ON s.household_id = p.household_id
        JOIN import_records r ON r.source_account_id = s.id
-       WHERE r.id = ? AND profile.kind = 'child' ORDER BY p.display_name, p.id`,
+       WHERE r.id = ? AND profile.kind = 'child' AND profile.archived_at IS NULL
+       ORDER BY p.display_name, p.id`,
       [row.import_record_id],
     );
     output.push({

@@ -16,7 +16,8 @@ export function Shell({
   readonly go: (route: Route) => void;
   readonly children: ReactNode;
 }) {
-  const { summary, status, error, wiped, dismissWipeNotice } = useApp();
+  const { summary, status, error, wiped, dismissWipeNotice, readerFilter, setReaderFilter } =
+    useApp();
   const tasks = summary.taskCount;
 
   return (
@@ -60,6 +61,35 @@ export function Shell({
       </nav>
 
       <main id="content" tabIndex={-1}>
+        {/* Only worth showing once there is a choice to make. With one reader a
+            switcher is a control with a single option (audit §2.3-B). */}
+        {summary.readers.length > 1 && (
+          <div className="reader-switcher">
+            <span id="reader-switcher-label">Showing books for</span>
+            <div role="group" aria-labelledby="reader-switcher-label">
+              <button
+                type="button"
+                aria-pressed={readerFilter === null}
+                data-testid="reader-everyone"
+                onClick={() => setReaderFilter(null)}
+              >
+                Everyone
+              </button>
+              {summary.readers.map((reader) => (
+                <button
+                  key={reader.id}
+                  type="button"
+                  aria-pressed={readerFilter === reader.id}
+                  data-testid={`reader-filter-${reader.id}`}
+                  onClick={() => setReaderFilter(reader.id)}
+                >
+                  {reader.displayName}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
         {wiped && <WipeNotice go={go} onDismiss={dismissWipeNotice} />}
 
         <p className="status" role="status" data-testid="import-status">
