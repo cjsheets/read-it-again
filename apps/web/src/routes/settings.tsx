@@ -1,4 +1,4 @@
-import { useApp } from '../app-state.js';
+import { useApp, useWorkerData } from '../app-state.js';
 import type { PersistenceState } from '../durability.js';
 
 /** Nag once a shelf is worth losing, not on the first book. */
@@ -11,7 +11,7 @@ const BACKUP_REMINDER_THRESHOLD = 5;
  */
 export function Settings() {
   const {
-    bookshelf,
+    summary,
     busy,
     archivePassphrase,
     setArchivePassphrase,
@@ -19,6 +19,7 @@ export function Settings() {
     importArchiveFile,
     persistence,
   } = useApp();
+  const history = useWorkerData({ type: 'getImportHistory' }, (response) => response.importHistory);
 
   return (
     <section aria-labelledby="settings-title">
@@ -63,23 +64,23 @@ export function Settings() {
         </div>
         <DurabilityNote
           persistence={persistence}
-          lastBackupAt={bookshelf.lastBackupAt}
-          bookCount={bookshelf.records.length}
+          lastBackupAt={summary.lastBackupAt}
+          bookCount={summary.recordCount}
         />
       </article>
 
       <article className="settings-card" aria-labelledby="sources-title">
         <h3 id="sources-title">Connected sources</h3>
-        {bookshelf.runs.length === 0 ? (
+        {!history || history.runs.length === 0 ? (
           <p>Nothing has been imported yet.</p>
         ) : (
           <>
             <p>
-              <span data-testid="record-count">{bookshelf.records.length} books</span> came in
-              across {bookshelf.runs.length} {bookshelf.runs.length === 1 ? 'import' : 'imports'}.
+              <span data-testid="record-count">{history.records.length} books</span> came in across{' '}
+              {history.runs.length} {history.runs.length === 1 ? 'import' : 'imports'}.
             </p>
             <ul className="runs">
-              {bookshelf.runs.map((run) => (
+              {history.runs.map((run) => (
                 <li key={run.id}>
                   {run.fileName ?? 'JSON snapshot'}: {run.rowsNew} new of {run.rowsSeen}
                 </li>

@@ -1,5 +1,5 @@
 import type { RecommendationView } from '@read-it-again/storage-schema';
-import { useApp } from '../app-state.js';
+import { useWorkerData } from '../app-state.js';
 
 /**
  * The recommendation card is the strongest UI in the app — availability,
@@ -9,8 +9,11 @@ import { useApp } from '../app-state.js';
  * empty state has to explain that rather than look broken.
  */
 export function Discover() {
-  const { bookshelf } = useApp();
-  const { recommendations } = bookshelf;
+  const recommendations = useWorkerData(
+    { type: 'getRecommendations' },
+    (response) => response.recommendations,
+  );
+  if (!recommendations) return <p className="model-note">Loading…</p>;
   const empty = recommendations.discovery.length === 0 && recommendations.readAgain.length === 0;
 
   return (

@@ -1,28 +1,52 @@
-import { useState } from 'react';
-import type { ReadingModelView } from '@read-it-again/storage-schema';
-import { taskCount, useApp } from '../app-state.js';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import type { ShelfEntry, ShelfSort } from '@read-it-again/storage-schema';
+import { useApp } from '../app-state.js';
+import { requestWorker } from '../client.js';
 import { BookDetail } from '../components/book-detail.js';
 import { Cover } from '../components/cover.js';
 import { useCover } from '../components/use-cover.js';
+import { VirtualGrid, type AriaPosition, type GridWindow } from '../components/virtual-grid.js';
 import type { Route } from '../router.js';
 
-type ShelfItem = ReadingModelView['shelf'][number];
+/** Cover height plus caption, matching `.cover-tile` in the stylesheet. */
+const ROW_HEIGHT = 316;
+const MIN_COLUMN = 150;
+/** Shelf pages are fetched in blocks of this size. */
+const PAGE = 60;
+
+const SORTS: readonly { readonly value: ShelfSort; readonly label: string }[] = [
+  { value: 'recent', label: 'Recently added' },
+  { value: 'title', label: 'Title' },
+  { value: 'author', label: 'Author' },
+  { value: 'rating', label: 'Rating' },
+];
 
 /**
- * The home screen, and the object the product is about. A grid of covers rather
- * than a list of forms: the audit's single biggest visual-density note was that
- * every card rendered a full assessment form — two dials, seven chips, three
- * checkboxes, a number input and two buttons — simultaneously. That form now lives
- * in the detail view, one tap away (F-15, audit §7.1).
+ * The home screen, and the object the product is about. Since ADR 0014 it reads a
+ * page at a time and renders only what is near the viewport, so a household with a
+ * thousand books pays for a screenful rather than a library.
  */
 export function Shelf({ go }: { readonly go: (route: Route) => void }) {
-  const { bookshelf } = useApp();
+  const { summary, revision } = useApp();
+  const [query, setQuery] = useState('');
+  const [sort, setSort] = useState<ShelfSort>('recent');
   const [openBook, setOpenBook] = useState<string | null>(null);
-  const shelf = bookshelf.readingModel.shelf;
-  const tasks = taskCount(bookshelf);
-  const selected = shelf.find((item) => keyOf(item) === openBook);
+  const [window, setWindow] = useState<GridWindow>({
+    first: 0,
+    count: 60,
+    columns: 1,
+    rowHeight: ROW_HEIGHT,
+    totalRows: 0,
+  });
+  const page = useShelfPage(query, sort, window.first, window.count, revision);
+  const selected = page?.entries.find((entry) => keyOf(entry) === openBook);
+  const searching = query.trim().length > 0;
 
-  if (shelf.length === 0) return <FirstRun go={go} hasRecords={bookshelf.records.length > 0} />;
+  if (summary.bookCount === 0 && !searching) {
+    return <FirstRun go={go} hasRecords={summary.recordCount > 0} />;
+  }
+
+  const total = page?.total ?? summary.bookCount;
 
   return (
     <section aria-labelledby="shelf-title" data-testid="shelf">
@@ -32,60 +56,170 @@ export function Shelf({ go }: { readonly go: (route: Route) => void }) {
           <p className="model-note">Every book this household has on the shelf.</p>
         </div>
         <span className="count" data-testid="shelf-count">
-          {shelf.length} {shelf.length === 1 ? 'book' : 'books'}
+          {total} {total === 1 ? 'book' : 'books'}
         </span>
       </div>
-      {tasks > 0 && (
+
+      <div className="shelf-controls">
+        <input
+          type="search"
+          aria-label="Search your bookshelf"
+          data-testid="shelf-search"
+          placeholder="Search title or author"
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+        />
+        <label className="shelf-sort">
+          Sort{' '}
+          <select
+            aria-label="Sort the bookshelf"
+            data-testid="shelf-sort"
+            value={sort}
+            onChange={(event) => setSort(event.target.value as ShelfSort)}
+          >
+            {SORTS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
+
+      {summary.taskCount > 0 && (
         <p className="shelf-tasks">
           <button type="button" className="link-button" onClick={() => go('tasks')}>
-            {tasks} {tasks === 1 ? 'book needs' : 'books need'} a decision
+            {summary.taskCount} {summary.taskCount === 1 ? 'book needs' : 'books need'} a decision
           </button>
         </p>
       )}
-      <ul className="cover-grid">
-        {shelf.map((item) => (
-          <ShelfTile key={keyOf(item)} item={item} onOpen={() => setOpenBook(keyOf(item))} />
-        ))}
-      </ul>
+
+      {searching && total === 0 ? (
+        <div className="empty" data-testid="no-matches">
+          Nothing on your shelf matches “{query}”.
+        </div>
+      ) : (
+        <VirtualGrid
+          total={total}
+          items={page?.entries ?? []}
+          offset={page?.offset ?? 0}
+          minColumnWidth={MIN_COLUMN}
+          rowHeight={ROW_HEIGHT}
+          onWindowChange={setWindow}
+        >
+          {(entry, _index, aria) => (
+            <ShelfTile
+              key={keyOf(entry)}
+              entry={entry}
+              aria={aria}
+              onOpen={() => setOpenBook(keyOf(entry))}
+            />
+          )}
+        </VirtualGrid>
+      )}
+
       {selected && <BookDetail item={selected} onClose={() => setOpenBook(null)} />}
     </section>
   );
 }
 
-function keyOf(item: ShelfItem): string {
-  return `${item.workId}:${item.personId}`;
+function keyOf(entry: ShelfEntry): string {
+  return `${entry.workId}:${entry.personId}`;
 }
 
-function ShelfTile({ item, onOpen }: { readonly item: ShelfItem; readonly onOpen: () => void }) {
-  const cover = useCover(item.workId, item.hasCover);
-  const author = item.authors[0] ?? null;
-  const rated = item.childEngagement !== null;
+/**
+ * Fetches the page covering the visible window. Search is debounced because a
+ * keystroke should not cost a query, and the request is widened to whole pages so
+ * scrolling a row does not re-fetch.
+ */
+function useShelfPage(
+  query: string,
+  sort: ShelfSort,
+  first: number,
+  count: number,
+  revision: number,
+) {
+  const [page, setPage] = useState<
+    { entries: readonly ShelfEntry[]; total: number; offset: number } | undefined
+  >(undefined);
+  const debounced = useDebounced(query, 120);
+  // Page-aligned in blocks of 60, so ordinary scrolling reuses what is loaded.
+  // The limit is measured from the aligned offset to the end of the window, not
+  // from the window's own size — otherwise a window straddling a boundary asks
+  // for a page that stops short of the rows it needs.
+  const offset = Math.floor(first / PAGE) * PAGE;
+  const limit = Math.max(PAGE, Math.ceil((first + count - offset) / PAGE) * PAGE);
+
+  useEffect(() => {
+    let cancelled = false;
+    void requestWorker({ type: 'listShelf', query: debounced, sort, offset, limit }).then(
+      (response) => {
+        if (cancelled || !response.ok || !response.shelf) return;
+        setPage(response.shelf);
+      },
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, [debounced, sort, offset, limit, revision]);
+
+  return page;
+}
+
+function useDebounced(value: string, delay: number): string {
+  const [settled, setSettled] = useState(value);
+  const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  useEffect(() => {
+    clearTimeout(timer.current);
+    timer.current = setTimeout(() => setSettled(value), delay);
+    return () => clearTimeout(timer.current);
+  }, [value, delay]);
+  return settled;
+}
+
+function ShelfTile({
+  entry,
+  aria,
+  onOpen,
+}: {
+  readonly entry: ShelfEntry;
+  readonly aria: AriaPosition;
+  readonly onOpen: () => void;
+}) {
+  const cover = useCover(entry.workId, entry.hasCover);
+  const author = entry.authors[0] ?? null;
+  const rated = entry.childEngagement !== null;
+  const dots = useMemo(
+    () => ({
+      filled: '●'.repeat((entry.childEngagement ?? 0) + 1),
+      empty: '○'.repeat(3 - (entry.childEngagement ?? 0)),
+    }),
+    [entry.childEngagement],
+  );
 
   return (
-    <li className="cover-tile" data-testid="shelf-card">
+    <li className="cover-tile" data-testid="shelf-card" {...aria}>
       <button type="button" className="cover-button" onClick={onOpen}>
         <Cover
-          workId={item.workId}
-          title={item.title}
+          workId={entry.workId}
+          title={entry.title}
           author={author}
           bytes={cover?.bytes}
           mime={cover?.mime}
         />
         <span className="cover-caption">
-          <span className="cover-title">{item.title}</span>
+          <span className="cover-title">{entry.title}</span>
           {author && <span className="cover-author">{author}</span>}
           <span className="cover-meta">
             {rated ? (
-              <span aria-label={`Child engagement: ${String(item.childEngagement)} of 3`}>
-                {'●'.repeat((item.childEngagement ?? 0) + 1)}
-                <span className="cover-meta-dim">
-                  {'○'.repeat(3 - (item.childEngagement ?? 0))}
-                </span>
+              <span aria-label={`Child engagement: ${String(entry.childEngagement)} of 3`}>
+                {dots.filled}
+                <span className="cover-meta-dim">{dots.empty}</span>
               </span>
             ) : (
               <span className="cover-meta-dim">Not rated</span>
             )}
-            {item.veto && <span className="cover-flag">Veto</span>}
+            {entry.veto && <span className="cover-flag">Veto</span>}
           </span>
         </span>
       </button>

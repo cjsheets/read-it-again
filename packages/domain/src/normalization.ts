@@ -5,6 +5,22 @@ export function canonicalTitle(value: string): string {
   return (LEADING_ARTICLES.has(tokens[0] ?? '') ? tokens.slice(1) : tokens).join(' ');
 }
 
+/**
+ * The form a title or author is stored in for searching. Unlike `canonicalTitle`
+ * this keeps leading articles, because a person typing "the gru" expects "The
+ * Gruffalo" to match; dropping the article is right for identity matching and
+ * wrong for search. Diacritics are folded and punctuation becomes whitespace, so
+ * "L'Ecole" and "L’École" both find each other.
+ */
+export function searchText(value: string): string {
+  return value
+    .normalize('NFD')
+    .replaceAll(/\p{Diacritic}/gu, '')
+    .toLocaleLowerCase('en-US')
+    .replaceAll(/[^\p{Letter}\p{Number}]+/gu, ' ')
+    .trim();
+}
+
 export function tokenizeTitle(value: string): readonly string[] {
   return canonicalTitle(value).split(' ').filter(Boolean);
 }

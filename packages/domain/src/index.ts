@@ -4,6 +4,7 @@ export {
   canonicalTitle,
   normalizeFormat,
   tokenizeTitle,
+  searchText,
 } from './normalization.js';
 export { rankCandidates, scoreCandidate } from './resolution.js';
 export type {

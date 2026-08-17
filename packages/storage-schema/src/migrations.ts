@@ -496,6 +496,27 @@ export const migrations: readonly Migration[] = [
       ) STRICT;
     `,
   },
+  {
+    version: 9,
+    name: 'work_search_index',
+    sql: `
+      -- ADR 0014. A derived projection, in the same spirit as preference_summaries:
+      -- rebuilt from works and editions, never authored.
+      --
+      -- Not FTS5. The WASM build ships it, but node:sqlite does not ("no such
+      -- module: fts5"), and both drivers run this same migration list — so an FTS5
+      -- virtual table would break the local runtime and every unit test. At the
+      -- scale this product actually reaches, a few thousand books, the win would
+      -- have been correctness rather than speed anyway, and normalising the text
+      -- delivers that on its own.
+      CREATE TABLE work_search (
+        work_id TEXT PRIMARY KEY NOT NULL REFERENCES works(id) ON DELETE CASCADE,
+        text TEXT NOT NULL
+      ) STRICT;
+
+      CREATE INDEX work_search_text ON work_search (text);
+    `,
+  },
 ];
 
 export async function migrate(database: Database): Promise<void> {

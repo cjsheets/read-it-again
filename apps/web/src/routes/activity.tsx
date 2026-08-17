@@ -1,4 +1,4 @@
-import { useApp } from '../app-state.js';
+import { useWorkerData } from '../app-state.js';
 import { librarySourced } from '../components/book-controls.js';
 
 /**
@@ -8,8 +8,8 @@ import { librarySourced } from '../components/book-controls.js';
  * library facts that do not prove anyone read anything.
  */
 export function Activity() {
-  const { bookshelf } = useApp();
-  const model = bookshelf.readingModel;
+  const model = useWorkerData({ type: 'getActivity' }, (response) => response.activity);
+  if (!model) return <p className="model-note">Loading…</p>;
   const { checkouts, episodes } = librarySourced(model);
 
   return (

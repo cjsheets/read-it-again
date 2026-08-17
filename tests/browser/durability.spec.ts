@@ -85,13 +85,19 @@ test.describe('storage durability', () => {
 
     // Exactly the audit's scenario: the database is destroyed while the browser
     // profile survives, which is what storage eviction does.
+    //
+    // The deletion runs from a same-origin document that never boots the app.
+    // SQLite-WASM holds a sync access handle on the database file for as long as
+    // it is open, so deleting from the app's own page races that handle and fails
+    // with NoModificationAllowedError.
+    await page.goto(new URL('manifest.webmanifest', PRODUCTION_URL).href);
     await page.evaluate(async () => {
       const root = await navigator.storage.getDirectory();
       for await (const name of (root as unknown as { keys: () => AsyncIterable<string> }).keys()) {
         await root.removeEntry(name, { recursive: true });
       }
     });
-    await page.reload();
+    await openApp(page, PRODUCTION_URL);
 
     await expect(page.getByTestId('wipe-notice')).toBeVisible();
     await expect(shelfCards(page)).toHaveCount(0);

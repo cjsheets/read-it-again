@@ -1,4 +1,4 @@
-import { useApp } from '../app-state.js';
+import { useWorkerData } from '../app-state.js';
 import { AttributionCard, ResolutionCard } from '../components/review-cards.js';
 
 /**
@@ -11,8 +11,9 @@ import { AttributionCard, ResolutionCard } from '../components/review-cards.js';
  * with no catalog has nothing genuinely ambiguous to decide.
  */
 export function Tasks() {
-  const { bookshelf } = useApp();
-  const { resolutionQueue, attributionTriage } = bookshelf;
+  const tasks = useWorkerData({ type: 'getTasks' }, (response) => response.tasks);
+  if (!tasks) return <p className="model-note">Loading…</p>;
+  const { resolutionQueue, attributionTriage } = tasks;
 
   if (resolutionQueue.length === 0 && attributionTriage.length === 0) {
     return (

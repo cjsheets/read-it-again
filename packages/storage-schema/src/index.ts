@@ -13,6 +13,8 @@ export {
   saveCoverImage,
 } from './covers.js';
 export type { CoverImage, CoverSource } from './covers.js';
+export { indexWorksForSearch, listShelf } from './shelf-query.js';
+export type { ShelfEntry, ShelfPage, ShelfQuery, ShelfSort } from './shelf-query.js';
 export { createHousehold, listHouseholds } from './households.js';
 export type { Household } from './households.js';
 export {

@@ -482,11 +482,48 @@ h3 {
    ratio, so a uniform grid is more legible and far cheaper to lay out (audit 7.2). */
 .cover-grid {
   display: grid;
+  /* Column count is set inline by VirtualGrid so the rendered window matches the
+     laid-out one exactly; the gap here is the 16px it does its arithmetic with. */
   grid-template-columns: repeat(auto-fill, minmax(min(150px, 100%), 1fr));
   gap: 20px 16px;
   list-style: none;
   margin: 0;
   padding: 0;
+}
+.cover-tile {
+  /* Fixed height is what lets the grid be virtualized by arithmetic instead of
+     measurement. Matches ROW_HEIGHT in shelf.tsx. */
+  height: 296px;
+  overflow: hidden;
+}
+.shelf-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 16px;
+  margin-bottom: 16px;
+}
+.shelf-controls input[type='search'] {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  flex: 1 1 240px;
+  min-height: var(--tap);
+  min-width: 0;
+  padding: 8px 16px;
+}
+.shelf-sort {
+  align-items: center;
+  color: var(--ink-muted);
+  display: inline-flex;
+  font-size: 0.86rem;
+  gap: 8px;
+  min-height: var(--tap);
+}
+.shelf-sort select {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font: inherit;
+  min-height: var(--tap);
+  padding: 6px 8px;
 }
 .cover-button {
   background: none;

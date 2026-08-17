@@ -8,6 +8,7 @@ import {
 import {
   acceptCachedResolution,
   acceptCandidate,
+  inTransaction,
   applyExclusiveCardAttribution,
   createManualResolution,
   deferResolution,
@@ -70,108 +71,114 @@ export async function prepareResolutionQueue(
   let cacheHits = 0;
   let automaticallyResolved = 0;
 
-  for (const row of rows) {
-    const authors = parseAuthorDisplays(row.authors_json);
-    const cacheKey = resolutionCacheKey(
-      row.source_kind,
-      row.title,
-      authors,
-      row.source_format ?? undefined,
-      row.call_number ?? undefined,
-    );
-    const resolutionCase = await ensureResolutionCase(database, {
-      id: idFactory(),
-      importRecordId: row.id,
-      cacheKey,
-      algorithmVersion: 'resolution-v1',
+  // One transaction for the whole pass, loop and recompute tail alike. Each row
+  // previously committed on its own, so a 1000-row import paid a thousand separate
+  // durability round trips. Safe to nest now that `inTransaction` uses savepoints.
+  let deterministicallyAttributed = 0;
+  await inTransaction(database, async () => {
+    for (const row of rows) {
+      const authors = parseAuthorDisplays(row.authors_json);
+      const cacheKey = resolutionCacheKey(
+        row.source_kind,
+        row.title,
+        authors,
+        row.source_format ?? undefined,
+        row.call_number ?? undefined,
+      );
+      const resolutionCase = await ensureResolutionCase(database, {
+        id: idFactory(),
+        importRecordId: row.id,
+        cacheKey,
+        algorithmVersion: 'resolution-v1',
+        now,
+      });
+      const cache = await database.query<{ edition_id: string; confidence: number }>(
+        `SELECT edition_id, confidence FROM resolution_cache
+       WHERE source_kind = ? AND cache_key = ?`,
+        [row.source_kind, cacheKey],
+      );
+      if (cache[0]) {
+        await acceptCachedResolution(database, {
+          caseId: resolutionCase.id,
+          decisionId: idFactory(),
+          editionId: cache[0].edition_id,
+          confidence: cache[0].confidence,
+          now,
+        });
+        cacheHits += 1;
+        continue;
+      }
+
+      const input: ResolutionInput = {
+        title: row.title,
+        authorDisplays: authors,
+        isbn: row.isbn ?? undefined,
+        format: row.source_format ?? undefined,
+      };
+      let candidates: readonly CatalogCandidate[] = [];
+      if (row.isbn) candidates = await catalog.searchByIsbn(row.isbn);
+      if (candidates.length === 0) {
+        const firstAuthor = authors[0];
+        const authorFamily = firstAuthor ? canonicalAuthor(firstAuthor).split(' ')[0] : undefined;
+        candidates = await catalog.searchByTitleAuthor(row.title, authorFamily);
+      }
+      const ranked = rankCandidates(input, deduplicateCandidates(candidates)).slice(0, 5);
+      const drafts = ranked.map((ranking) => ({
+        id: idFactory(),
+        catalogNamespace: 'kcls-bibid',
+        catalogKey: ranking.candidate.catalogKey,
+        rank: ranking.rank,
+        totalScore: ranking.score.total,
+        margin: ranking.margin,
+        scoreJson: JSON.stringify(ranking.score),
+        snapshotJson: JSON.stringify(ranking.candidate),
+      }));
+      await replaceResolutionCandidates(database, resolutionCase.id, drafts, now);
+      const top = ranked[0];
+      if (top?.automatic && drafts[0]) {
+        await acceptCandidate(database, {
+          caseId: resolutionCase.id,
+          candidateId: drafts[0].id,
+          decisionId: idFactory(),
+          workId: idFactory(),
+          editionId: idFactory(),
+          identifierId: idFactory(),
+          method: row.isbn && top.score.isbn === 1 ? 'isbn' : 'search',
+          confidence: top.score.total,
+          now,
+          sourceKind: row.source_kind,
+          cacheKey,
+        });
+        automaticallyResolved += 1;
+        continue;
+      }
+      // No catalog candidate. Where the composition has no catalog at all (the
+      // browser), leaving this pending means the book never reaches the shelf, so
+      // take the source record at its word. Only ever applied to a case created in
+      // this pass, so a deferred case stays deferred.
+      if (options.defaults?.acceptSourceDetails && ranked.length === 0 && row.title.trim()) {
+        await createManualResolution(database, {
+          caseId: resolutionCase.id,
+          decisionId: idFactory(),
+          workId: idFactory(),
+          editionId: idFactory(),
+          title: row.title,
+          authorsJson: row.authors_json,
+          confidence: AUTOMATIC_RESOLUTION_CONFIDENCE,
+          now,
+        });
+        automaticallyResolved += 1;
+      }
+    }
+    deterministicallyAttributed = await applyExclusiveCardAttribution(database, {
+      idFactory,
       now,
     });
-    const cache = await database.query<{ edition_id: string; confidence: number }>(
-      `SELECT edition_id, confidence FROM resolution_cache
-       WHERE source_kind = ? AND cache_key = ?`,
-      [row.source_kind, cacheKey],
-    );
-    if (cache[0]) {
-      await acceptCachedResolution(database, {
-        caseId: resolutionCase.id,
-        decisionId: idFactory(),
-        editionId: cache[0].edition_id,
-        confidence: cache[0].confidence,
-        now,
-      });
-      cacheHits += 1;
-      continue;
-    }
-
-    const input: ResolutionInput = {
-      title: row.title,
-      authorDisplays: authors,
-      isbn: row.isbn ?? undefined,
-      format: row.source_format ?? undefined,
-    };
-    let candidates: readonly CatalogCandidate[] = [];
-    if (row.isbn) candidates = await catalog.searchByIsbn(row.isbn);
-    if (candidates.length === 0) {
-      const firstAuthor = authors[0];
-      const authorFamily = firstAuthor ? canonicalAuthor(firstAuthor).split(' ')[0] : undefined;
-      candidates = await catalog.searchByTitleAuthor(row.title, authorFamily);
-    }
-    const ranked = rankCandidates(input, deduplicateCandidates(candidates)).slice(0, 5);
-    const drafts = ranked.map((ranking) => ({
-      id: idFactory(),
-      catalogNamespace: 'kcls-bibid',
-      catalogKey: ranking.candidate.catalogKey,
-      rank: ranking.rank,
-      totalScore: ranking.score.total,
-      margin: ranking.margin,
-      scoreJson: JSON.stringify(ranking.score),
-      snapshotJson: JSON.stringify(ranking.candidate),
-    }));
-    await replaceResolutionCandidates(database, resolutionCase.id, drafts, now);
-    const top = ranked[0];
-    if (top?.automatic && drafts[0]) {
-      await acceptCandidate(database, {
-        caseId: resolutionCase.id,
-        candidateId: drafts[0].id,
-        decisionId: idFactory(),
-        workId: idFactory(),
-        editionId: idFactory(),
-        identifierId: idFactory(),
-        method: row.isbn && top.score.isbn === 1 ? 'isbn' : 'search',
-        confidence: top.score.total,
-        now,
-        sourceKind: row.source_kind,
-        cacheKey,
-      });
-      automaticallyResolved += 1;
-      continue;
-    }
-    // No catalog candidate. Where the composition has no catalog at all (the
-    // browser), leaving this pending means the book never reaches the shelf, so
-    // take the source record at its word. Only ever applied to a case created in
-    // this pass, so a deferred case stays deferred.
-    if (options.defaults?.acceptSourceDetails && ranked.length === 0 && row.title.trim()) {
-      await createManualResolution(database, {
-        caseId: resolutionCase.id,
-        decisionId: idFactory(),
-        workId: idFactory(),
-        editionId: idFactory(),
-        title: row.title,
-        authorsJson: row.authors_json,
-        confidence: AUTOMATIC_RESOLUTION_CONFIDENCE,
-        now,
-      });
-      automaticallyResolved += 1;
-    }
-  }
+    await recomputeAttributions(database, { idFactory, now, defaults: options.defaults });
+    await rebuildReadingModel(database, { idFactory, now: () => new Date(now) });
+  });
 
   const queue = await listResolutionQueue(database);
-  const deterministicallyAttributed = await applyExclusiveCardAttribution(database, {
-    idFactory,
-    now,
-  });
-  await recomputeAttributions(database, { idFactory, now, defaults: options.defaults });
-  await rebuildReadingModel(database, { idFactory, now: () => new Date(now) });
   return {
     casesCreated: rows.length,
     cacheHits,

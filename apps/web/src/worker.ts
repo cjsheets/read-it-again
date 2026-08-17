@@ -4,8 +4,8 @@ import { CsvImportError } from '@read-it-again/adapter-csv';
 import { LibbySnapshotError } from '@read-it-again/adapter-libby';
 import {
   assessWork,
-  createManualWorkForCase,
   correctAttribution,
+  createManualWorkForCase,
   decideCandidate,
   deferCase,
   exportEncryptedArchive,
@@ -15,10 +15,10 @@ import {
   importLibbySnapshot,
   importManualBook,
   prepareResolutionQueue,
-  rebuildReadingModel,
   recordReadingSession,
   rejectCase,
 } from '@read-it-again/application';
+import type { CompositionDefaults } from '@read-it-again/application';
 import { openOpfsDatabase } from '@read-it-again/storage-browser';
 import {
   deleteCoverImage,
@@ -26,19 +26,37 @@ import {
   getCoverImage,
   getReadingModel,
   getRecommendations,
+  indexWorksForSearch,
   LAST_BACKUP_AT,
   listAttributionTriage,
+  listShelf,
   migrate,
   saveCoverImage,
 } from '@read-it-again/storage-schema';
-import type { CompositionDefaults } from '@read-it-again/application';
-import type { WorkerRequest, WorkerResponse } from './protocol.js';
+import type { Database } from '@read-it-again/storage-schema';
+import type { Summary, WorkerRequest, WorkerResponse } from './protocol.js';
 
 const SOURCE_ACCOUNT_ID = 'default-libby-source';
 const CSV_SOURCE_ACCOUNT_ID = 'default-csv-source';
 const MANUAL_SOURCE_ACCOUNT_ID = 'default-manual-source';
 const HOUSEHOLD_ID = 'default-household';
 const worker = self as unknown as DedicatedWorkerGlobalScope;
+
+/**
+ * ADR 0012. The browser has no catalog (ADR 0002), so the conservative domain
+ * rules have nothing to work with and every imported book stalls in a review
+ * queue (F-01). These defaults let imports land on the shelf; the decisions they
+ * write are append-only and any human choice supersedes them.
+ */
+const BROWSER_DEFAULTS = {
+  acceptSourceDetails: true,
+  assignSingleReader: true,
+} as const satisfies CompositionDefaults;
+
+const emptyCatalog = {
+  searchByIsbn: async () => [],
+  searchByTitleAuthor: async () => [],
+};
 
 const databasePromise = openOpfsDatabase('/read-it-again.sqlite3').then(async (database) => {
   await migrate(database);
@@ -56,6 +74,8 @@ const databasePromise = openOpfsDatabase('/read-it-again.sqlite3').then(async (d
     "INSERT OR IGNORE INTO reader_profiles (person_id, kind, created_at) VALUES (?, 'child', ?)",
     ['default-reader', now],
   );
+  // Catches up any works created before migration 9 existed.
+  await indexWorksForSearch(database);
   return database;
 });
 
@@ -66,73 +86,61 @@ worker.addEventListener('message', (event: MessageEvent<WorkerRequest>) => {
 async function handle(request: WorkerRequest): Promise<void> {
   try {
     const database = await databasePromise;
+
+    switch (request.type) {
+      case 'getSummary':
+        return await reply(request.id, database, {});
+      case 'listShelf':
+        return await reply(request.id, database, { shelf: await listShelf(database, request) });
+      case 'getActivity':
+        return await reply(request.id, database, { activity: await getReadingModel(database) });
+      case 'getTasks':
+        return await reply(request.id, database, {
+          tasks: {
+            resolutionQueue: (
+              await prepareResolutionQueue(database, emptyCatalog, { defaults: BROWSER_DEFAULTS })
+            ).queue,
+            attributionTriage: await listAttributionTriage(database),
+          },
+        });
+      case 'getRecommendations':
+        return await reply(request.id, database, {
+          recommendations: await getRecommendations(database),
+        });
+      case 'getImportHistory':
+        return await reply(request.id, database, {
+          importHistory: await getHouseholdImportInbox(database),
+        });
+      case 'getCover': {
+        const cover = await getCoverImage(database, request.workId);
+        return await reply(request.id, database, {
+          cover: cover ? { bytes: cover.bytes, mime: cover.mime } : null,
+        });
+      }
+      default:
+        break;
+    }
+
+    let result;
+    let archiveText;
+
     if (request.type === 'importLibby') {
-      const result = await importLibbySnapshot(database, {
+      result = await importLibbySnapshot(database, {
         rawText: request.rawText,
         fileName: request.fileName,
         sourceAccountId: SOURCE_ACCOUNT_ID,
         householdId: HOUSEHOLD_ID,
       });
-      const resolution = await prepareResolutionQueue(database, emptyCatalog, {
-        defaults: BROWSER_DEFAULTS,
-      });
-      worker.postMessage({
-        id: request.id,
-        ok: true,
-        result,
-        inbox: await getHouseholdImportInbox(database),
-        resolutionQueue: resolution.queue,
-        attributionTriage: await listAttributionTriage(database),
-        readingModel: await rebuildReadingModel(database),
-        recommendations: await getRecommendations(database),
-        lastBackupAt: (await getAppMetadata(database, LAST_BACKUP_AT)) ?? null,
-      } satisfies WorkerResponse);
-      return;
-    }
-
-    if (request.type === 'importCsv') {
-      const result = await importCsvSnapshot(database, {
+      await settle(database);
+    } else if (request.type === 'importCsv') {
+      result = await importCsvSnapshot(database, {
         rawText: request.rawText,
         fileName: request.fileName,
         sourceAccountId: CSV_SOURCE_ACCOUNT_ID,
         householdId: HOUSEHOLD_ID,
       });
-      const resolution = await prepareResolutionQueue(database, emptyCatalog, {
-        defaults: BROWSER_DEFAULTS,
-      });
-      worker.postMessage({
-        id: request.id,
-        ok: true,
-        result,
-        inbox: await getHouseholdImportInbox(database),
-        resolutionQueue: resolution.queue,
-        attributionTriage: await listAttributionTriage(database),
-        readingModel: await getReadingModel(database),
-        recommendations: await getRecommendations(database),
-        lastBackupAt: (await getAppMetadata(database, LAST_BACKUP_AT)) ?? null,
-      } satisfies WorkerResponse);
-      return;
-    }
-
-    if (request.type === 'getCover') {
-      const cover = await getCoverImage(database, request.workId);
-      worker.postMessage({
-        id: request.id,
-        ok: true,
-        cover: cover ? { bytes: cover.bytes, mime: cover.mime } : null,
-        inbox: await getHouseholdImportInbox(database),
-        resolutionQueue: (
-          await prepareResolutionQueue(database, emptyCatalog, { defaults: BROWSER_DEFAULTS })
-        ).queue,
-        attributionTriage: await listAttributionTriage(database),
-        readingModel: await getReadingModel(database),
-        recommendations: await getRecommendations(database),
-        lastBackupAt: (await getAppMetadata(database, LAST_BACKUP_AT)) ?? null,
-      } satisfies WorkerResponse);
-      return;
-    }
-
-    if (request.type === 'importManual') {
+      await settle(database);
+    } else if (request.type === 'importManual') {
       const manual = await importManualBook(database, {
         ...request,
         sourceAccountId: MANUAL_SOURCE_ACCOUNT_ID,
@@ -145,40 +153,12 @@ async function handle(request: WorkerRequest): Promise<void> {
         readerIds: ['default-reader'],
         defaults: BROWSER_DEFAULTS,
       });
+      await indexWorksForSearch(database);
     } else if (request.type === 'exportArchive') {
-      const archiveText = await exportEncryptedArchive(database, request.passphrase);
-      worker.postMessage({
-        id: request.id,
-        ok: true,
-        archiveText,
-        inbox: await getHouseholdImportInbox(database),
-        resolutionQueue: (
-          await prepareResolutionQueue(database, emptyCatalog, { defaults: BROWSER_DEFAULTS })
-        ).queue,
-        attributionTriage: await listAttributionTriage(database),
-        readingModel: await getReadingModel(database),
-        recommendations: await getRecommendations(database),
-        lastBackupAt: (await getAppMetadata(database, LAST_BACKUP_AT)) ?? null,
-      } satisfies WorkerResponse);
-      return;
+      archiveText = await exportEncryptedArchive(database, request.passphrase);
     } else if (request.type === 'importArchive') {
       await importEncryptedArchive(database, request.encryptedText, request.passphrase);
-    }
-
-    if (request.type === 'acceptCandidate') {
-      await decideCandidate(database, request.caseId, request.candidateId, {
-        defaults: BROWSER_DEFAULTS,
-      });
-    } else if (request.type === 'manualResolve') {
-      await createManualWorkForCase(database, request.caseId, request.title, request.authorsJson, {
-        defaults: BROWSER_DEFAULTS,
-      });
-    } else if (request.type === 'rejectCase') {
-      await rejectCase(database, request.caseId);
-    } else if (request.type === 'deferCase') {
-      await deferCase(database, request.caseId);
-    } else if (request.type === 'correctAttribution') {
-      await correctAttribution(database, { ...request, defaults: BROWSER_DEFAULTS });
+      await settle(database);
     } else if (request.type === 'saveCover') {
       await saveCoverImage(database, {
         workId: request.workId,
@@ -191,26 +171,29 @@ async function handle(request: WorkerRequest): Promise<void> {
       });
     } else if (request.type === 'removeCover') {
       await deleteCoverImage(database, request.workId);
+    } else if (request.type === 'acceptCandidate') {
+      await decideCandidate(database, request.caseId, request.candidateId, {
+        defaults: BROWSER_DEFAULTS,
+      });
+      await indexWorksForSearch(database);
+    } else if (request.type === 'manualResolve') {
+      await createManualWorkForCase(database, request.caseId, request.title, request.authorsJson, {
+        defaults: BROWSER_DEFAULTS,
+      });
+      await indexWorksForSearch(database);
+    } else if (request.type === 'rejectCase') {
+      await rejectCase(database, request.caseId);
+    } else if (request.type === 'deferCase') {
+      await deferCase(database, request.caseId);
+    } else if (request.type === 'correctAttribution') {
+      await correctAttribution(database, { ...request, defaults: BROWSER_DEFAULTS });
     } else if (request.type === 'assessWork') {
       await assessWork(database, request);
     } else if (request.type === 'recordReadingSession') {
       await recordReadingSession(database, request);
     }
 
-    const resolution = await prepareResolutionQueue(database, emptyCatalog, {
-      defaults: BROWSER_DEFAULTS,
-    });
-
-    worker.postMessage({
-      id: request.id,
-      ok: true,
-      inbox: await getHouseholdImportInbox(database),
-      resolutionQueue: resolution.queue,
-      attributionTriage: await listAttributionTriage(database),
-      readingModel: await getReadingModel(database),
-      recommendations: await getRecommendations(database),
-      lastBackupAt: (await getAppMetadata(database, LAST_BACKUP_AT)) ?? null,
-    } satisfies WorkerResponse);
+    await reply(request.id, database, { result, archiveText });
   } catch (error) {
     worker.postMessage({
       id: request.id,
@@ -224,18 +207,45 @@ async function handle(request: WorkerRequest): Promise<void> {
   }
 }
 
-const emptyCatalog = {
-  searchByIsbn: async () => [],
-  searchByTitleAuthor: async () => [],
-};
-
 /**
- * ADR 0012. The browser has no catalog (ADR 0002), so the conservative domain
- * rules have nothing to work with and every imported book stalls in a review
- * queue (F-01). These defaults let imports land on the shelf; the decisions they
- * write are append-only and any human choice supersedes them.
+ * The resolution and attribution pass new records need, plus search indexing.
+ * Called only by operations that can introduce records. Previously every request
+ * ended with this, so rating a book or logging a reading paid for a full recompute
+ * and reading-model rebuild across the entire library.
  */
-const BROWSER_DEFAULTS = {
-  acceptSourceDetails: true,
-  assignSingleReader: true,
-} as const satisfies CompositionDefaults;
+async function settle(database: Database): Promise<void> {
+  await prepareResolutionQueue(database, emptyCatalog, { defaults: BROWSER_DEFAULTS });
+  await indexWorksForSearch(database);
+}
+
+async function reply(
+  id: string,
+  database: Database,
+  extra: Omit<Extract<WorkerResponse, { ok: true }>, 'id' | 'ok' | 'summary'>,
+): Promise<void> {
+  worker.postMessage({
+    id,
+    ok: true,
+    summary: await summarize(database),
+    ...extra,
+  } satisfies WorkerResponse);
+}
+
+/** Four counts, whatever the size of the library. */
+async function summarize(database: Database): Promise<Summary> {
+  const rows = await database.query<{ books: number; records: number; tasks: number }>(
+    `SELECT
+       (SELECT count(*) FROM preference_summaries) AS books,
+       (SELECT count(*) FROM import_records) AS records,
+       (SELECT count(*) FROM resolution_cases WHERE status IN ('pending', 'deferred'))
+         + (SELECT count(*) FROM attribution_results WHERE current = 1 AND state = 'review')
+         AS tasks`,
+  );
+  const counts = rows[0];
+  return {
+    bookCount: counts?.books ?? 0,
+    recordCount: counts?.records ?? 0,
+    taskCount: counts?.tasks ?? 0,
+    lastBackupAt: (await getAppMetadata(database, LAST_BACKUP_AT)) ?? null,
+  };
+}

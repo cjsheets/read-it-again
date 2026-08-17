@@ -5,6 +5,7 @@ import {
 } from '@read-it-again/domain';
 import {
   getReadingModel,
+  inTransaction,
   saveReadingSession,
   saveWorkAssessment,
   type Database,
@@ -29,8 +30,9 @@ export async function rebuildReadingModel(
   }>(
     `SELECT h.id, c.merge_days, c.strong_repeat_days FROM households h LEFT JOIN reading_model_config c ON c.household_id = h.id ORDER BY h.id`,
   );
-  await database.exec('BEGIN IMMEDIATE');
-  try {
+  // Routed through inTransaction so this can nest inside a bulk import pass,
+  // which is what lets a 1000-row import commit once instead of per row.
+  await inTransaction(database, async () => {
     await database.run('DELETE FROM acquisition_episode_checkouts');
     await database.run('DELETE FROM acquisition_episodes');
     await database.run('DELETE FROM preference_summaries');
@@ -112,11 +114,7 @@ export async function rebuildReadingModel(
       }
     }
     await database.run('DELETE FROM derived_rebuilds');
-    await database.exec('COMMIT');
-  } catch (error) {
-    await database.exec('ROLLBACK');
-    throw error;
-  }
+  });
   return getReadingModel(database);
 }
 

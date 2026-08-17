@@ -1,17 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
-import {
-  isLibrarySource,
-  type ReadingModelView,
-  type ReadingTrait,
-} from '@read-it-again/storage-schema';
-import { useApp } from '../app-state.js';
+import { isLibrarySource, type ShelfEntry, type ReadingTrait } from '@read-it-again/storage-schema';
+import { useApp, useWorkerData } from '../app-state.js';
 import { requestWorker } from '../client.js';
 import { Cover } from './cover.js';
 import { downscaleCover } from './downscale.js';
 import { provenanceLabel, RatingButtons, TRAITS } from './book-controls.js';
 import { useCover } from './use-cover.js';
 
-type ShelfItem = ReadingModelView['shelf'][number];
+type ShelfItem = ShelfEntry;
 
 /**
  * F-15. There was nowhere to see a book's provenance, metadata, episode history or
@@ -31,13 +27,15 @@ export function BookDetail({
   readonly item: ShelfItem;
   readonly onClose: () => void;
 }) {
-  const { bookshelf, applyReadingChange } = useApp();
+  const { applyReadingChange } = useApp();
   const cover = useCover(item.workId, item.hasCover);
   const panel = useRef<HTMLDivElement>(null);
-  const model = bookshelf.readingModel;
-  const sessions = model.sessions.filter((session) => session.workId === item.workId);
-  const checkouts = model.checkouts.filter((checkout) => checkout.workId === item.workId);
-  const episodes = model.episodes.filter(
+  // History is per-book and only needed while the drawer is open, so it is fetched
+  // here rather than carried by the shelf.
+  const model = useWorkerData({ type: 'getActivity' }, (response) => response.activity);
+  const sessions = (model?.sessions ?? []).filter((session) => session.workId === item.workId);
+  const checkouts = (model?.checkouts ?? []).filter((checkout) => checkout.workId === item.workId);
+  const episodes = (model?.episodes ?? []).filter(
     (episode) =>
       episode.workId === item.workId &&
       checkouts.some((checkout) => isLibrarySource(checkout.sourceKind)),
@@ -258,8 +256,9 @@ function Assessment({ item }: { readonly item: ShelfItem }) {
  * nowhere to appear; this is that promise being kept.
  */
 function WhyThisReader({ item }: { readonly item: ShelfItem }) {
-  const { bookshelf, applyAttribution } = useApp();
-  const triage = bookshelf.attributionTriage.find((entry) => entry.workId === item.workId);
+  const { applyAttribution } = useApp();
+  const tasks = useWorkerData({ type: 'getTasks' }, (response) => response.tasks);
+  const triage = tasks?.attributionTriage.find((entry) => entry.workId === item.workId);
 
   return (
     <section className="detail-section" aria-labelledby={`why-${item.workId}`}>

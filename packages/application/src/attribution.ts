@@ -6,6 +6,7 @@ import {
 import {
   getEffectiveMetadata,
   getOverride,
+  inTransaction,
   listAttributionTriage,
   saveAttributionOverride,
   storeMetadataFacts,
@@ -169,10 +170,15 @@ export async function correctAttribution(
 ): Promise<void> {
   const idFactory = input.idFactory ?? (() => crypto.randomUUID());
   const now = (input.now ?? (() => new Date()))().toISOString();
-  await saveAttributionOverride(database, { ...input, id: idFactory(), now });
-  await recomputeAttributions(database, { idFactory, now, defaults: input.defaults });
   const { rebuildReadingModel } = await import('./reading.js');
-  await rebuildReadingModel(database, { idFactory, now: () => new Date(now) });
+  // One transaction for the whole correction. The recompute and rebuild it
+  // triggers each touch every record, so committing them separately made a single
+  // added book pay two full passes of durability cost.
+  await inTransaction(database, async () => {
+    await saveAttributionOverride(database, { ...input, id: idFactory(), now });
+    await recomputeAttributions(database, { idFactory, now, defaults: input.defaults });
+    await rebuildReadingModel(database, { idFactory, now: () => new Date(now) });
+  });
 }
 
 export async function mergeWorksAndRecompute(

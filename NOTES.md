@@ -2,21 +2,24 @@
 
 ## Re-entry
 
-- **Phase:** Audit remediation, Increment 5 — Covers and detail view (complete 2026-08-16)
+- **Phase:** Audit remediation, Increment 6 — Scale (complete 2026-08-16)
 - **Last state:** The production PWA is complete, and the local workflow now has a unified
   `pnpm bookshelf` CLI for setup/login, one-command sync, status, recommendation refresh, and
   encrypted PWA-compatible backup. Phase 3's personal live-card acceptance run remains pending a
   user-owned authenticated session. The UX audit's findings are now encoded as executable tests;
   see `tests/browser/README.md`. Finding IDs (F-01, F-04, …) refer to that audit, which is kept
   locally and is not tracked in this repository.
-- **Next action:** Increment 6 — scale (N2/F-04): virtualization, search, and a paged query
-  surface. This is the breaking protocol change of the project: whole-state responses give way to
-  `listShelf({readerId, query, sort, group, cursor, limit})` plus a counts endpoint. Requires an
-  ADR: _"The browser query surface is paged and filtered."_ Two cheap wins are already identified
-  and waiting there: the worker calls `prepareResolutionQueue` in its tail after a branch has
-  already recomputed, so a manual add does the O(n) work twice, and per-work cover fetches should
-  fold into the paged query. Virtualization must set `aria-setsize`/`aria-posinset` or it breaks
-  screen-reader traversal.
+- **Next action:** Increment 7 — readers and multi-select (N4/F-03), the last of the audit's five
+  highest-priority actions still open. Reader CRUD, a reader switcher, per-reader filtering,
+  selection mode with a contextual action bar, and an Activity/Tasks pass. The schema already
+  supports multiple readers completely; only the UI is missing, which the audit calls the largest
+  gap between built and exposed capability. Privacy note from the audit: these are children's
+  names in local storage — make them optional, allow nicknames, never require them, never include
+  them in an export default.
+- **Known remaining performance gap:** adding one book to a 1000-book shelf takes ~3.9 s against a
+  500 ms budget, because `recomputeAttributions` and `rebuildReadingModel` both re-derive the whole
+  library on every write. ADR 0014 bounded the read path; making the write path incremental is a
+  separate piece of domain work and the one F-04 budget still annotated.
 - **Source plan:** Obsidian `Efforts/Read It Again.md`
 - **Important constraint:** KCLS OpenSearch did not return CORS permission headers on
   2026-08-12. Browser-only catalog access is not currently viable.
@@ -275,3 +278,47 @@ Tests: 44 -> 52 browser (51 green, 2 F-04 annotations, 1 skipped) and 68 unit. E
 needed updating because assessment and provenance moved into the drawer, and shelf tiles no longer
 carry headings. A detail drawer is modal, so its scrim genuinely blocks navigation — the test
 helper now closes it first, which is what a person has to do.
+
+Increment 6 result: ships N2 and closes most of F-04. Recorded in ADR 0014.
+
+The spike the audit asked for came back decisive and split: the `@sqlite.org/sqlite-wasm` build
+ships FTS5 (33 symbol hits in the .wasm), but `node:sqlite` does not — `CREATE VIRTUAL TABLE …
+USING fts5` fails with "no such module: fts5". Both drivers run the same migration list, so FTS5
+would have broken the local runtime and every unit test. Migration 9 therefore adds `work_search`,
+a derived projection holding normalised title and author, maintained incrementally. At this
+product's scale FTS5 would have bought recall rather than speed, and normalising delivers that on
+its own: "gruffalo" finds "The Gruffalo!" and "ecole" finds "L'École". The search normalisation
+deliberately keeps leading articles, unlike `canonicalTitle`, because someone typing "the gru"
+expects "The Gruffalo".
+
+The protocol change is the breaking one the audit anticipated. Mutations return a four-count
+`Summary` of constant size; each destination asks for what it renders. The shelf reads pages of 60
+and renders only rows near the viewport, with `aria-setsize`/`aria-posinset` on every tile so
+screen-reader traversal survives — asserted directly, because axe cannot know a list is windowed.
+
+Measured at 1000 books, against where Increment 5 left it:
+
+- DOM nodes 13 060 -> 839, and now identical at 500 and 1000 books. Under the 2000 budget.
+- Import 51.7 s -> 9.9 s. Under the 10 s budget.
+- Add one more 12.4 s -> 3.9 s. Still over the 500 ms budget.
+- Search at 1000 books is inside its 150 ms budget, debounce included.
+
+Most of the import win came from one thing: `inTransaction` was not nesting-aware, so bulk
+operations could not wrap per-row helpers that opened their own transaction, and every imported row
+committed separately. Making it savepoint-aware and wrapping the resolution pass took 1000-row
+import from 55 s to 25 s, and wrapping the recompute tail took it to 9.9 s. The same treatment on
+`correctAttribution` roughly halved add-one-more.
+
+Two honest caveats. The audit's 20 000 px document-height budget is deliberately revised: it was
+written against a list rendering a full assessment form per row, where 279 685 px was pathological.
+A virtualized cover grid keeps its real scroll extent on purpose, and 1000 books at six columns is
+inherently ~167 rows; meeting 20 000 px would need sixteen columns of 68 px covers, which is not a
+bookshelf. The budget is now per-row, so a regression to form-per-row rendering is still caught,
+and DOM nodes remain the real proxy for render cost.
+
+And a measurement bug worth remembering: the first virtualized run reported 58 DOM nodes, which
+looked like a triumph and was actually an empty grid — the page fetch had not landed when the
+measurement ran. The budget test now waits for tiles and records how many rendered, so a bounded
+DOM only counts when the shelf was actually drawn.
+
+Tests: 52 -> 60 browser and 68 unit. The previously skipped search budget is now a real test.

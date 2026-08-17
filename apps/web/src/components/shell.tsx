@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { ERROR_ACTIONS, ERROR_TITLES, taskCount, useApp } from '../app-state.js';
+import { ERROR_ACTIONS, ERROR_TITLES, useApp } from '../app-state.js';
 import { DESTINATIONS, type Route } from '../router.js';
 
 /**
@@ -16,8 +16,8 @@ export function Shell({
   readonly go: (route: Route) => void;
   readonly children: ReactNode;
 }) {
-  const { bookshelf, status, error, wiped, dismissWipeNotice } = useApp();
-  const tasks = taskCount(bookshelf);
+  const { summary, status, error, wiped, dismissWipeNotice } = useApp();
+  const tasks = summary.taskCount;
 
   return (
     <div className="shell">

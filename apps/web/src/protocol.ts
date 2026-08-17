@@ -1,14 +1,41 @@
-import type { ImportBatchResult, ImportRecord, ImportRun } from '@read-it-again/storage-schema';
 import type {
   AttributionTriageItem,
+  ImportBatchResult,
+  ImportRecord,
+  ImportRun,
   ReadingModelView,
   ReadingTrait,
   RecommendationView,
   ResolutionQueueItem,
+  ShelfPage,
+  ShelfSort,
 } from '@read-it-again/storage-schema';
 
+/**
+ * ADR 0014. Reads are separated from mutations and asked for by destination.
+ *
+ * Every response used to carry the complete dataset: records, runs, both review
+ * queues, the whole reading model and every recommendation. A thousand-book
+ * household paid for all thousand on every keystroke. Now a mutation returns a
+ * small summary, and each destination asks for what it renders.
+ */
 export type WorkerRequest =
-  | { readonly id: string; readonly type: 'getInbox' }
+  // ── Reads ────────────────────────────────────────────────────────────────
+  | { readonly id: string; readonly type: 'getSummary' }
+  | {
+      readonly id: string;
+      readonly type: 'listShelf';
+      readonly query?: string;
+      readonly sort?: ShelfSort;
+      readonly offset?: number;
+      readonly limit?: number;
+    }
+  | { readonly id: string; readonly type: 'getActivity' }
+  | { readonly id: string; readonly type: 'getTasks' }
+  | { readonly id: string; readonly type: 'getRecommendations' }
+  | { readonly id: string; readonly type: 'getImportHistory' }
+  | { readonly id: string; readonly type: 'getCover'; readonly workId: string }
+  // ── Mutations ────────────────────────────────────────────────────────────
   | {
       readonly id: string;
       readonly type: 'importLibby';
@@ -30,9 +57,12 @@ export type WorkerRequest =
       readonly format?: string;
     }
   | { readonly id: string; readonly type: 'exportArchive'; readonly passphrase: string }
-  // Cover bytes are fetched per work rather than shipped with the shelf: a
-  // thousand covers at the 60 KB cap would be 60 MB in one message (ADR 0013).
-  | { readonly id: string; readonly type: 'getCover'; readonly workId: string }
+  | {
+      readonly id: string;
+      readonly type: 'importArchive';
+      readonly encryptedText: string;
+      readonly passphrase: string;
+    }
   | {
       readonly id: string;
       readonly type: 'saveCover';
@@ -43,12 +73,6 @@ export type WorkerRequest =
       readonly height: number;
     }
   | { readonly id: string; readonly type: 'removeCover'; readonly workId: string }
-  | {
-      readonly id: string;
-      readonly type: 'importArchive';
-      readonly encryptedText: string;
-      readonly passphrase: string;
-    }
   | {
       readonly id: string;
       readonly type: 'acceptCandidate';
@@ -113,24 +137,36 @@ export type WorkerRequestInput = WorkerRequest extends infer Request
     : never
   : never;
 
+/**
+ * What every screen needs and nothing more: how many books, how many decisions are
+ * outstanding, and when the last backup was. Constant size regardless of library.
+ */
+export interface Summary {
+  readonly bookCount: number;
+  readonly recordCount: number;
+  readonly taskCount: number;
+  readonly lastBackupAt: string | null;
+}
+
 export type WorkerResponse =
   | {
       readonly id: string;
       readonly ok: true;
-      readonly inbox: {
-        readonly records: readonly ImportRecord[];
-        readonly runs: readonly ImportRun[];
-      };
-      readonly resolutionQueue: readonly ResolutionQueueItem[];
-      readonly attributionTriage: readonly AttributionTriageItem[];
-      readonly readingModel: ReadingModelView;
-      readonly recommendations: RecommendationView;
-      /** ISO timestamp of the last successful archive export, or null if never
-       *  backed up. Travels with the archive, so a restored device inherits it. */
-      readonly lastBackupAt: string | null;
+      readonly summary: Summary;
       readonly result?: ImportBatchResult;
       readonly archiveText?: string;
       readonly cover?: { readonly bytes: Uint8Array; readonly mime: string } | null;
+      readonly shelf?: ShelfPage;
+      readonly activity?: ReadingModelView;
+      readonly tasks?: {
+        readonly resolutionQueue: readonly ResolutionQueueItem[];
+        readonly attributionTriage: readonly AttributionTriageItem[];
+      };
+      readonly recommendations?: RecommendationView;
+      readonly importHistory?: {
+        readonly records: readonly ImportRecord[];
+        readonly runs: readonly ImportRun[];
+      };
     }
   | {
       readonly id: string;

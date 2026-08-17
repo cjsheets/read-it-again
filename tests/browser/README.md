@@ -11,13 +11,23 @@ that the largest findings — F-01 (imported books never reach the shelf) and F-
 (the UI renders every row) — are executable statements rather than prose, and so
 that the Increment 4 refactor of `main.tsx` has something to refactor against.
 
-Six of the original eight annotations are gone: four in Increment 1 and both F-01
-journey tests in Increment 2. `accessibility.spec.ts` and `shelf-journey.spec.ts`
-are now entirely contract tests. Two remain, both F-04, both closed by Increment 6.
+Seven of the original eight annotations are gone. Two remain, both in
+`performance-budget.spec.ts`, and they are now annotated for a narrower reason
+than F-04 as a whole: adding one book to a large shelf still costs a full
+attribution recompute and reading-model rebuild, which is O(library). ADR 0014
+bounded the read path; making the write path incremental is what would retire
+them.
 
-Closing F-01 made the F-04 numbers worse, which is expected: a thousand imported
-books now actually render as shelf cards instead of stopping in a queue. The
-budget attachments record it on every run.
+Everything else in F-04 is met and asserted: DOM nodes are bounded and identical
+at 500 and 1000 books, a 1000-row import lands inside 10 seconds, and search
+answers inside its budget.
+
+Two traps this suite has already fallen into, worth knowing before adding to it.
+A DOM-node count taken before the shelf page has loaded reports a spectacular
+number for an empty grid — the budget test now waits for tiles and records how
+many rendered. And a virtualized list cannot be checked for screen-reader
+correctness by axe, which has no way to know the list is windowed, so
+`aria-setsize`/`aria-posinset` are asserted directly in `shelf-scale.spec.ts`.
 
 ## Why `test.fail()` and not a red build
 

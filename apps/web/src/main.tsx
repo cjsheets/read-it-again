@@ -1,13 +1,7 @@
 import { StrictMode, useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import type { AttributionTriageItem } from '@read-it-again/storage-schema';
-import {
-  AppProvider,
-  EMPTY_BOOKSHELF,
-  type AppState,
-  type Bookshelf,
-  type ErrorState,
-} from './app-state.js';
+import { AppProvider, EMPTY_SUMMARY, type AppState, type ErrorState } from './app-state.js';
 import { requestWorker } from './client.js';
 import { ErrorBoundary } from './components/error-boundary.js';
 import { Shell } from './components/shell.js';
@@ -19,7 +13,7 @@ import {
   requestPersistenceOnce,
   type PersistenceState,
 } from './durability.js';
-import type { WorkerRequestInput, WorkerResponse } from './protocol.js';
+import type { Summary, WorkerRequestInput, WorkerResponse } from './protocol.js';
 import { useRoute } from './router.js';
 import { Activity } from './routes/activity.js';
 import { Add } from './routes/add.js';
@@ -36,7 +30,8 @@ const BROWSER_OPERATION_ERRORS = {
 } as const;
 
 function App() {
-  const [bookshelf, setBookshelf] = useState<Bookshelf>(EMPTY_BOOKSHELF);
+  const [summary, setSummary] = useState<Summary>(EMPTY_SUMMARY);
+  const [revision, setRevision] = useState(0);
   const [status, setStatus] = useState('Opening your private bookshelf…');
   const [error, setError] = useState<ErrorState | null>(null);
   const [busy, setBusy] = useState(true);
@@ -51,7 +46,8 @@ function App() {
   }, []);
 
   const state: AppState = {
-    bookshelf,
+    summary,
+    revision,
     status,
     error,
     busy,
@@ -87,23 +83,19 @@ function App() {
     </AppProvider>
   );
 
-  function adopt(response: Extract<WorkerResponse, { ok: true }>): void {
-    setBookshelf({
-      ...response.inbox,
-      resolutionQueue: response.resolutionQueue,
-      attributionTriage: response.attributionTriage,
-      readingModel: response.readingModel,
-      recommendations: response.recommendations,
-      lastBackupAt: response.lastBackupAt,
-    });
+  /** Adopts the summary every response carries, and tells destinations to re-read
+   *  when the change could have altered what they render. */
+  function adopt(response: Extract<WorkerResponse, { ok: true }>, mutated = true): void {
+    setSummary(response.summary);
+    if (mutated) setRevision((current) => current + 1);
   }
 
   async function refreshBookshelf() {
     setBusy(true);
-    const response = await requestWorker({ type: 'getInbox' });
+    const response = await requestWorker({ type: 'getSummary' });
     if (response.ok) {
       adopt(response);
-      const count = response.inbox.records.length;
+      const count = response.summary.recordCount;
       setWiped(looksWiped(count));
       rememberBooksExist(count);
       setStatus(count === 0 ? 'No books imported yet.' : 'Bookshelf ready.');
@@ -135,7 +127,7 @@ function App() {
         return;
       }
       adopt(response);
-      await settle(response.inbox.records.length);
+      await settle(response.summary.recordCount);
       setStatus(importSummary(response.result));
     } catch (caught) {
       setError({
@@ -235,7 +227,7 @@ function App() {
     if (response.ok && response.archiveText) {
       // The export is what sets last_backup_at, so take the fresh value rather
       // than making the user reload to see that the backup registered.
-      setBookshelf((current) => ({ ...current, lastBackupAt: response.lastBackupAt }));
+      adopt(response);
       downloadText(
         response.archiveText,
         `read-it-again-${new Date().toISOString().slice(0, 10)}.ria-archive`,
@@ -257,7 +249,7 @@ function App() {
     const response = await requestWorker(request);
     if (response.ok) {
       adopt(response);
-      await settle(response.inbox.records.length);
+      await settle(response.summary.recordCount);
       setStatus(request.type === 'importCsv' ? importSummary(response.result) : success);
     } else {
       setError({
