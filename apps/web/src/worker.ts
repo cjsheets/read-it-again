@@ -25,6 +25,7 @@ import {
   archiveReader,
   createReader,
   deleteCoverImage,
+  findWorkByIsbn,
   getAppMetadata,
   getCoverImage,
   getReadingModel,
@@ -120,6 +121,10 @@ async function handle(request: WorkerRequest): Promise<void> {
       case 'listReaders':
         return await reply(request.id, database, {
           readers: await listReaders(database, { includeArchived: true }),
+        });
+      case 'findByIsbn':
+        return await reply(request.id, database, {
+          isbnMatch: await findWorkByIsbn(database, request.isbn),
         });
       case 'getCover': {
         const cover = await getCoverImage(database, request.workId);

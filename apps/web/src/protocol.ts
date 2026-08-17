@@ -1,5 +1,6 @@
 import type {
   AttributionTriageItem,
+  IsbnMatch,
   Reader,
   ImportBatchResult,
   ImportRecord,
@@ -38,6 +39,9 @@ export type WorkerRequest =
   | { readonly id: string; readonly type: 'getImportHistory' }
   | { readonly id: string; readonly type: 'getCover'; readonly workId: string }
   | { readonly id: string; readonly type: 'listReaders' }
+  /** Whether a scanned or typed ISBN is already on the shelf. A read, because a
+   *  scan must be able to say "you have this" without writing anything. */
+  | { readonly id: string; readonly type: 'findByIsbn'; readonly isbn: string }
   // ── Mutations ────────────────────────────────────────────────────────────
   | {
       readonly id: string;
@@ -204,6 +208,9 @@ export type WorkerResponse =
         readonly runs: readonly ImportRun[];
       };
       readonly readers?: readonly Reader[];
+      /** null means the ISBN resolved to nothing on this device. Absent means the
+       *  request was not a lookup at all. */
+      readonly isbnMatch?: IsbnMatch | null;
       /** The session just written, so the UI can offer an inline correction
        *  without a second lookup (F-18). */
       readonly sessionId?: string;

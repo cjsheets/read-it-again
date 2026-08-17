@@ -4,6 +4,9 @@ export {
   canonicalTitle,
   normalizeFormat,
   tokenizeTitle,
+  booklandIsbn,
+  isbnVariants,
+  isValidIsbn,
   searchText,
 } from './normalization.js';
 export { rankCandidates, scoreCandidate } from './resolution.js';

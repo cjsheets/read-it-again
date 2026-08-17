@@ -27,9 +27,15 @@ const SORTS: readonly { readonly value: ShelfSort; readonly label: string }[] = 
  * thousand books pays for a screenful rather than a library.
  */
 export function Shelf({ go }: { readonly go: (route: Route) => void }) {
-  const { summary, revision, readerFilter, assignReaders } = useApp();
+  const {
+    summary,
+    revision,
+    readerFilter,
+    assignReaders,
+    shelfQuery: query,
+    setShelfQuery: setQuery,
+  } = useApp();
   const [selection, setSelection] = useState<readonly string[]>([]);
-  const [query, setQuery] = useState('');
   const [sort, setSort] = useState<ShelfSort>('recent');
   const [openBook, setOpenBook] = useState<string | null>(null);
   const [window, setWindow] = useState<GridWindow>({

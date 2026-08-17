@@ -1,3 +1,6 @@
+import { readdir, readFile } from 'node:fs/promises';
+import { join, resolve } from 'node:path';
+import { gzipSync } from 'node:zlib';
 import { expect, test, type Page, type TestInfo } from '@playwright/test';
 import { addBookManually, csvSnapshot, goTo, importCsv, openApp } from './support/shelf.js';
 
@@ -139,3 +142,31 @@ async function report(testInfo: TestInfo, measured: Measurements): Promise<void>
     body: JSON.stringify({ budgets: BUDGETS, measured }, null, 2),
   });
 }
+
+/**
+ * Audit §8.6, tier 3: the payload scanning adds must stay under 1.5 MB gzipped.
+ * Measured over the build's own output rather than guessed, because the decoder
+ * is the largest single thing the app has ever chosen to ship and the reason to
+ * self-host it is precisely that its size is now the project's problem.
+ */
+// Playwright requires the fixtures argument to be a destructuring pattern even
+// when a test uses no fixtures, and this one only reads the build output.
+// eslint-disable-next-line no-empty-pattern
+test('the barcode decoder stays inside its payload budget', async ({}, testInfo) => {
+  const dist = resolve(import.meta.dirname, '../../apps/web/dist/assets');
+  const scanning = (await readdir(dist)).filter((file) => /zxing|^reader-/u.test(file));
+  expect(scanning.length, `expected the decoder in ${dist}, found ${scanning.join(', ')}`).toBe(2);
+
+  const gzipped = await Promise.all(
+    scanning.map(async (file) => {
+      const bytes = await readFile(join(dist, file));
+      return { file, raw: bytes.byteLength, gzip: gzipSync(bytes).byteLength };
+    }),
+  );
+  const total = gzipped.reduce((sum, entry) => sum + entry.gzip, 0);
+  await testInfo.attach('scanning-payload.json', {
+    body: JSON.stringify({ files: gzipped, totalGzip: total }, null, 2),
+    contentType: 'application/json',
+  });
+  expect(total).toBeLessThan(1_500_000);
+});

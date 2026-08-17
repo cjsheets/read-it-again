@@ -17,6 +17,25 @@ self.addEventListener('activate', (event) => {
   self.clients.claim();
 });
 
+/**
+ * Quoted references to another build artefact, in the two shapes the bundler
+ * emits: an absolute `/assets/…` URL, and a relative `./chunk-hash.js` specifier
+ * from a dynamic `import()`.
+ *
+ * The relative half is not decoration. A code-split chunk — the barcode decoder
+ * is the first — is only ever named relatively, so matching absolute paths alone
+ * precached the decoder's 1 MB wasm and silently left its loader behind. That
+ * fails exactly where offline support is supposed to hold.
+ *
+ * A leading `./` or `../` is required rather than optional, because emscripten
+ * glue contains bare strings like `zxing_reader.wasm` that are arguments to a
+ * path resolver, not fetchable URLs. Precaching is strict — a miss fails the
+ * install rather than shipping a half-cached shell — so a pattern loose enough to
+ * catch those would take the whole service worker down with it.
+ */
+const REFERENCE =
+  /["'`](\.{1,2}\/[^"'`\s)]+\.(?:js|css|wasm)|\/(?:assets\/[^"'`\s)]+|[^"'`\s)]+\.(?:js|css|wasm)))["'`]/gu;
+
 async function precacheApplication() {
   const cache = await caches.open(CACHE);
   const pending = [...SHELL];
@@ -31,10 +50,10 @@ async function precacheApplication() {
     const contentType = response.headers.get('content-type') ?? '';
     if (!/text|javascript|json/u.test(contentType)) continue;
     const text = await response.text();
-    for (const match of text.matchAll(
-      /["'`](\/(?:assets\/[^"'`\s)]+|[^"'`\s)]+\.(?:js|css|wasm)))["'`]/gu,
-    )) {
-      if (match[1]) pending.push(match[1]);
+    for (const match of text.matchAll(REFERENCE)) {
+      // Resolved against the file the reference was found in, so `./reader.js`
+      // inside /assets/index.js means /assets/reader.js and not /reader.js.
+      if (match[1]) pending.push(new URL(match[1], new URL(path, self.location.href)).pathname);
     }
   }
 }

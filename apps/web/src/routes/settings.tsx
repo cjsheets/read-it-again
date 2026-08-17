@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useApp, useWorkerData } from '../app-state.js';
 import type { PersistenceState } from '../durability.js';
+import { cameraSupported } from '../scanner.js';
 
 /** Nag once a shelf is worth losing, not on the first book. */
 const BACKUP_REMINDER_THRESHOLD = 5;
@@ -93,6 +94,8 @@ export function Settings() {
         )}
       </article>
 
+      <Experiments />
+
       <article className="settings-card" aria-labelledby="privacy-title">
         <h3 id="privacy-title">Privacy</h3>
         <p>
@@ -107,6 +110,38 @@ export function Settings() {
         </p>
       </article>
     </section>
+  );
+}
+
+/**
+ * Audit §8. Scanning is genuinely feasible in a browser, and it is also gated on a
+ * 100-book, six-device trial (§8.5) that has not been run. Shipping it here is how
+ * that trial becomes possible without betting every household's first impression
+ * on an untested hit rate — so it is opt-in, named as an experiment, and says what
+ * it does and does not do before anyone turns it on.
+ */
+function Experiments() {
+  const { scanningEnabled, setScanningEnabled } = useApp();
+  if (!cameraSupported()) return null;
+  return (
+    <article className="settings-card" aria-labelledby="experiments-title">
+      <h3 id="experiments-title">Experiments</h3>
+      <label className="toggle">
+        <input
+          type="checkbox"
+          data-testid="scanning-toggle"
+          checked={scanningEnabled}
+          onChange={(event) => setScanningEnabled(event.target.checked)}
+        />
+        <span>Scan barcodes with the camera</span>
+      </label>
+      <p className="model-note">
+        Adds a scan button to Add a book. It reads the ISBN off the barcode and checks it against
+        the books you already have. It cannot look up a title, because this app has no catalog — you
+        still type that in. The camera image never leaves this device, and typing the ISBN in works
+        just as well.
+      </p>
+    </article>
   );
 }
 

@@ -19,6 +19,7 @@
 const HAD_BOOKS = 'read-it-again:had-books';
 const READER_FILTER = 'read-it-again:reader-filter';
 const PERSIST_REQUESTED = 'read-it-again:persist-requested';
+const SCANNING = 'read-it-again:scanning';
 
 export type PersistenceState = 'persistent' | 'evictable' | 'unsupported';
 
@@ -107,4 +108,23 @@ export function readStoredReaderFilter(): string | null {
 export function storeReaderFilter(readerId: string | null): void {
   if (readerId === null) safeRemove(READER_FILTER);
   else safeSet(READER_FILTER, readerId);
+}
+
+/**
+ * Whether this device has opted in to camera scanning.
+ *
+ * Off by default, and device-local like the reader filter. The audit gates the
+ * feature on a 100-book, 6-device field trial (§8.5) that has not been run, so
+ * shipping it on by default would mean asking every household for camera
+ * permission on the strength of an untested guess about hit rates in real
+ * lighting. Opting in is cheap; a bad first impression of a reading tracker
+ * asking for the camera is not.
+ */
+export function readScanningEnabled(): boolean {
+  return safeGet(SCANNING) === 'yes';
+}
+
+export function storeScanningEnabled(enabled: boolean): void {
+  if (enabled) safeSet(SCANNING, 'yes');
+  else safeRemove(SCANNING);
 }

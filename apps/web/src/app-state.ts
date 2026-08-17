@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState } from 'react';
-import type { AttributionTriageItem } from '@read-it-again/storage-schema';
+import type { AttributionTriageItem, IsbnMatch } from '@read-it-again/storage-schema';
 import { requestWorker } from './client.js';
 import type { PersistenceState } from './durability.js';
 import type { Summary, WorkerRequestInput, WorkerResponse } from './protocol.js';
@@ -67,6 +67,16 @@ export interface AppState {
    *  and persisted, so a household member's view survives a reload. */
   readonly readerFilter: string | null;
   readonly setReaderFilter: (readerId: string | null) => void;
+  /** What the shelf is searching for. Lifted out of the Shelf component because a
+   *  scan that recognises a book needs to point the shelf at it. */
+  readonly shelfQuery: string;
+  readonly setShelfQuery: (query: string) => void;
+  /** Camera scanning is experimental and off by default; see `readScanningEnabled`. */
+  readonly scanningEnabled: boolean;
+  readonly setScanningEnabled: (enabled: boolean) => void;
+  /** Asks whether an ISBN is already on this shelf. One-shot rather than
+   *  `useWorkerData` because it answers a gesture, not a render. */
+  readonly lookupIsbn: (isbn: string) => Promise<IsbnMatch | null>;
   /** Bumped whenever a mutation lands, so destinations know to re-read. */
   readonly revision: number;
   readonly setArchivePassphrase: (value: string) => void;

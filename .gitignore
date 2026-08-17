@@ -4,6 +4,7 @@ dist/
 dist-types/
 coverage/
 playwright-report/
+.playwright-fixtures/
 test-results/
 secrets/
 backups/

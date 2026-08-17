@@ -1072,3 +1072,34 @@ h3 {
   line-height: 1.45;
   padding-left: 18px;
 }
+
+/* The scan surface. The preview is capped rather than filling the dialog: a
+   barcode is read from a band across the middle of the frame, and a full-bleed
+   video on a phone pushes the status line and the close button off screen. */
+.scan-preview {
+  width: 100%;
+  max-height: 45vh;
+  border-radius: var(--radius);
+  background: var(--ink);
+  object-fit: cover;
+}
+
+.scan-preview.is-hidden {
+  display: none;
+}
+
+.scan-button {
+  margin-bottom: 0.75rem;
+}
+
+.field-problem {
+  margin: 0;
+  color: var(--accent);
+  font-size: 0.9rem;
+}
+
+.toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}

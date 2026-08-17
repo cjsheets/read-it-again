@@ -1,6 +1,6 @@
 import { StrictMode, useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import type { AttributionTriageItem } from '@read-it-again/storage-schema';
+import type { AttributionTriageItem, IsbnMatch } from '@read-it-again/storage-schema';
 import { AppProvider, EMPTY_SUMMARY, type AppState, type ErrorState } from './app-state.js';
 import { requestWorker } from './client.js';
 import { ErrorBoundary } from './components/error-boundary.js';
@@ -9,10 +9,12 @@ import {
   clearWipeMarker,
   looksWiped,
   readPersistence,
+  readScanningEnabled,
   readStoredReaderFilter,
   rememberBooksExist,
   requestPersistenceOnce,
   storeReaderFilter,
+  storeScanningEnabled,
   type PersistenceState,
 } from './durability.js';
 import type { Summary, WorkerRequestInput, WorkerResponse } from './protocol.js';
@@ -50,6 +52,8 @@ function App() {
   const [readerFilter, setReaderFilterState] = useState<string | null>(() =>
     readStoredReaderFilter(),
   );
+  const [shelfQuery, setShelfQuery] = useState('');
+  const [scanningEnabled, setScanningEnabledState] = useState(() => readScanningEnabled());
   const [route, go] = useRoute();
 
   useEffect(() => {
@@ -72,6 +76,14 @@ function App() {
       storeReaderFilter(next);
       setReaderFilterState(next);
     },
+    shelfQuery,
+    setShelfQuery,
+    scanningEnabled,
+    setScanningEnabled: (enabled: boolean) => {
+      storeScanningEnabled(enabled);
+      setScanningEnabledState(enabled);
+    },
+    lookupIsbn,
     dismissWipeNotice: () => {
       clearWipeMarker();
       setWiped(false);
@@ -284,6 +296,11 @@ function App() {
       setStatus(`${String(workIds.length)} ${workIds.length === 1 ? 'book' : 'books'} filed.`);
     } else setError({ operation: 'decision', issues: response.issues ?? [response.message] });
     setBusy(false);
+  }
+
+  async function lookupIsbn(isbn: string): Promise<IsbnMatch | null> {
+    const response = await requestWorker({ type: 'findByIsbn', isbn });
+    return response.ok ? (response.isbnMatch ?? null) : null;
   }
 
   async function importCsvFile(file: File) {

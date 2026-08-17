@@ -13,6 +13,8 @@ export {
   saveCoverImage,
 } from './covers.js';
 export type { CoverImage, CoverSource } from './covers.js';
+export { findWorkByIsbn } from './isbn-lookup.js';
+export type { IsbnMatch } from './isbn-lookup.js';
 export { indexWorksForSearch, listShelf } from './shelf-query.js';
 export {
   archiveReader,

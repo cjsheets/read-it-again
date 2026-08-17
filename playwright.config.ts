@@ -1,4 +1,15 @@
+import { resolve } from 'node:path';
 import { defineConfig } from '@playwright/test';
+import { FIXTURE_VIDEO, writeBarcodeVideo, FIXTURE_ISBN } from './tests/browser/support/barcode.js';
+
+/**
+ * Chromium's fake camera is configured at launch, so the video has to exist
+ * before the browser starts — hence generating it here rather than in a fixture.
+ * `--use-fake-ui-for-media-stream` auto-grants the camera prompt; the scanner's
+ * refusal path is covered separately by denying the permission outright.
+ */
+const barcodeVideo = resolve(import.meta.dirname, FIXTURE_VIDEO);
+writeBarcodeVideo(FIXTURE_ISBN, barcodeVideo);
 
 export default defineConfig({
   testDir: './tests/browser',
@@ -29,5 +40,19 @@ export default defineConfig({
       reuseExistingServer: !process.env.CI,
     },
   ],
-  projects: [{ name: 'chromium', use: { browserName: 'chromium' } }],
+  projects: [
+    {
+      name: 'chromium',
+      use: {
+        browserName: 'chromium',
+        launchOptions: {
+          args: [
+            '--use-fake-device-for-media-stream',
+            '--use-fake-ui-for-media-stream',
+            `--use-file-for-fake-video-capture=${barcodeVideo}`,
+          ],
+        },
+      },
+    },
+  ],
 });
