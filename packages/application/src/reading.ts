@@ -8,6 +8,7 @@ import {
   inTransaction,
   saveReadingSession,
   saveWorkAssessment,
+  updateReadingSession,
   type Database,
   type ReadingModelView,
   type ReadingTrait,
@@ -131,14 +132,25 @@ export async function recordReadingSession(
     readonly idFactory?: () => string;
     readonly now?: () => Date;
   },
-): Promise<ReadingModelView> {
+): Promise<{ readonly sessionId: string; readonly model: ReadingModelView }> {
   const now = input.now ?? (() => new Date());
+  const sessionId = (input.idFactory ?? (() => crypto.randomUUID()))();
   await saveReadingSession(database, {
     ...input,
-    id: (input.idFactory ?? (() => crypto.randomUUID()))(),
+    id: sessionId,
     occurredAt: input.occurredAt ?? now().toISOString(),
     createdAt: now().toISOString(),
   });
+  // Returned so the UI can offer "logged — edit this" without a second lookup,
+  // which is what makes the one-tap default correctable (F-18).
+  return { sessionId, model: await getReadingModel(database) };
+}
+
+export async function reviseReadingSession(
+  database: Database,
+  input: Parameters<typeof updateReadingSession>[1],
+): Promise<ReadingModelView> {
+  await updateReadingSession(database, input);
   return getReadingModel(database);
 }
 

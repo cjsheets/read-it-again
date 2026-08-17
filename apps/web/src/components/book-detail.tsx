@@ -9,6 +9,15 @@ import { useCover } from './use-cover.js';
 
 type ShelfItem = ShelfEntry;
 
+type ReadingContext = 'bedtime' | 'daytime' | 'travel' | 'school' | 'other';
+const READING_CONTEXTS: readonly ReadingContext[] = [
+  'bedtime',
+  'daytime',
+  'travel',
+  'school',
+  'other',
+];
+
 /**
  * F-15. There was nowhere to see a book's provenance, metadata, episode history or
  * attribution evidence — all of which the schema stores richly, and none of which
@@ -27,7 +36,6 @@ export function BookDetail({
   readonly item: ShelfItem;
   readonly onClose: () => void;
 }) {
-  const { applyReadingChange } = useApp();
   const cover = useCover(item.workId, item.hasCover);
   const panel = useRef<HTMLDivElement>(null);
   // History is per-book and only needed while the drawer is open, so it is fetched
@@ -125,25 +133,126 @@ export function BookDetail({
 
         <WhyThisReader item={item} />
 
-        <div className="decision-actions detail-actions">
-          <button
-            type="button"
-            onClick={() =>
-              void applyReadingChange({
-                type: 'recordReadingSession',
-                householdId: item.householdId,
-                workId: item.workId,
-                participantIds: [item.personId],
-                durationMinutes: item.estimatedReadMinutes ?? undefined,
-                context: 'bedtime',
-              })
-            }
-          >
-            Log a reading
-          </button>
-        </div>
+        <LogReading item={item} />
       </div>
     </div>
+  );
+}
+
+/**
+ * F-18. One tap still logs in under a second — that instinct was right — but the
+ * session it writes is no longer final. Participants, context and date become
+ * editable immediately afterwards, so a book read to two children can record two,
+ * and last night can be logged this morning.
+ */
+function LogReading({ item }: { readonly item: ShelfItem }) {
+  const { summary, applyReadingChange, reviseSession } = useApp();
+  const [sessionId, setSessionId] = useState<string | null>(null);
+  const [participants, setParticipants] = useState<readonly string[]>([item.personId]);
+  const [context, setContext] = useState<ReadingContext>('bedtime');
+  const [when, setWhen] = useState(() => new Date().toISOString().slice(0, 10));
+
+  if (!sessionId) {
+    return (
+      <div className="decision-actions detail-actions">
+        <button
+          type="button"
+          data-testid="log-a-reading"
+          onClick={() =>
+            void applyReadingChange({
+              type: 'recordReadingSession',
+              householdId: item.householdId,
+              workId: item.workId,
+              participantIds: [item.personId],
+              durationMinutes: item.estimatedReadMinutes ?? undefined,
+              context: 'bedtime',
+            }).then(setSessionId)
+          }
+        >
+          Log a reading
+        </button>
+      </div>
+    );
+  }
+
+  const revise = (next: {
+    participants?: readonly string[];
+    context?: ReadingContext;
+    when?: string;
+  }) => {
+    const participantIds = next.participants ?? participants;
+    if (participantIds.length === 0) return;
+    void reviseSession({
+      type: 'reviseReadingSession',
+      sessionId,
+      participantIds,
+      // Keep the time of day already recorded; only the date is editable here.
+      occurredAt: new Date(`${next.when ?? when}T12:00:00`).toISOString(),
+      durationMinutes: item.estimatedReadMinutes ?? undefined,
+      context: next.context ?? context,
+    });
+  };
+
+  return (
+    <section className="detail-section" aria-labelledby={`logged-${item.workId}`}>
+      <h3 id={`logged-${item.workId}`}>Logged</h3>
+      <p className="model-note" data-testid="session-logged">
+        Recorded. Adjust it here if it was not quite like that.
+      </p>
+      <div className="session-edit">
+        <fieldset>
+          <legend>Who was there</legend>
+          {summary.readers.map((reader) => (
+            <label key={reader.id}>
+              <input
+                type="checkbox"
+                checked={participants.includes(reader.id)}
+                onChange={(event) => {
+                  const next = event.target.checked
+                    ? [...participants, reader.id]
+                    : participants.filter((id) => id !== reader.id);
+                  setParticipants(next);
+                  revise({ participants: next });
+                }}
+              />{' '}
+              {reader.displayName}
+            </label>
+          ))}
+        </fieldset>
+        <label>
+          When{' '}
+          <input
+            type="date"
+            aria-label="When it was read"
+            data-testid="session-date"
+            value={when}
+            onChange={(event) => {
+              setWhen(event.target.value);
+              revise({ when: event.target.value });
+            }}
+          />
+        </label>
+        <label>
+          Context{' '}
+          <select
+            aria-label="Reading context"
+            data-testid="session-context"
+            value={context}
+            onChange={(event) => {
+              const next = event.target.value as ReadingContext;
+              setContext(next);
+              revise({ context: next });
+            }}
+          >
+            {READING_CONTEXTS.map((option) => (
+              <option key={option} value={option}>
+                {option}
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
+    </section>
   );
 }
 

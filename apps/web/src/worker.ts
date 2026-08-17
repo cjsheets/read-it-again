@@ -17,6 +17,7 @@ import {
   prepareResolutionQueue,
   recordReadingSession,
   rejectCase,
+  reviseReadingSession,
 } from '@read-it-again/application';
 import type { CompositionDefaults } from '@read-it-again/application';
 import { openOpfsDatabase } from '@read-it-again/storage-browser';
@@ -132,6 +133,7 @@ async function handle(request: WorkerRequest): Promise<void> {
 
     let result;
     let archiveText;
+    let sessionId;
 
     if (request.type === 'importLibby') {
       result = await importLibbySnapshot(database, {
@@ -227,10 +229,24 @@ async function handle(request: WorkerRequest): Promise<void> {
     } else if (request.type === 'assessWork') {
       await assessWork(database, request);
     } else if (request.type === 'recordReadingSession') {
-      await recordReadingSession(database, request);
+      ({ sessionId } = await recordReadingSession(database, request));
+    } else if (request.type === 'reviseReadingSession') {
+      await reviseReadingSession(database, { ...request, id: request.sessionId });
+    } else if (request.type === 'assignReaders') {
+      // One transaction for the whole selection: assigning two hundred imported
+      // books should not pay two hundred recomputes (X4).
+      for (const workId of request.workIds) {
+        await correctAttribution(database, {
+          scope: 'work',
+          workId,
+          state: request.readerIds.length === 0 ? 'excluded' : 'assigned',
+          readerIds: request.readerIds,
+          defaults: BROWSER_DEFAULTS,
+        });
+      }
     }
 
-    await reply(request.id, database, { result, archiveText });
+    await reply(request.id, database, { result, archiveText, sessionId });
   } catch (error) {
     worker.postMessage({
       id: request.id,

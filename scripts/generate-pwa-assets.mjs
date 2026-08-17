@@ -9,12 +9,25 @@
 import { spawn } from 'node:child_process';
 import { readFile, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
-import { chromium } from '@playwright/test';
+import { chromium, expect } from '@playwright/test';
 
 const root = resolve(import.meta.dirname, '..');
 const publicDir = resolve(root, 'apps/web/public');
 const PREVIEW_PORT = 4176;
 const BRAND = '#24473b';
+
+/** Titles chosen to show the generated covers doing their job: varied lengths and
+ *  a spread of the eight hues. Nothing here is real user data. */
+const SAMPLE_BOOKS = [
+  ['The Gruffalo', 'Julia Donaldson'],
+  ['Where the Wild Things Are', 'Maurice Sendak'],
+  ['Owl Babies', 'Martin Waddell'],
+  ['Goodnight Moon', 'Margaret Wise Brown'],
+  ['The Very Hungry Caterpillar', 'Eric Carle'],
+  ['Each Peach Pear Plum', 'Janet Ahlberg'],
+  ['We Are Going on a Bear Hunt', 'Michael Rosen'],
+  ['Peace at Last', 'Jill Murphy'],
+];
 
 const icon = await readFile(resolve(publicDir, 'icon.svg'), 'utf8');
 const browser = await chromium.launch();
@@ -83,11 +96,13 @@ async function renderScreenshots() {
     for (const { file, width, height } of shots) {
       const page = await browser.newPage({ viewport: { width, height } });
       await page.goto(url);
-      await page.getByTestId('import-status').waitFor();
       await page
         .getByTestId('import-status')
         .filter({ hasNotText: 'Opening your private bookshelf…' })
         .waitFor();
+      // An install card showing "your shelf is empty" advertises nothing. Seed a
+      // few books so the screenshot shows the product: a shelf of covers.
+      await seedShelf(page);
       await writeFile(resolve(publicDir, file), await page.screenshot({ type: 'png' }));
       console.log(`wrote ${file} (${width}x${height})`);
       await page.close();
@@ -95,6 +110,20 @@ async function renderScreenshots() {
   } finally {
     preview.kill('SIGTERM');
   }
+}
+
+async function seedShelf(page) {
+  for (const [title, author] of SAMPLE_BOOKS) {
+    await page.getByTestId('nav-add').click();
+    await page.getByLabel('Book title').fill(title);
+    await page.getByLabel('Book author').fill(author);
+    await page.getByRole('button', { name: 'Add to bookshelf' }).click();
+    // The form clears when the worker round-trip resolves. React sets the value as
+    // a property, so a [value=""] selector would never match.
+    await expect(page.getByLabel('Book title')).toHaveValue('', { timeout: 30_000 });
+  }
+  await page.getByTestId('nav-shelf').click();
+  await page.getByTestId('shelf-card').first().waitFor();
 }
 
 async function waitForServer(url) {

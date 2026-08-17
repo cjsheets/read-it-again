@@ -113,6 +113,41 @@ export async function saveReadingSession(
   });
 }
 
+/**
+ * F-18. A session was written once with a hardcoded context, the current time and
+ * a single participant, and could never be corrected. The schema always supported
+ * five contexts, any date and multiple participants; only the write path did not.
+ */
+export async function updateReadingSession(
+  database: Database,
+  input: {
+    readonly id: string;
+    readonly participantIds: readonly string[];
+    readonly occurredAt: string;
+    readonly durationMinutes?: number;
+    readonly context?: 'bedtime' | 'daytime' | 'travel' | 'school' | 'other';
+  },
+): Promise<void> {
+  if (input.participantIds.length === 0)
+    throw new Error('A confirmed reading session needs at least one participant');
+  await inTransaction(database, async () => {
+    await database.run(
+      `UPDATE reading_sessions
+       SET occurred_at = ?, duration_minutes = ?, context = ?
+       WHERE id = ?`,
+      [input.occurredAt, input.durationMinutes ?? null, input.context ?? null, input.id],
+    );
+    await database.run('DELETE FROM reading_session_participants WHERE reading_session_id = ?', [
+      input.id,
+    ]);
+    for (const personId of [...new Set(input.participantIds)])
+      await database.run(
+        'INSERT INTO reading_session_participants (reading_session_id, person_id) VALUES (?, ?)',
+        [input.id, personId],
+      );
+  });
+}
+
 export async function saveWorkAssessment(
   database: Database,
   input: {

@@ -1,4 +1,4 @@
-import { useWorkerData } from '../app-state.js';
+import { useApp, useWorkerData } from '../app-state.js';
 import { AttributionCard, ResolutionCard } from '../components/review-cards.js';
 
 /**
@@ -11,6 +11,7 @@ import { AttributionCard, ResolutionCard } from '../components/review-cards.js';
  * with no catalog has nothing genuinely ambiguous to decide.
  */
 export function Tasks() {
+  const { summary, assignReaders } = useApp();
   const tasks = useWorkerData({ type: 'getTasks' }, (response) => response.tasks);
   if (!tasks) return <p className="model-note">Loading…</p>;
   const { resolutionQueue, attributionTriage } = tasks;
@@ -62,6 +63,43 @@ export function Tasks() {
               {attributionTriage.length} pending
             </span>
           </div>
+          {/* X4. Adding a second reader moves every automatically filed book here
+              at once (ADR 0012), so answering one book at a time is the same
+              per-book tax F-01 removed from importing. */}
+          {attributionTriage.length > 1 && (
+            <div className="decision-actions bulk-actions" data-testid="bulk-attribution">
+              <span className="model-note">All {attributionTriage.length}:</span>
+              {summary.readers.map((reader) => (
+                <button
+                  key={reader.id}
+                  type="button"
+                  data-testid={`file-all-${reader.id}`}
+                  onClick={() =>
+                    void assignReaders(
+                      attributionTriage.map((item) => item.workId),
+                      [reader.id],
+                    )
+                  }
+                >
+                  File all under {reader.displayName}
+                </button>
+              ))}
+              {summary.readers.length > 1 && (
+                <button
+                  type="button"
+                  data-testid="file-all-everyone"
+                  onClick={() =>
+                    void assignReaders(
+                      attributionTriage.map((item) => item.workId),
+                      summary.readers.map((reader) => reader.id),
+                    )
+                  }
+                >
+                  File all under everyone
+                </button>
+              )}
+            </div>
+          )}
           <ol className="resolution-list">
             {attributionTriage.map((item) => (
               <AttributionCard key={item.importRecordId} item={item} />

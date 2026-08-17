@@ -65,6 +65,7 @@ export {
   READING_TRAITS,
   saveReadingSession,
   saveWorkAssessment,
+  updateReadingSession,
 } from './reading.js';
 export type { ReadingModelView, ReadingTrait, SourceKind } from './reading.js';
 export {

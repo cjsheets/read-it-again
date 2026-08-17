@@ -38,7 +38,8 @@ export function Activity() {
                   <strong>{session.title}</strong> · {session.participantNames.join(', ')}
                   <br />
                   <small>
-                    {session.context} · {session.durationMinutes ?? '?'} min
+                    {new Date(session.occurredAt).toLocaleDateString()} · {session.context} ·{' '}
+                    {session.durationMinutes ?? '?'} min
                   </small>
                 </li>
               ))}

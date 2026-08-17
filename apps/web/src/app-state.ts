@@ -94,8 +94,19 @@ export interface AppState {
     state: 'assigned' | 'excluded',
     readerIds: readonly string[],
   ) => Promise<void>;
+  /** Resolves with the id of a session it just wrote, so the caller can offer an
+   *  immediate correction (F-18). */
   readonly applyReadingChange: (
     request: Extract<WorkerRequestInput, { type: 'assessWork' | 'recordReadingSession' }>,
+  ) => Promise<string | null>;
+  readonly reviseSession: (
+    request: Extract<WorkerRequestInput, { type: 'reviseReadingSession' }>,
+  ) => Promise<void>;
+  /** Assigns many books to readers at once, so cleaning up an import is a few
+   *  taps rather than one decision per book (X4). */
+  readonly assignReaders: (
+    workIds: readonly string[],
+    readerIds: readonly string[],
   ) => Promise<void>;
   /** Reassigns a book to one or more readers, superseding whatever decided it —
    *  automatic or human. This is ADR 0012's promised reversibility, and it has to

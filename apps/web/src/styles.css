@@ -587,8 +587,9 @@ h3 {
 }
 .cover-tile {
   /* Fixed height is what lets the grid be virtualized by arithmetic instead of
-     measurement. Matches ROW_HEIGHT in shelf.tsx. */
-  height: 296px;
+     measurement. Must fit a two-line title plus author plus rating, or the
+     caption is clipped — matches ROW_HEIGHT in shelf.tsx minus the row gap. */
+  height: 330px;
   overflow: hidden;
 }
 .shelf-controls {
@@ -678,6 +679,95 @@ h3 {
   color: var(--accent);
   letter-spacing: normal;
   margin-left: 8px;
+}
+
+/* ── Selection (X4) ─────────────────────────────────────────────────────── */
+.cover-tile {
+  position: relative;
+}
+.cover-select {
+  left: 8px;
+  position: absolute;
+  top: 8px;
+  z-index: 1;
+  /* Always present rather than hover-revealed: hover does not exist on a phone,
+     which is where a parent is most likely to be filing a batch of books. */
+  background: var(--surface);
+  border-radius: 6px;
+  box-shadow: 0 1px 4px rgb(54 43 29 / 30%);
+  display: grid;
+  height: 28px;
+  place-items: center;
+  width: 28px;
+}
+.cover-select input {
+  height: 18px;
+  width: 18px;
+}
+.cover-tile.is-selected .cover {
+  outline: 3px solid var(--brand);
+  outline-offset: 2px;
+}
+.selection-bar {
+  align-items: center;
+  background: var(--surface);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-pill);
+  bottom: 20px;
+  box-shadow: 0 10px 30px rgb(54 43 29 / 22%);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 16px;
+  left: 50%;
+  padding: 12px 20px;
+  position: fixed;
+  transform: translateX(-50%);
+  width: max-content;
+  max-width: calc(100% - 32px);
+  z-index: 15;
+}
+@media (max-width: 959px) {
+  .selection-bar {
+    bottom: calc(var(--bottom-bar) + 12px);
+  }
+}
+
+/* ── Session editing (F-18) ─────────────────────────────────────────────── */
+.session-edit {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 20px;
+}
+.session-edit fieldset {
+  border: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+}
+.session-edit legend {
+  color: var(--ink-muted);
+  font-size: 0.84rem;
+  padding: 0;
+}
+.session-edit label {
+  align-items: center;
+  display: inline-flex;
+  gap: 6px;
+  min-height: var(--tap);
+}
+.session-edit input[type='checkbox'] {
+  height: 24px;
+  width: 24px;
+}
+.session-edit input[type='date'],
+.session-edit select {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font: inherit;
+  min-height: var(--tap);
+  padding: 6px 8px;
 }
 
 /* ── Book detail ────────────────────────────────────────────────────────── */

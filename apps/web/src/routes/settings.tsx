@@ -187,8 +187,8 @@ function Readers() {
 
       {summary.readers.length === 1 && (
         <p className="model-note" data-testid="single-reader-note">
-          With one reader, books are filed automatically. Add a second and the app will start asking
-          who a book was for when it cannot tell.
+          With one reader, books are filed automatically. Add a second and the app stops guessing:
+          books it filed on its own move to Tasks to be sorted, where you can file them all at once.
         </p>
       )}
 

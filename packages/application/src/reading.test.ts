@@ -40,7 +40,7 @@ describe('reading model workflow', () => {
       idFactory,
       now: () => new Date('2026-08-13T12:01:00.000Z'),
     });
-    expect(withSession.sessions).toEqual([
+    expect(withSession.model.sessions).toEqual([
       expect.objectContaining({
         title: 'Moonlit Kite',
         durationMinutes: 9,
@@ -48,7 +48,7 @@ describe('reading model workflow', () => {
         participantNames: ['Child'],
       }),
     ]);
-    expect(withSession.checkouts).toHaveLength(4);
+    expect(withSession.model.checkouts).toHaveLength(4);
 
     const assessed = await assessWork(database, {
       workId: 'work',

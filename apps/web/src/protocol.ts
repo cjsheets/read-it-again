@@ -144,6 +144,24 @@ export type WorkerRequest =
       readonly participantIds: readonly string[];
       readonly durationMinutes?: number;
       readonly context: 'bedtime' | 'daytime' | 'travel' | 'school' | 'other';
+      readonly occurredAt?: string;
+    }
+  // F-18: a session used to be write-once with a hardcoded context, the current
+  // time and one participant. Correcting it is what makes one-tap logging safe.
+  | {
+      readonly id: string;
+      readonly type: 'reviseReadingSession';
+      readonly sessionId: string;
+      readonly participantIds: readonly string[];
+      readonly occurredAt: string;
+      readonly durationMinutes?: number;
+      readonly context: 'bedtime' | 'daytime' | 'travel' | 'school' | 'other';
+    }
+  | {
+      readonly id: string;
+      readonly type: 'assignReaders';
+      readonly workIds: readonly string[];
+      readonly readerIds: readonly string[];
     };
 
 export type WorkerRequestInput = WorkerRequest extends infer Request
@@ -186,6 +204,9 @@ export type WorkerResponse =
         readonly runs: readonly ImportRun[];
       };
       readonly readers?: readonly Reader[];
+      /** The session just written, so the UI can offer an inline correction
+       *  without a second lookup (F-18). */
+      readonly sessionId?: string;
     }
   | {
       readonly id: string;

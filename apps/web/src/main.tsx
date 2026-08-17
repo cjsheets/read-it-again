@@ -85,6 +85,8 @@ function App() {
     applyDecision,
     applyAttribution,
     applyReadingChange,
+    reviseSession,
+    assignReaders,
     reassignWork,
     manageReaders,
   };
@@ -248,12 +250,38 @@ function App() {
 
   async function applyReadingChange(
     request: Extract<WorkerRequestInput, { type: 'assessWork' | 'recordReadingSession' }>,
+  ): Promise<string | null> {
+    setBusy(true);
+    const response = await requestWorker(request);
+    let sessionId: string | null = null;
+    if (response.ok) {
+      adopt(response);
+      sessionId = response.sessionId ?? null;
+      setStatus(request.type === 'assessWork' ? 'Assessment saved.' : 'Confirmed session saved.');
+    } else setError({ operation: 'decision', issues: response.issues ?? [response.message] });
+    setBusy(false);
+    return sessionId;
+  }
+
+  async function reviseSession(
+    request: Extract<WorkerRequestInput, { type: 'reviseReadingSession' }>,
   ) {
     setBusy(true);
     const response = await requestWorker(request);
     if (response.ok) {
       adopt(response);
-      setStatus(request.type === 'assessWork' ? 'Assessment saved.' : 'Confirmed session saved.');
+      setStatus('Reading updated.');
+    } else setError({ operation: 'decision', issues: response.issues ?? [response.message] });
+    setBusy(false);
+  }
+
+  async function assignReaders(workIds: readonly string[], readerIds: readonly string[]) {
+    if (workIds.length === 0) return;
+    setBusy(true);
+    const response = await requestWorker({ type: 'assignReaders', workIds, readerIds });
+    if (response.ok) {
+      adopt(response);
+      setStatus(`${String(workIds.length)} ${workIds.length === 1 ? 'book' : 'books'} filed.`);
     } else setError({ operation: 'decision', issues: response.issues ?? [response.message] });
     setBusy(false);
   }

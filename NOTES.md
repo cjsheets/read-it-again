@@ -14,8 +14,7 @@
   prototype (§8.5) and is explicit that cover OCR is _not_ feasible in this architecture — only
   barcode scanning is. Cover storage and the file-picker path from Increment 5 are already in
   place, so X2 is mostly wiring the camera to `downscaleCover`.
-- **Still open from Increment 7:** X4 (multi-select and bulk actions) and X8 (Activity view with
-  editable participants, context and date, F-18). N4 — the F-03 headline — is done.
+- **Increment 7 is now complete:** X4 and X8 landed alongside N4.
 - **Known remaining performance gap:** adding one book to a 1000-book shelf takes ~3.9 s against a
   500 ms budget, because `recomputeAttributions` and `rebuildReadingModel` both re-derive the whole
   library on every write. ADR 0014 bounded the read path; making the write path incremental is a
@@ -361,3 +360,36 @@ Tests: 60 -> 68 browser and 68 -> 72 unit, including four unit tests for `listSh
 one-card-per-book grouping, reader filtering, archived-reader exclusion and normalised search.
 Those went in after the browser test disagreed with the query: the unit tests proved the SQL right
 and sent me looking at the UI, where both bugs actually were.
+
+Increment 7 addendum: X4, X8 and the stale install assets, all of which were outstanding before
+Increment 8 could start.
+
+X8 (F-18) makes a logged reading correctable. One tap still logs in under a second — that instinct
+was right — but the session it writes is no longer final: participants, context and date become
+editable immediately afterwards, so a book read to two children records two and last night can be
+logged this morning. `recordReadingSession` now returns the session id so the UI can offer the
+correction without a second lookup, and `updateReadingSession` is the append-safe write behind it.
+The schema always supported five contexts, any date and multiple participants; only the write path
+did not. Activity now shows the date of a session too, which it never did.
+
+X4 turned out to belong somewhere other than the audit's example suggested, and finding that out
+was the useful part. Writing the test surfaced a behaviour worth stating plainly: **adding a second
+reader empties the shelf.** Books the app filed on its own move to Tasks, because with two readers
+it genuinely no longer knows whose they are (ADR 0012). That is correct, and it is harsh — a parent
+adds a second child and their bookshelf disappears. So bulk filing exists in two places: a
+selection bar on the shelf for re-filing books already there, and "File all under X" in the Tasks
+queue, which is where the books actually are after that transition. Settings now says what adding
+a reader will do before you do it, rather than leaving it to be discovered.
+
+The install screenshots were regenerated and the generator improved: it seeds eight books first, so
+the install card shows a shelf of covers rather than "Your shelf is empty", which advertises
+nothing. Doing that exposed a real visual bug — a two-line title pushed the caption past the fixed
+tile height and clipped the rating line. Tile height and the virtualization row height are now in
+step at 330/350px.
+
+One unexplained test failure appeared in a single `pnpm check` immediately after the asset
+regeneration, and did not reproduce across four subsequent full runs. The likely cause is the
+Playwright preview server being reused while `dist` was rebuilt underneath it. Recorded here rather
+than left silent; if it recurs in CI it will name itself.
+
+Tests: 67 -> 72 browser. 72 unit unchanged.

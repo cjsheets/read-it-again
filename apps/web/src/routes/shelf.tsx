@@ -8,8 +8,8 @@ import { useCover } from '../components/use-cover.js';
 import { VirtualGrid, type AriaPosition, type GridWindow } from '../components/virtual-grid.js';
 import type { Route } from '../router.js';
 
-/** Cover height plus caption, matching `.cover-tile` in the stylesheet. */
-const ROW_HEIGHT = 316;
+/** Tile height plus the 20px row gap, matching `.cover-tile` in the stylesheet. */
+const ROW_HEIGHT = 350;
 const MIN_COLUMN = 150;
 /** Shelf pages are fetched in blocks of this size. */
 const PAGE = 60;
@@ -27,7 +27,8 @@ const SORTS: readonly { readonly value: ShelfSort; readonly label: string }[] = 
  * thousand books pays for a screenful rather than a library.
  */
 export function Shelf({ go }: { readonly go: (route: Route) => void }) {
-  const { summary, revision, readerFilter } = useApp();
+  const { summary, revision, readerFilter, assignReaders } = useApp();
+  const [selection, setSelection] = useState<readonly string[]>([]);
   const [query, setQuery] = useState('');
   const [sort, setSort] = useState<ShelfSort>('recent');
   const [openBook, setOpenBook] = useState<string | null>(null);
@@ -124,10 +125,30 @@ export function Shelf({ go }: { readonly go: (route: Route) => void }) {
               key={entry.workId}
               entry={entry}
               aria={aria}
+              selected={selection.includes(entry.workId)}
+              selecting={selection.length > 0}
+              onToggle={() =>
+                setSelection((current) =>
+                  current.includes(entry.workId)
+                    ? current.filter((id) => id !== entry.workId)
+                    : [...current, entry.workId],
+                )
+              }
               onOpen={() => setOpenBook(entry.workId)}
             />
           )}
         </VirtualGrid>
+      )}
+
+      {selection.length > 0 && (
+        <SelectionBar
+          count={selection.length}
+          readers={summary.readers}
+          onAssign={(readerIds) => {
+            void assignReaders(selection, readerIds).then(() => setSelection([]));
+          }}
+          onClear={() => setSelection([])}
+        />
       )}
 
       {selected && <BookDetail item={selected} onClose={() => setOpenBook(null)} />}
@@ -186,13 +207,69 @@ function useDebounced(value: string, delay: number): string {
   return settled;
 }
 
+/**
+ * X4. The audit's example is "assign 200 imported books to Ada". Without this the
+ * only route is opening each book in turn, which is the same per-book tax F-01
+ * removed from importing.
+ */
+function SelectionBar({
+  count,
+  readers,
+  onAssign,
+  onClear,
+}: {
+  readonly count: number;
+  readonly readers: readonly { readonly id: string; readonly displayName: string }[];
+  readonly onAssign: (readerIds: readonly string[]) => void;
+  readonly onClear: () => void;
+}) {
+  return (
+    <div
+      className="selection-bar"
+      role="region"
+      aria-label="Selected books"
+      data-testid="selection-bar"
+    >
+      <span data-testid="selection-count">
+        {count} {count === 1 ? 'book' : 'books'} selected
+      </span>
+      <div className="decision-actions">
+        {readers.map((reader) => (
+          <button
+            key={reader.id}
+            type="button"
+            data-testid={`bulk-assign-${reader.id}`}
+            onClick={() => onAssign([reader.id])}
+          >
+            File under {reader.displayName}
+          </button>
+        ))}
+        {readers.length > 1 && (
+          <button type="button" onClick={() => onAssign(readers.map((reader) => reader.id))}>
+            File under everyone
+          </button>
+        )}
+        <button type="button" data-testid="clear-selection" onClick={onClear}>
+          Cancel
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function ShelfTile({
   entry,
   aria,
+  selected,
+  selecting,
+  onToggle,
   onOpen,
 }: {
   readonly entry: ShelfEntry;
   readonly aria: AriaPosition;
+  readonly selected: boolean;
+  readonly selecting: boolean;
+  readonly onToggle: () => void;
   readonly onOpen: () => void;
 }) {
   const cover = useCover(entry.workId, entry.hasCover);
@@ -207,8 +284,22 @@ function ShelfTile({
   );
 
   return (
-    <li className="cover-tile" data-testid="shelf-card" {...aria}>
-      <button type="button" className="cover-button" onClick={onOpen}>
+    <li
+      className={selected ? 'cover-tile is-selected' : 'cover-tile'}
+      data-testid="shelf-card"
+      {...aria}
+    >
+      <label className="cover-select">
+        <input
+          type="checkbox"
+          aria-label={`Select ${entry.title}`}
+          checked={selected}
+          onChange={onToggle}
+        />
+      </label>
+      {/* While a selection exists the tile toggles rather than opens, so a
+          mis-tap adds a book instead of losing the selection to a drawer. */}
+      <button type="button" className="cover-button" onClick={selecting ? onToggle : onOpen}>
         <Cover
           workId={entry.workId}
           title={entry.title}
