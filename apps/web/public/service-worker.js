@@ -53,7 +53,13 @@ async function precacheApplication() {
     for (const match of text.matchAll(REFERENCE)) {
       // Resolved against the file the reference was found in, so `./reader.js`
       // inside /assets/index.js means /assets/reader.js and not /reader.js.
-      if (match[1]) pending.push(new URL(match[1], new URL(path, self.location.href)).pathname);
+      if (!match[1]) continue;
+      const reference = new URL(match[1], new URL(path, self.location.href)).pathname;
+      // Cache executable loaders before their wasm payloads. If a device drops
+      // offline while installation is still finishing, a cached binary without
+      // the JavaScript that starts it is not useful.
+      if (reference.endsWith('.wasm')) pending.push(reference);
+      else pending.unshift(reference);
     }
   }
 }
