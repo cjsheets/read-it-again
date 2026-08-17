@@ -214,6 +214,9 @@ export type WorkerResponse =
       /** The session just written, so the UI can offer an inline correction
        *  without a second lookup (F-18). */
       readonly sessionId?: string;
+      /** Manual entry reports whether it created a book or matched one already on
+       *  the shelf, so the UI never celebrates a no-op as a new addition. */
+      readonly manualCreated?: boolean;
     }
   | {
       readonly id: string;

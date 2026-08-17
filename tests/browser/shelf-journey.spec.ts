@@ -40,6 +40,21 @@ test.describe('every input path reaches the bookshelf', () => {
     expect(await pendingDecisions(page)).toBe(0);
   });
 
+  test('manual entry distinguishes a new book from one already on the shelf', async ({ page }) => {
+    await openApp(page);
+    await goTo(page, 'add');
+    await page.getByLabel('Book title').fill('The Paper Moon');
+    await page.getByLabel('Book author').fill('Rae Finch');
+    await page.getByRole('button', { name: 'Add to bookshelf' }).click();
+    await expect(page.getByTestId('add-confirmation')).toContainText('is on your shelf');
+
+    await page.getByLabel('Book title').fill('The Paper Moon');
+    await page.getByLabel('Book author').fill('Rae Finch');
+    await page.getByRole('button', { name: 'Add to bookshelf' }).click();
+    await expect(page.getByTestId('add-confirmation')).toContainText('was already on your shelf');
+    await expect(page.getByTestId('import-status')).toHaveText('Already on your shelf.');
+  });
+
   test('a CSV import ingests every row', async ({ page }) => {
     await openApp(page);
 

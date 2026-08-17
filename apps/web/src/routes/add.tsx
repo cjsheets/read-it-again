@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { isValidIsbn } from '@read-it-again/domain';
 import { useApp } from '../app-state.js';
 import { ScanDialog } from '../components/scan-dialog.js';
+import type { Route } from '../router.js';
 import { cameraSupported } from '../scanner.js';
 
 /**
@@ -10,7 +11,7 @@ import { cameraSupported } from '../scanner.js';
  * the journey that works for everyone, so it comes first; importing a file is a
  * power-user path, so it comes last.
  */
-export function Add() {
+export function Add({ go }: { readonly go: (route: Route) => void }) {
   const { busy, importCsvFile, importLibbyFile } = useApp();
   return (
     <section aria-labelledby="add-title">
@@ -21,7 +22,7 @@ export function Add() {
         </div>
       </div>
       <div className="tool-grid">
-        <TypeItIn />
+        <TypeItIn go={go} />
         <article>
           <h3>Import a spreadsheet</h3>
           <p>A CSV with title, author, ISBN, date, and format columns.</p>
@@ -63,12 +64,16 @@ export function Add() {
   );
 }
 
-function TypeItIn() {
-  const { busy, addBook, readerFilter, summary, scanningEnabled } = useApp();
+function TypeItIn({ go }: { readonly go: (route: Route) => void }) {
+  const { busy, addBook, readerFilter, summary, scanningEnabled, setShelfQuery } = useApp();
   const [title, setTitle] = useState('');
   const [author, setAuthor] = useState('');
   const [isbn, setIsbn] = useState('');
   const [scanning, setScanning] = useState(false);
+  const [confirmation, setConfirmation] = useState<{
+    readonly title: string;
+    readonly created: boolean;
+  } | null>(null);
   const titleField = useRef<HTMLInputElement>(null);
 
   // Landing on Add — from the nav, the manifest shortcut, or a deep link — should
@@ -107,6 +112,11 @@ function TypeItIn() {
             setScanning(false);
             titleField.current?.focus();
           }}
+          onShowShelf={(matchedTitle) => {
+            setShelfQuery(matchedTitle);
+            setScanning(false);
+            go('shelf');
+          }}
         />
       )}
       <form
@@ -114,15 +124,22 @@ function TypeItIn() {
         onSubmit={(event) => {
           event.preventDefault();
           if (isbnBad) return;
+          const submittedTitle = title.trim();
+          setConfirmation(null);
           void addBook({
             title,
             author: author || undefined,
             isbn: isbn || undefined,
             readerId: readerFilter,
-          }).then(() => {
+          }).then((result) => {
+            if (!result.ok) {
+              titleField.current?.focus();
+              return;
+            }
             setTitle('');
             setAuthor('');
             setIsbn('');
+            setConfirmation({ title: submittedTitle, created: result.created });
             // Keep the cursor here: this is the rapid-entry surface (P2, J5).
             titleField.current?.focus();
           });
@@ -169,6 +186,18 @@ function TypeItIn() {
         <button type="submit" disabled={busy || isbnBad}>
           Add to bookshelf
         </button>
+        {confirmation && (
+          <div className="add-confirmation" role="status" data-testid="add-confirmation">
+            <span>
+              {confirmation.created
+                ? `${confirmation.title} is on your shelf.`
+                : `${confirmation.title} was already on your shelf.`}
+            </span>
+            <button type="button" className="link-button" onClick={() => go('shelf')}>
+              View shelf
+            </button>
+          </div>
+        )}
       </form>
     </article>
   );

@@ -60,7 +60,7 @@ export async function importManualBook(
     readonly idFactory?: () => string;
     readonly now?: () => Date;
   },
-): Promise<{ readonly workId: string }> {
+): Promise<{ readonly workId: string; readonly created: boolean }> {
   const title = input.title.trim();
   if (!title) throw new Error('A title is required');
   const idFactory = input.idFactory ?? (() => crypto.randomUUID());
@@ -135,7 +135,7 @@ export async function importManualBook(
       now,
     });
     await rebuildReadingModel(database, { idFactory, now: () => new Date(now) });
-    return { workId };
+    return { workId, created: true };
   }
   await rebuildReadingModel(database, { idFactory, now: () => new Date(now) });
   const resolved = (
@@ -147,7 +147,7 @@ export async function importManualBook(
     )
   )[0];
   if (!resolved) throw new Error('Manual book resolution is missing');
-  return { workId: resolved.work_id };
+  return { workId: resolved.work_id, created: false };
 }
 
 export async function getHouseholdImportInbox(database: Database) {

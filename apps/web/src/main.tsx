@@ -107,7 +107,7 @@ function App() {
     <AppProvider value={state}>
       <Shell route={route} go={go}>
         {route === 'shelf' && <Shelf go={go} />}
-        {route === 'add' && <Add />}
+        {route === 'add' && <Add go={go} />}
         {route === 'activity' && <Activity />}
         {route === 'discover' && <Discover />}
         {route === 'tasks' && <Tasks />}
@@ -316,7 +316,11 @@ function App() {
     isbn?: string;
     readerId?: string | null;
   }) {
-    await applyBrowserOperation({ type: 'importManual', ...input, format: 'book' }, 'Book added.');
+    const response = await applyBrowserOperation(
+      { type: 'importManual', ...input, format: 'book' },
+      'Book added.',
+    );
+    return { ok: response !== null, created: response?.manualCreated ?? false };
   }
 
   async function importArchiveFile(file: File) {
@@ -349,14 +353,22 @@ function App() {
   async function applyBrowserOperation(
     request: Extract<WorkerRequestInput, { type: 'importCsv' | 'importManual' | 'importArchive' }>,
     success: string,
-  ) {
+  ): Promise<Extract<WorkerResponse, { readonly ok: true }> | null> {
     setBusy(true);
     setError(null);
     const response = await requestWorker(request);
     if (response.ok) {
       adopt(response);
       await settle(response.summary.recordCount);
-      setStatus(request.type === 'importCsv' ? importSummary(response.result) : success);
+      setStatus(
+        request.type === 'importCsv'
+          ? importSummary(response.result)
+          : request.type === 'importManual' && response.manualCreated === false
+            ? 'Already on your shelf.'
+            : success,
+      );
+      setBusy(false);
+      return response;
     } else {
       setError({
         operation: BROWSER_OPERATION_ERRORS[request.type],
@@ -365,6 +377,7 @@ function App() {
       setStatus('Nothing was changed.');
     }
     setBusy(false);
+    return null;
   }
 
   /** Books exist again, so any earlier loss has been made good — and a real add is

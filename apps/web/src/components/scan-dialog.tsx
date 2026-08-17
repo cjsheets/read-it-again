@@ -27,14 +27,16 @@ type Phase =
  */
 export function ScanDialog({
   onIsbn,
+  onShowShelf,
   onClose,
 }: {
   /** A scanned ISBN that is not on the shelf yet. The caller decides what to do
    *  with it; this dialog never writes anything. */
   readonly onIsbn: (isbn: string) => void;
+  readonly onShowShelf: (title: string) => void;
   readonly onClose: () => void;
 }) {
-  const { lookupIsbn, setShelfQuery } = useApp();
+  const { lookupIsbn } = useApp();
   const [phase, setPhase] = useState<Phase>({ step: 'starting' });
   const video = useRef<HTMLVideoElement>(null);
   const panel = useRef<HTMLDivElement>(null);
@@ -151,10 +153,7 @@ export function ScanDialog({
             type="button"
             className="primary"
             data-testid="scan-show-on-shelf"
-            onClick={() => {
-              setShelfQuery(phase.match.title);
-              onClose();
-            }}
+            onClick={() => onShowShelf(phase.match.title)}
           >
             Show it on the shelf
           </button>

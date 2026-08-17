@@ -139,6 +139,7 @@ async function handle(request: WorkerRequest): Promise<void> {
     let result;
     let archiveText;
     let sessionId;
+    let manualCreated;
 
     if (request.type === 'importLibby') {
       result = await importLibbySnapshot(database, {
@@ -162,6 +163,7 @@ async function handle(request: WorkerRequest): Promise<void> {
         sourceAccountId: MANUAL_SOURCE_ACCOUNT_ID,
         householdId: HOUSEHOLD_ID,
       });
+      manualCreated = manual.created;
       // Attributed to whoever the household is looking at, rather than a
       // hardcoded 'default-reader' (F-03). Falls back to the only active reader.
       const active = await listReaders(database);
@@ -251,7 +253,7 @@ async function handle(request: WorkerRequest): Promise<void> {
       }
     }
 
-    await reply(request.id, database, { result, archiveText, sessionId });
+    await reply(request.id, database, { result, archiveText, sessionId, manualCreated });
   } catch (error) {
     worker.postMessage({
       id: request.id,

@@ -90,7 +90,7 @@ export interface AppState {
     author?: string;
     isbn?: string;
     readerId?: string | null;
-  }) => Promise<void>;
+  }) => Promise<{ readonly ok: boolean; readonly created: boolean }>;
   readonly exportArchive: () => Promise<void>;
   readonly applyDecision: (
     request: Extract<
