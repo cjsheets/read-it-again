@@ -142,11 +142,14 @@ test.describe('scanning a barcode', () => {
           page.evaluate(async () => {
             const cache = await caches.open('read-it-again-shell-v1');
             const keys = await cache.keys();
-            return keys.filter((request) => /zxing_reader.*\.wasm$/u.test(request.url)).length;
+            return {
+              loader: keys.some((request) => /\/assets\/reader-.*\.js$/u.test(request.url)),
+              wasm: keys.some((request) => /zxing_reader.*\.wasm$/u.test(request.url)),
+            };
           }),
         { timeout: 30_000 },
       )
-      .toBe(1);
+      .toEqual({ loader: true, wasm: true });
 
     // One reload while still online, so the newly installed worker is actually
     // controlling the page. Without it the offline reload has nothing serving it.
