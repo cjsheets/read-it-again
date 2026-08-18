@@ -53,7 +53,13 @@ async function precacheApplication() {
     for (const match of text.matchAll(REFERENCE)) {
       // Resolved against the file the reference was found in, so `./reader.js`
       // inside /assets/index.js means /assets/reader.js and not /reader.js.
-      if (match[1]) pending.push(new URL(match[1], new URL(path, self.location.href)).pathname);
+      if (!match[1]) continue;
+      const reference = new URL(match[1], new URL(path, self.location.href)).pathname;
+      // Cache executable loaders before their wasm payloads. If a device drops
+      // offline while installation is still finishing, a cached binary without
+      // the JavaScript that starts it is not useful.
+      if (reference.endsWith('.wasm')) pending.push(reference);
+      else pending.unshift(reference);
     }
   }
 }
@@ -68,6 +74,13 @@ self.addEventListener('fetch', (event) => {
         void caches.open(CACHE).then((cache) => cache.put(event.request, copy));
         return response;
       })
-      .catch(() => caches.match(event.request).then((response) => response ?? caches.match('/'))),
+      .catch(() =>
+        // Vite's preview server adds `Vary: Origin`. The service worker fetch that
+        // fills the cache has no Origin header, while a later module import does.
+        // They are still the same immutable, same-origin asset.
+        caches
+          .match(event.request, { ignoreVary: true })
+          .then((response) => response ?? caches.match('/')),
+      ),
   );
 });
