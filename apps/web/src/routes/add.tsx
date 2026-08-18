@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { isValidIsbn } from '@read-it-again/domain';
+import { canonicalIsbn, isValidIsbn } from '@read-it-again/domain';
 import { useApp } from '../app-state.js';
 import { ScanDialog } from '../components/scan-dialog.js';
 import type { Route } from '../router.js';
@@ -30,11 +30,26 @@ export function Add({ go }: { readonly go: (route: Route) => void }) {
 }
 
 function TypeItIn({ go }: { readonly go: (route: Route) => void }) {
-  const { busy, addBook, readerFilter, summary, scanningEnabled, setShelfQuery } = useApp();
+  const {
+    busy,
+    addBook,
+    readerFilter,
+    summary,
+    scanningEnabled,
+    setShelfQuery,
+    catalogLookupEnabled,
+    lookupIsbnMetadata,
+  } = useApp();
   const [title, setTitle] = useState('');
   const [author, setAuthor] = useState('');
   const [isbn, setIsbn] = useState('');
   const [scanning, setScanning] = useState(false);
+  const [proposal, setProposal] = useState<{
+    readonly isbn: string;
+    readonly title: string;
+    readonly authors: readonly string[];
+  } | null>(null);
+  const [lookupState, setLookupState] = useState<'idle' | 'loading' | 'unavailable'>('idle');
   const [confirmation, setConfirmation] = useState<{
     readonly title: string;
     readonly created: boolean;
@@ -47,6 +62,42 @@ function TypeItIn({ go }: { readonly go: (route: Route) => void }) {
 
   // ISBN is optional, but a supplied value must have a valid check digit.
   const isbnBad = isbn.trim().length > 0 && !isValidIsbn(isbn);
+  const titleMissing = title.trim().length === 0;
+
+  const submitBook = (nextTitle: string, nextAuthor: string, nextIsbn: string) => {
+    const normalizedIsbn = canonicalIsbn(nextIsbn);
+    const displayTitle = nextTitle.trim() || `ISBN ${normalizedIsbn ?? nextIsbn.trim()}`;
+    setConfirmation(null);
+    void addBook({
+      title: displayTitle,
+      author: nextAuthor.trim() || undefined,
+      isbn: normalizedIsbn,
+      readerId: readerFilter,
+    }).then((result) => {
+      if (!result.ok) {
+        titleField.current?.focus();
+        return;
+      }
+      setTitle('');
+      setAuthor('');
+      setIsbn('');
+      setProposal(null);
+      setLookupState('idle');
+      setConfirmation({ title: displayTitle, created: result.created });
+      // Keep the cursor here: this is the rapid-entry surface (P2, J5).
+      titleField.current?.focus();
+    });
+  };
+
+  const lookUp = async (candidate: string) => {
+    setProposal(null);
+    setLookupState('loading');
+    const metadata = await lookupIsbnMetadata(candidate);
+    if (metadata) {
+      setProposal(metadata);
+      setLookupState('idle');
+    } else setLookupState('unavailable');
+  };
 
   return (
     <article>
@@ -66,10 +117,9 @@ function TypeItIn({ go }: { readonly go: (route: Route) => void }) {
         <ScanDialog
           onClose={() => setScanning(false)}
           onIsbn={(scanned) => {
-            // A scan yields an edition identifier and nothing else: there is no
-            // catalog to turn it into a title (ADR 0002). So it fills the field it
-            // can and hands the person back the one it cannot.
             setIsbn(scanned);
+            setProposal(null);
+            setLookupState('idle');
             setScanning(false);
             titleField.current?.focus();
           }}
@@ -84,33 +134,15 @@ function TypeItIn({ go }: { readonly go: (route: Route) => void }) {
         className="manual-form"
         onSubmit={(event) => {
           event.preventDefault();
-          if (isbnBad) return;
-          const submittedTitle = title.trim();
-          setConfirmation(null);
-          void addBook({
-            title,
-            author: author || undefined,
-            isbn: isbn || undefined,
-            readerId: readerFilter,
-          }).then((result) => {
-            if (!result.ok) {
-              titleField.current?.focus();
-              return;
-            }
-            setTitle('');
-            setAuthor('');
-            setIsbn('');
-            setConfirmation({ title: submittedTitle, created: result.created });
-            // Keep the cursor here: this is the rapid-entry surface (P2, J5).
-            titleField.current?.focus();
-          });
+          if (isbnBad || (titleMissing && !isbn.trim())) return;
+          submitBook(title, author, isbn);
         }}
       >
         <input
           aria-label="Book title"
           placeholder="Title"
           ref={titleField}
-          required
+          required={!isbn.trim()}
           value={title}
           onChange={(event) => setTitle(event.target.value)}
         />
@@ -127,12 +159,60 @@ function TypeItIn({ go }: { readonly go: (route: Route) => void }) {
           aria-invalid={isbnBad}
           aria-describedby={isbnBad ? 'isbn-problem' : undefined}
           value={isbn}
-          onChange={(event) => setIsbn(event.target.value)}
+          onChange={(event) => {
+            setIsbn(event.target.value);
+            setProposal(null);
+            setLookupState('idle');
+          }}
         />
         {isbnBad && (
           <p className="field-problem" id="isbn-problem" data-testid="isbn-problem">
             That is not a valid ISBN. Check for a mistyped digit, or leave it blank.
           </p>
+        )}
+        {catalogLookupEnabled && isbn.trim() && !isbnBad && (
+          <button
+            type="button"
+            disabled={busy || lookupState === 'loading'}
+            onClick={() => void lookUp(isbn)}
+          >
+            {lookupState === 'loading' ? 'Looking up…' : 'Look up this ISBN'}
+          </button>
+        )}
+        {lookupState === 'unavailable' && (
+          <p className="model-note" data-testid="isbn-lookup-unavailable">
+            No details came back. Type the title, or add without a title.
+          </p>
+        )}
+        {proposal && (
+          <aside className="isbn-confirm-card" data-testid="isbn-confirm-card">
+            <p className="model-note">Open Library suggests</p>
+            <h4>{proposal.title}</h4>
+            {proposal.authors.length > 0 && <p>{proposal.authors.join(', ')}</p>}
+            <div className="decision-actions">
+              <button
+                type="button"
+                className="primary"
+                disabled={busy}
+                onClick={() =>
+                  submitBook(proposal.title, proposal.authors.join(', '), proposal.isbn)
+                }
+              >
+                Use these details
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setTitle(proposal.title);
+                  setAuthor(proposal.authors.join(', '));
+                  setProposal(null);
+                  requestAnimationFrame(() => titleField.current?.focus());
+                }}
+              >
+                Edit them first
+              </button>
+            </div>
+          </aside>
         )}
         {summary.readers.length > 1 && (
           <p className="model-note" data-testid="add-for-reader">
@@ -144,8 +224,8 @@ function TypeItIn({ go }: { readonly go: (route: Route) => void }) {
             . Change with the reader switcher above.
           </p>
         )}
-        <button type="submit" disabled={busy || isbnBad}>
-          Add to bookshelf
+        <button type="submit" disabled={busy || isbnBad || (titleMissing && !isbn.trim())}>
+          {titleMissing && isbn.trim() && !isbnBad ? 'Add without a title' : 'Add to bookshelf'}
         </button>
         {confirmation && (
           <div className="add-confirmation" role="status" data-testid="add-confirmation">

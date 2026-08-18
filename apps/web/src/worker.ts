@@ -47,6 +47,7 @@ import {
 import type { Database } from '@read-it-again/storage-schema';
 import type { Summary, WorkerEvent, WorkerRequest, WorkerResponse } from './protocol.js';
 import { drainCatalogCoverQueue } from './catalog-cover.js';
+import { lookupCatalogMetadata } from './catalog-metadata.js';
 
 const SOURCE_ACCOUNT_ID = 'default-libby-source';
 const CSV_SOURCE_ACCOUNT_ID = 'default-csv-source';
@@ -127,9 +128,20 @@ async function handle(request: WorkerRequest): Promise<void> {
         return await reply(request.id, database, {
           readers: await listReaders(database, { includeArchived: true }),
         });
-      case 'setCatalogCovers':
-        await setCatalogCovers(database, request.enabled);
+      case 'setCatalogLookup':
+        await setCatalogLookup(database, request.enabled);
         return await reply(request.id, database, {});
+      case 'lookupIsbnMetadata': {
+        if (!catalogLookupEnabled) throw new Error('Open Library lookup permission is off.');
+        worker.postMessage({ type: 'catalogFetchActive', active: true } satisfies WorkerEvent);
+        try {
+          return await reply(request.id, database, {
+            isbnMetadata: await lookupCatalogMetadata(database, request.isbn),
+          });
+        } finally {
+          worker.postMessage({ type: 'catalogFetchActive', active: false } satisfies WorkerEvent);
+        }
+      }
       case 'findByIsbn':
         return await reply(request.id, database, {
           isbnMatch: await findWorkByIsbn(database, request.isbn),
@@ -286,11 +298,11 @@ async function handle(request: WorkerRequest): Promise<void> {
       }
     }
 
-    if (mayAddCoverCandidates && catalogCoversEnabled) {
+    if (mayAddCoverCandidates && catalogLookupEnabled) {
       await enqueueMissingCatalogCovers(database, new Date().toISOString());
     }
     await reply(request.id, database, { result, archiveText, sessionId, manualCreated });
-    if (mayAddCoverCandidates && catalogCoversEnabled) scheduleCoverDrain(database);
+    if (mayAddCoverCandidates && catalogLookupEnabled) scheduleCoverDrain(database);
   } catch (error) {
     worker.postMessage({
       id: request.id,
@@ -309,11 +321,11 @@ async function handle(request: WorkerRequest): Promise<void> {
  * says otherwise, so a message that never arrives means no requests rather than
  * silent ones — the failure mode has to be the private one.
  */
-let catalogCoversEnabled = false;
+let catalogLookupEnabled = false;
 
-async function setCatalogCovers(database: Database, enabled: boolean): Promise<void> {
-  if (enabled === catalogCoversEnabled) return;
-  catalogCoversEnabled = enabled;
+async function setCatalogLookup(database: Database, enabled: boolean): Promise<void> {
+  if (enabled === catalogLookupEnabled) return;
+  catalogLookupEnabled = enabled;
   if (!enabled) return;
   // Consent covers the shelf as it stands, not just books added from here on.
   await enqueueMissingCatalogCovers(database, new Date().toISOString());
@@ -321,7 +333,7 @@ async function setCatalogCovers(database: Database, enabled: boolean): Promise<v
 }
 
 function scheduleCoverDrain(database: Database): void {
-  if (!catalogCoversEnabled) return;
+  if (!catalogLookupEnabled) return;
   if (coverDrain) {
     coverDrainRequested = true;
     return;
@@ -333,10 +345,10 @@ function scheduleCoverDrain(database: Database): void {
     (workId) => {
       worker.postMessage({ type: 'catalogCoverStored', workId } satisfies WorkerEvent);
     },
-    { shouldContinue: () => catalogCoversEnabled },
+    { shouldContinue: () => catalogLookupEnabled },
   ).finally(() => {
     coverDrain = undefined;
-    if (coverDrainRequested && catalogCoversEnabled) scheduleCoverDrain(database);
+    if (coverDrainRequested && catalogLookupEnabled) scheduleCoverDrain(database);
     else worker.postMessage({ type: 'catalogFetchActive', active: false } satisfies WorkerEvent);
   });
 }

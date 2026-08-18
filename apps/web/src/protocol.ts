@@ -13,6 +13,7 @@ import type {
   ShelfSort,
   BookDetailVersion,
 } from '@read-it-again/storage-schema';
+import type { IsbnMetadata } from './catalog-metadata.js';
 
 /**
  * ADR 0014. Reads are separated from mutations and asked for by destination.
@@ -44,10 +45,10 @@ export type WorkerRequest =
   /** Whether a scanned or typed ISBN is already on the shelf. A read, because a
    *  scan must be able to say "you have this" without writing anything. */
   | { readonly id: string; readonly type: 'findByIsbn'; readonly isbn: string }
-  /** Grants or withdraws permission to fetch cover art from openlibrary.org. The
-   *  worker fetches nothing until this arrives with `enabled: true`, and stops
-   *  when it arrives with `false` — including mid-queue. */
-  | { readonly id: string; readonly type: 'setCatalogCovers'; readonly enabled: boolean }
+  /** Grants or withdraws permission to ask Open Library for covers and book
+   *  details. The worker starts false and fails closed. */
+  | { readonly id: string; readonly type: 'setCatalogLookup'; readonly enabled: boolean }
+  | { readonly id: string; readonly type: 'lookupIsbnMetadata'; readonly isbn: string }
   // ── Mutations ────────────────────────────────────────────────────────────
   | {
       readonly id: string;
@@ -230,6 +231,8 @@ export type WorkerResponse =
       /** null means the ISBN resolved to nothing on this device. Absent means the
        *  request was not a lookup at all. */
       readonly isbnMatch?: IsbnMatch | null;
+      /** A catalog proposal. It is never written until the parent confirms it. */
+      readonly isbnMetadata?: IsbnMetadata | null;
       /** The session just written, for an immediate inline correction. */
       readonly sessionId?: string;
       /** Manual entry reports whether it created a book or matched one already on

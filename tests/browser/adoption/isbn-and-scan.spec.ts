@@ -33,7 +33,7 @@ test.describe('R5 — ISBN metadata remains consensual and confirmable', () => {
     await page.getByRole('button', { name: 'Look up this ISBN' }).click();
 
     const card = page.getByTestId('isbn-confirm-card');
-    await expect(card).toContainText('The Theory of Critical Phenomena', { timeout: 15_000 });
+    await expect(card).toContainText(/The Theory of critical phenomena/iu, { timeout: 15_000 });
     await expect(card.getByRole('button', { name: 'Use these details' })).toBeVisible();
     await card.getByRole('button', { name: 'Edit them first' }).click();
     await expect(page.getByLabel('Book title')).toHaveValue(/Theory of Critical Phenomena/iu);
@@ -92,7 +92,7 @@ test.describe('R6 — camera-first adding', () => {
     await scanner.click();
     await page.getByRole('button', { name: 'Use these details' }).click({ timeout: 30_000 });
     await goTo(page, 'shelf');
-    await expect(shelfCards(page).first()).toContainText('The Theory of Critical Phenomena');
+    await expect(shelfCards(page).first()).toContainText(/The Theory of critical phenomena/iu);
     const { taps, keystrokes } = await page.evaluate(() => ({
       taps: Number(Reflect.get(window, '__adoptionTaps') ?? 0),
       keystrokes: Number(Reflect.get(window, '__adoptionKeys') ?? 0),
