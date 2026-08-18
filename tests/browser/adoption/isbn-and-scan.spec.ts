@@ -91,8 +91,6 @@ test.describe('R6 — camera-first adding', () => {
     await expect(scanner).toBeVisible();
     await scanner.click();
     await page.getByRole('button', { name: 'Use these details' }).click({ timeout: 30_000 });
-    await goTo(page, 'shelf');
-    await expect(shelfCards(page).first()).toContainText(/The Theory of critical phenomena/iu);
     const { taps, keystrokes } = await page.evaluate(() => ({
       taps: Number(Reflect.get(window, '__adoptionTaps') ?? 0),
       keystrokes: Number(Reflect.get(window, '__adoptionKeys') ?? 0),
@@ -100,6 +98,10 @@ test.describe('R6 — camera-first adding', () => {
 
     expect(taps).toBeLessThanOrEqual(3);
     expect(keystrokes).toBe(0);
+    await goTo(page, 'shelf');
+    await expect(shelfCards(page).first()).toContainText(
+      /The Theory\s*of\s*critical\s*phenomena/iu,
+    );
   });
 
   test('camera refusal leaves the named typed fallback reachable', async ({ page }) => {

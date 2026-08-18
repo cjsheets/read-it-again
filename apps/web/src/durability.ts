@@ -14,7 +14,7 @@
 const HAD_BOOKS = 'read-it-again:had-books';
 const READER_FILTER = 'read-it-again:reader-filter';
 const PERSIST_REQUESTED = 'read-it-again:persist-requested';
-const SCANNING = 'read-it-again:scanning';
+const LEGACY_SCANNING = 'read-it-again:scanning';
 // A new key is intentional. An earlier cover-only grant cannot silently become
 // permission to disclose an ISBN for bibliographic metadata (ADR 0017).
 const CATALOG_LOOKUP = 'read-it-again:catalog-lookup-v2';
@@ -108,18 +108,10 @@ export function storeReaderFilter(readerId: string | null): void {
   else safeSet(READER_FILTER, readerId);
 }
 
-/**
- * Whether this device has opted in to camera scanning.
- *
- * Off by default until the planned 100-book, six-device field test is complete.
- */
-export function readScanningEnabled(): boolean {
-  return safeGet(SCANNING) === 'yes';
-}
-
-export function storeScanningEnabled(enabled: boolean): void {
-  if (enabled) safeSet(SCANNING, 'yes');
-  else safeRemove(SCANNING);
+/** R6 made scanning a normal Add action. Remove the retired experiment flag so
+ * old installs do not carry a preference that no longer has any meaning. */
+export function clearLegacyScanningPreference(): void {
+  safeRemove(LEGACY_SCANNING);
 }
 
 /**

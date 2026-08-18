@@ -9,11 +9,8 @@ import {
   shelfCards,
 } from './support/shelf.js';
 
-/** Turning the experiment on is a deliberate act, so every scanning test starts
- *  by performing it rather than by reaching into storage. */
+/** Scanning is a normal Add action on camera-capable devices. */
 async function enableScanning(page: Page): Promise<void> {
-  await goTo(page, 'settings');
-  await page.getByTestId('scanning-toggle').check();
   await goTo(page, 'add');
   await expect(page.getByTestId('open-scanner')).toBeVisible();
 }
@@ -47,19 +44,10 @@ test.describe('typing an ISBN', () => {
 
 /** Runs the real EAN-13 decoder against Chromium's generated camera video. */
 test.describe('scanning a barcode', () => {
-  test('scanning is off until it is switched on', async ({ page }) => {
+  test('scanning is available without an experiment preference', async ({ page }) => {
     await openApp(page);
     await goTo(page, 'add');
-    await expect(page.getByTestId('open-scanner')).toHaveCount(0);
-
-    await goTo(page, 'settings');
-    await expect(page.getByTestId('scanning-toggle')).not.toBeChecked();
-    await page.getByTestId('scanning-toggle').check();
-
-    await goTo(page, 'add');
     await expect(page.getByTestId('open-scanner')).toBeVisible();
-
-    // Device-local and remembered, like the reader filter.
     await page.reload();
     await openApp(page);
     await goTo(page, 'add');
@@ -88,11 +76,11 @@ test.describe('scanning a barcode', () => {
     await expect(page.getByLabel('Book ISBN')).toHaveValue(FIXTURE_ISBN, { timeout: 30_000 });
     await expect(page.getByTestId('scan-dialog')).toHaveCount(0);
 
-    // There is no catalog to name it (ADR 0002), so the title is still the
-    // person's to supply — and the book must not appear until they have.
-    await expect(page.getByLabel('Book title')).toHaveValue('');
-    await page.getByLabel('Book title').fill('Structure and Interpretation');
-    await page.getByRole('button', { name: 'Add to bookshelf' }).click();
+    const proposal = page.getByTestId('isbn-confirm-card');
+    await expect(proposal).toContainText(/The Theory of critical phenomena/iu, {
+      timeout: 15_000,
+    });
+    await proposal.getByRole('button', { name: 'Use these details' }).click();
     await expect(page.getByTestId('import-status')).toHaveText('Book added.');
 
     // The scanned number is stored on the same work-level path as a typed or
@@ -109,15 +97,15 @@ test.describe('scanning a barcode', () => {
     // the same edition, and a lookup that only matched what it was handed would
     // put a second copy of this book on the shelf.
     await addBookManually(page, {
-      title: 'Structure and Interpretation',
+      title: 'The Theory of critical phenomena',
       author: 'Abelson and Sussman',
-      isbn: '0306406152',
+      isbn: '0198513933',
     });
     await enableScanning(page);
 
     await page.getByTestId('open-scanner').click();
     await expect(page.getByTestId('scan-status')).toHaveText(
-      'You already have this: Structure and Interpretation.',
+      'You already have this: The Theory of critical phenomena.',
       { timeout: 30_000 },
     );
     // Nothing was written, and the form was not filled in behind the dialog.
@@ -126,7 +114,7 @@ test.describe('scanning a barcode', () => {
     await page.getByTestId('scan-show-on-shelf').click();
     await expect(page.getByTestId('scan-dialog')).toHaveCount(0);
     await expect(page.getByTestId('nav-shelf')).toHaveAttribute('aria-current', 'page');
-    await expect(page.getByTestId('shelf-search')).toHaveValue('Structure and Interpretation');
+    await expect(page.getByTestId('shelf-search')).toHaveValue('The Theory of critical phenomena');
     await expect(shelfCards(page)).toHaveCount(1);
   });
 

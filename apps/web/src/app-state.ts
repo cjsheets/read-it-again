@@ -76,9 +76,6 @@ export interface AppState {
    *  scan that recognises a book needs to point the shelf at it. */
   readonly shelfQuery: string;
   readonly setShelfQuery: (query: string) => void;
-  /** Camera scanning is experimental and off by default; see `readScanningEnabled`. */
-  readonly scanningEnabled: boolean;
-  readonly setScanningEnabled: (enabled: boolean) => void;
   /** Whether cover and metadata lookups against Open Library are permitted. */
   readonly catalogLookupEnabled: boolean;
   readonly setCatalogLookupEnabled: (enabled: boolean) => void;
@@ -89,7 +86,10 @@ export interface AppState {
    *  `useWorkerData` because it answers a gesture, not a render. */
   readonly lookupIsbn: (isbn: string) => Promise<IsbnMatch | null>;
   /** Returns a proposal only; adding it remains a separate confirmation. */
-  readonly lookupIsbnMetadata: (isbn: string) => Promise<IsbnMetadata | null>;
+  readonly lookupIsbnMetadata: (
+    isbn: string,
+    options?: { readonly oneTimeConsent?: boolean },
+  ) => Promise<IsbnMetadata | null>;
   /** Bumped whenever a mutation lands, so destinations know to re-read. */
   readonly revision: number;
   readonly setArchivePassphrase: (value: string) => void;

@@ -35,7 +35,6 @@ function TypeItIn({ go }: { readonly go: (route: Route) => void }) {
     addBook,
     readerFilter,
     summary,
-    scanningEnabled,
     setShelfQuery,
     catalogLookupEnabled,
     lookupIsbnMetadata,
@@ -44,6 +43,7 @@ function TypeItIn({ go }: { readonly go: (route: Route) => void }) {
   const [author, setAuthor] = useState('');
   const [isbn, setIsbn] = useState('');
   const [scanning, setScanning] = useState(false);
+  const [scannedProposal, setScannedProposal] = useState(false);
   const [proposal, setProposal] = useState<{
     readonly isbn: string;
     readonly title: string;
@@ -53,6 +53,7 @@ function TypeItIn({ go }: { readonly go: (route: Route) => void }) {
   const [confirmation, setConfirmation] = useState<{
     readonly title: string;
     readonly created: boolean;
+    readonly scanned: boolean;
   } | null>(null);
   const titleField = useRef<HTMLInputElement>(null);
 
@@ -64,7 +65,7 @@ function TypeItIn({ go }: { readonly go: (route: Route) => void }) {
   const isbnBad = isbn.trim().length > 0 && !isValidIsbn(isbn);
   const titleMissing = title.trim().length === 0;
 
-  const submitBook = (nextTitle: string, nextAuthor: string, nextIsbn: string) => {
+  const submitBook = (nextTitle: string, nextAuthor: string, nextIsbn: string, scanned = false) => {
     const normalizedIsbn = canonicalIsbn(nextIsbn);
     const displayTitle = nextTitle.trim() || `ISBN ${normalizedIsbn ?? nextIsbn.trim()}`;
     setConfirmation(null);
@@ -83,18 +84,19 @@ function TypeItIn({ go }: { readonly go: (route: Route) => void }) {
       setIsbn('');
       setProposal(null);
       setLookupState('idle');
-      setConfirmation({ title: displayTitle, created: result.created });
+      setConfirmation({ title: displayTitle, created: result.created, scanned });
       // Keep the cursor here: this is the rapid-entry surface (P2, J5).
       titleField.current?.focus();
     });
   };
 
-  const lookUp = async (candidate: string) => {
+  const lookUp = async (candidate: string, oneTimeConsent = false) => {
     setProposal(null);
     setLookupState('loading');
-    const metadata = await lookupIsbnMetadata(candidate);
+    const metadata = await lookupIsbnMetadata(candidate, { oneTimeConsent });
     if (metadata) {
       setProposal(metadata);
+      setScannedProposal(oneTimeConsent);
       setLookupState('idle');
     } else setLookupState('unavailable');
   };
@@ -102,16 +104,21 @@ function TypeItIn({ go }: { readonly go: (route: Route) => void }) {
   return (
     <article>
       <h3>Type it in</h3>
-      {/* Scanning is opt-in until the field test is complete. */}
-      {scanningEnabled && cameraSupported() && (
-        <button
-          type="button"
-          className="scan-button"
-          data-testid="open-scanner"
-          onClick={() => setScanning(true)}
-        >
-          Scan a barcode
-        </button>
+      {cameraSupported() && (
+        <>
+          <button
+            type="button"
+            className="scan-button"
+            data-testid="open-scanner"
+            onClick={() => setScanning(true)}
+          >
+            Scan a barcode
+          </button>
+          <p className="model-note scan-disclosure">
+            Your camera stays on this device. After a scan, this one ISBN is sent to openlibrary.org
+            for suggested details.
+          </p>
+        </>
       )}
       {scanning && (
         <ScanDialog
@@ -119,9 +126,9 @@ function TypeItIn({ go }: { readonly go: (route: Route) => void }) {
           onIsbn={(scanned) => {
             setIsbn(scanned);
             setProposal(null);
-            setLookupState('idle');
+            setLookupState('loading');
             setScanning(false);
-            titleField.current?.focus();
+            void lookUp(scanned, true);
           }}
           onShowShelf={(matchedTitle) => {
             setShelfQuery(matchedTitle);
@@ -162,6 +169,7 @@ function TypeItIn({ go }: { readonly go: (route: Route) => void }) {
           onChange={(event) => {
             setIsbn(event.target.value);
             setProposal(null);
+            setScannedProposal(false);
             setLookupState('idle');
           }}
         />
@@ -195,7 +203,12 @@ function TypeItIn({ go }: { readonly go: (route: Route) => void }) {
                 className="primary"
                 disabled={busy}
                 onClick={() =>
-                  submitBook(proposal.title, proposal.authors.join(', '), proposal.isbn)
+                  submitBook(
+                    proposal.title,
+                    proposal.authors.join(', '),
+                    proposal.isbn,
+                    scannedProposal,
+                  )
                 }
               >
                 Use these details
@@ -237,6 +250,11 @@ function TypeItIn({ go }: { readonly go: (route: Route) => void }) {
             <button type="button" className="link-button" onClick={() => go('shelf')}>
               View shelf
             </button>
+            {confirmation.scanned && cameraSupported() && (
+              <button type="button" className="link-button" onClick={() => setScanning(true)}>
+                Scan another
+              </button>
+            )}
           </div>
         )}
       </form>

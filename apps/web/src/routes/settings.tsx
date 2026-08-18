@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { useApp, useWorkerData } from '../app-state.js';
 import { PrivacyCopy } from '../components/privacy-copy.js';
 import type { PersistenceState } from '../durability.js';
-import { cameraSupported } from '../scanner.js';
 
 /** Nag once a shelf is worth losing, not on the first book. */
 const BACKUP_REMINDER_THRESHOLD = 5;
@@ -95,39 +94,11 @@ export function Settings() {
 
       <CoverLookup />
 
-      <Experiments />
-
       <article className="settings-card" aria-labelledby="privacy-title">
         <h3 id="privacy-title">Privacy</h3>
         <PrivacyCopy />
       </article>
     </section>
-  );
-}
-
-/** Opt-in features that still need field testing. */
-function Experiments() {
-  const { scanningEnabled, setScanningEnabled } = useApp();
-  if (!cameraSupported()) return null;
-  return (
-    <article className="settings-card" aria-labelledby="experiments-title">
-      <h3 id="experiments-title">Experiments</h3>
-      <label className="toggle">
-        <input
-          type="checkbox"
-          data-testid="scanning-toggle"
-          checked={scanningEnabled}
-          onChange={(event) => setScanningEnabled(event.target.checked)}
-        />
-        <span>Scan barcodes with the camera</span>
-      </label>
-      <p className="model-note">
-        Adds a scan button to Add a book. It reads the ISBN off the barcode and checks it against
-        the books you already have. It cannot look up a title, because this app has no catalog — you
-        still type that in. The camera image never leaves this device, and typing the ISBN in works
-        just as well.
-      </p>
-    </article>
   );
 }
 

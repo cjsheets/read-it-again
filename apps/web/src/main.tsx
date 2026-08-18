@@ -6,17 +6,16 @@ import { onWorkerEvent, requestWorker } from './client.js';
 import { ErrorBoundary } from './components/error-boundary.js';
 import { Shell } from './components/shell.js';
 import {
+  clearLegacyScanningPreference,
   clearWipeMarker,
   looksWiped,
   readCatalogLookupEnabled,
   readPersistence,
-  readScanningEnabled,
   readStoredReaderFilter,
   rememberBooksExist,
   requestPersistenceOnce,
   storeCatalogLookupEnabled,
   storeReaderFilter,
-  storeScanningEnabled,
   type PersistenceState,
 } from './durability.js';
 import type { Summary, WorkerRequestInput, WorkerResponse } from './protocol.js';
@@ -57,7 +56,6 @@ function App() {
     readStoredReaderFilter(),
   );
   const [shelfQuery, setShelfQuery] = useState('');
-  const [scanningEnabled, setScanningEnabledState] = useState(() => readScanningEnabled());
   const [catalogLookupEnabled, setCatalogLookupEnabledState] = useState(() =>
     readCatalogLookupEnabled(),
   );
@@ -69,6 +67,7 @@ function App() {
   }, []);
 
   useEffect(() => {
+    clearLegacyScanningPreference();
     void refreshBookshelf();
     void readPersistence().then(setPersistence);
     // The worker fetches nothing until it is told it may, so tell it what this
@@ -101,11 +100,6 @@ function App() {
     },
     shelfQuery,
     setShelfQuery,
-    scanningEnabled,
-    setScanningEnabled: (enabled: boolean) => {
-      storeScanningEnabled(enabled);
-      setScanningEnabledState(enabled);
-    },
     catalogLookupEnabled,
     setCatalogLookupEnabled: (enabled: boolean) => {
       storeCatalogLookupEnabled(enabled);
@@ -389,8 +383,15 @@ function App() {
     return response.ok ? (response.isbnMatch ?? null) : null;
   }
 
-  async function lookupIsbnMetadata(isbn: string) {
-    const response = await requestWorker({ type: 'lookupIsbnMetadata', isbn });
+  async function lookupIsbnMetadata(
+    isbn: string,
+    options: { readonly oneTimeConsent?: boolean } = {},
+  ) {
+    const response = await requestWorker({
+      type: 'lookupIsbnMetadata',
+      isbn,
+      oneTimeConsent: options.oneTimeConsent,
+    });
     return response.ok ? (response.isbnMetadata ?? null) : null;
   }
 

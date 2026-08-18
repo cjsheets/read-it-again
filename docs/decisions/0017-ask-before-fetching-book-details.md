@@ -27,6 +27,11 @@ and **Edit them first** actions. Lookup never writes a work, edition, or metadat
 parent’s confirmation uses the existing manual-add path, preserving ADR 0004’s distinction between
 an ISBN observation and edition identity.
 
+The camera action is a narrower alternative grant. Copy beside **Scan a barcode** says that the one
+scanned ISBN will be sent to Open Library for suggested details. That tap permits only that metadata
+request. It does not enable the standing device permission, start the cover queue, or permit later
+typed lookups. This keeps the three-tap scan path possible without broadening a one-time gesture.
+
 Title and author hits, misses, and temporary failures are stored in the existing encrypted-backup
 HTTP cache. Metadata and cover requests share the same 3.1-second request clock and visible network
 activity indicator. Withdrawing permission prevents new work and stops the cover queue. Requests use
@@ -43,8 +48,9 @@ display label containing that ISBN. Typed title entry remains the complete offli
 Lookup improves the common current-edition path without making the app depend on it. Misses,
 placeholder records, offline use, and refusal all retain a usable typed or ISBN-only path.
 
-The permission is standing per device rather than repeated per request, for the reasons in ADR 0016.
-Whether real parents accept this disclosure remains human-only evidence.
+The Settings permission is standing per device rather than repeated per request, for the reasons in
+ADR 0016. The explicitly disclosed scan gesture is the one narrow exception. Whether real parents
+accept either disclosure remains human-only evidence.
 
 The R4 percentage must not be presented as household coverage. Bestsellers are better catalogued
 than older and less common physical editions, and every returned result still requires confirmation.
