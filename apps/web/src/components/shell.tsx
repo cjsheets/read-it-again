@@ -29,7 +29,8 @@ export function Shell({
   const destinations = DESTINATIONS.filter(
     (destination) =>
       (destination.id !== 'tasks' || tasks > 0) &&
-      (destination.id !== 'discover' || summary.recommendationCount > 0),
+      (destination.id !== 'discover' || summary.recommendationCount > 0) &&
+      (destination.id !== 'activity' || summary.readingCount > 0),
   );
   const passiveStatus =
     status === '' || status === 'No books imported yet.' || status === 'Bookshelf ready.';

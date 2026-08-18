@@ -20,6 +20,7 @@ export function VirtualGrid<T>({
   rowHeight,
   overscanRows = 2,
   onWindowChange,
+  trailingItem,
   children,
 }: {
   readonly total: number;
@@ -29,6 +30,8 @@ export function VirtualGrid<T>({
   readonly rowHeight: number;
   readonly overscanRows?: number;
   readonly onWindowChange: (window: GridWindow) => void;
+  /** An action tile that belongs after the final data item. `total` includes it. */
+  readonly trailingItem?: ReactNode;
   readonly children: (item: T, index: number, aria: AriaPosition) => ReactNode;
 }) {
   const viewport = useRef<HTMLDivElement>(null);
@@ -94,9 +97,11 @@ export function VirtualGrid<T>({
   // the window, which is the normal case, and using the window here would float
   // the grid at the wrong scroll position.
   const leadingRows = Math.floor(offset / layout.columns);
+  const showTrailingItem = trailingItem !== undefined && offset + items.length >= total - 1;
+  const renderedCount = items.length + (showTrailingItem ? 1 : 0);
   const trailingRows = Math.max(
     0,
-    totalRows - leadingRows - Math.ceil(items.length / layout.columns),
+    totalRows - leadingRows - Math.ceil(renderedCount / layout.columns),
   );
 
   return (
@@ -112,6 +117,7 @@ export function VirtualGrid<T>({
             'aria-posinset': offset + position + 1,
           }),
         )}
+        {showTrailingItem && trailingItem}
       </ul>
       <div style={{ height: trailingRows * rowHeight }} aria-hidden="true" />
     </div>
@@ -123,5 +129,5 @@ export interface AriaPosition {
   readonly 'aria-posinset': number;
 }
 
-/** Matches the 16px column gap in `.cover-grid`. */
-const GAP = 16;
+/** Matches the 8px column gap in `.cover-grid`. */
+const GAP = 8;

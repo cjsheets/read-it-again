@@ -47,6 +47,7 @@ export const EMPTY_SUMMARY: Summary = {
   recordCount: 0,
   taskCount: 0,
   recommendationCount: 0,
+  readingCount: 0,
   lastBackupAt: null,
   readers: [],
 };

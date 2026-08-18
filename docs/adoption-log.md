@@ -313,3 +313,31 @@ human-only evidence is not replaced with a synthetic proxy.
 - The synthetic head-on video proves wiring and reachability, not field reliability. The 100-book,
   six-device test remains outstanding, as do moderated parent sessions and real-device iOS Safari.
 - Five R7 adoption contracts and the final first-run budget harness remain.
+
+## R7 — a shelf that grows with the household
+
+### What changed
+
+- Shelves with at most 11 books now devote the screen to covers plus one final **Add another book**
+  tile. Search, sort, count and bulk-selection controls appear only from book 12 onward; bulk select
+  lives under a small **More** overflow.
+- The add confirmation now names an **Add another book** loop and returns focus to Title.
+- Shelf columns use an approximately 112px minimum with an 8px gutter, fitting three covers at the
+  375px mobile acceptance viewport while keeping virtual-grid arithmetic aligned with CSS.
+- Activity is absent from navigation until at least one reading session exists.
+
+### Acceptance result
+
+- Adoption suite before: **23 / 28 passing**.
+- Adoption suite after: **28 / 28 passing**. All five R7 contracts pass, and the complete adoption
+  suite passes together against the production preview.
+
+### Validation and blockers
+
+- Formatting, ESLint and TypeScript pass.
+- R7 focused tests pass **5 / 5**; the full adoption contract passes **28 / 28**.
+- Earlier R2/R3 checks were aligned with the new intentional visibility rules: status clearing uses
+  Settings rather than hidden Activity, and correction-search coverage builds a 12-book shelf.
+- The final first-run performance/accessibility harness and full `pnpm check` are still pending.
+- Human-only evidence remains the six-device barcode field test, moderated parent sessions, lookup
+  acceptance and real-device iOS Safari.

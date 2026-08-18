@@ -11,7 +11,7 @@ import type { Route } from '../router.js';
 
 /** Tile height plus the 20px row gap, matching `.cover-tile` in the stylesheet. */
 const ROW_HEIGHT = 350;
-const MIN_COLUMN = 150;
+const MIN_COLUMN = 112;
 /** Shelf pages are fetched in blocks of this size. */
 const PAGE = 60;
 
@@ -57,6 +57,7 @@ export function Shelf({ go }: { readonly go: (route: Route) => void }) {
 
   const total = page?.total ?? summary.bookCount;
   const filtered = readerFilter !== null;
+  const showManagement = summary.bookCount >= 12;
   const readerName = summary.readers.find((reader) => reader.id === readerFilter)?.displayName;
 
   if (!summaryReady && !searching && !filtered) return <ShelfSkeleton />;
@@ -74,48 +75,54 @@ export function Shelf({ go }: { readonly go: (route: Route) => void }) {
           <h2 id="shelf-title">Your bookshelf</h2>
           <p className="model-note">Every book this household has on the shelf.</p>
         </div>
-        <span className="count" data-testid="shelf-count">
-          {total} {total === 1 ? 'book' : 'books'}
-        </span>
+        {showManagement && (
+          <span className="count" data-testid="shelf-count">
+            {total} {total === 1 ? 'book' : 'books'}
+          </span>
+        )}
       </div>
 
-      <div className="shelf-controls">
-        <input
-          type="search"
-          aria-label="Search your bookshelf"
-          data-testid="shelf-search"
-          placeholder="Search title or author"
-          value={query}
-          onChange={(event) => setQuery(event.target.value)}
-        />
-        <label className="shelf-sort">
-          Sort{' '}
-          <select
-            aria-label="Sort the bookshelf"
-            data-testid="shelf-sort"
-            value={sort}
-            onChange={(event) => setSort(event.target.value as ShelfSort)}
-          >
-            {SORTS.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-        </label>
-        <button
-          type="button"
-          className="select-mode"
-          data-testid="selection-mode"
-          aria-pressed={selectionMode}
-          onClick={() => {
-            setSelectionMode((current) => !current);
-            setSelection([]);
-          }}
-        >
-          {selectionMode ? 'Done selecting' : 'Select books'}
-        </button>
-      </div>
+      {showManagement && (
+        <div className="shelf-controls">
+          <input
+            type="search"
+            aria-label="Search your bookshelf"
+            data-testid="shelf-search"
+            placeholder="Search title or author"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+          />
+          <label className="shelf-sort">
+            Sort{' '}
+            <select
+              aria-label="Sort the bookshelf"
+              data-testid="shelf-sort"
+              value={sort}
+              onChange={(event) => setSort(event.target.value as ShelfSort)}
+            >
+              {SORTS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <details className="shelf-more">
+            <summary>More</summary>
+            <button
+              type="button"
+              className="select-mode"
+              aria-pressed={selectionMode}
+              onClick={() => {
+                setSelectionMode((current) => !current);
+                setSelection([]);
+              }}
+            >
+              {selectionMode ? 'Done selecting' : 'Select books'}
+            </button>
+          </details>
+        </div>
+      )}
 
       {summary.taskCount > 0 && (
         <p className="shelf-tasks">
@@ -136,12 +143,24 @@ export function Shelf({ go }: { readonly go: (route: Route) => void }) {
         </div>
       ) : (
         <VirtualGrid
-          total={total}
+          total={total + 1}
           items={page?.entries ?? []}
           offset={page?.offset ?? 0}
           minColumnWidth={MIN_COLUMN}
           rowHeight={ROW_HEIGHT}
           onWindowChange={setWindow}
+          trailingItem={
+            <li
+              className="cover-tile add-book-tile"
+              aria-setsize={total + 1}
+              aria-posinset={total + 1}
+            >
+              <button type="button" onClick={() => go('add')}>
+                <span aria-hidden="true">+</span>
+                Add another book
+              </button>
+            </li>
+          }
         >
           {(entry, _index, aria) => (
             <ShelfTile
