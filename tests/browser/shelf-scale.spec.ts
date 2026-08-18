@@ -90,6 +90,8 @@ test.describe('searching the shelf', () => {
    *  articles, because someone typing "the gru" expects "The Gruffalo". */
   test('ignores punctuation, case and leading-article differences', async ({ page }) => {
     await openApp(page);
+    await importCsv(page, csvSnapshot(10, 'Filler'));
+    await expect(page.getByTestId('import-status')).toHaveText('Imported 10 new of 10 rows.');
     await importCsv(
       page,
       Buffer.from('Title,Author\nThe Gruffalo!,Julia Donaldson\nL’École,Anon\n'),
@@ -106,8 +108,8 @@ test.describe('searching the shelf', () => {
 
   test('says so plainly when nothing matches', async ({ page }) => {
     await openApp(page);
-    await importCsv(page, csvSnapshot(5));
-    await expect(page.getByTestId('import-status')).toHaveText('Imported 5 new of 5 rows.');
+    await importCsv(page, csvSnapshot(12));
+    await expect(page.getByTestId('import-status')).toHaveText('Imported 12 new of 12 rows.');
     await goTo(page, 'shelf');
 
     await page.getByTestId('shelf-search').fill('nothing here matches this');

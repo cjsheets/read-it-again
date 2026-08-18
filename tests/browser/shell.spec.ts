@@ -19,7 +19,6 @@ test.describe('app shell', () => {
 
     for (const [route, heading] of [
       ['add', 'Add a book'],
-      ['activity', 'Reading activity'],
       ['settings', 'Settings'],
     ] as const) {
       await goTo(page, route);
@@ -28,15 +27,16 @@ test.describe('app shell', () => {
 
     await expect(page.getByTestId('nav-discover')).toHaveCount(0);
     await expect(page.getByTestId('nav-tasks')).toHaveCount(0);
+    await expect(page.getByTestId('nav-activity')).toHaveCount(0);
   });
 
   test('a destination survives a reload and is shareable as a link', async ({ page }) => {
     await openApp(page);
-    await goTo(page, 'activity');
-    expect(new URL(page.url()).hash).toBe('#activity');
+    await goTo(page, 'settings');
+    expect(new URL(page.url()).hash).toBe('#settings');
 
     await page.reload();
-    await expect(page.getByRole('heading', { name: 'Reading activity', level: 2 })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Settings', level: 2 })).toBeVisible();
 
     // Deep-linking straight in works too, which is the point of routing at all.
     await page.goto(new URL('#discover', PRODUCTION_URL).href);
@@ -109,7 +109,7 @@ test.describe('error boundary', () => {
       };
     });
     // Any state change forces a re-render of the shelf.
-    await page.getByTestId('nav-activity').click();
+    await page.getByTestId('nav-add').click();
 
     await expect(page.getByTestId('crash')).toBeVisible();
     await expect(page.getByTestId('crash')).toContainText('Your books are still saved');

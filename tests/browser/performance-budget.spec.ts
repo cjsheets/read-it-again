@@ -49,7 +49,9 @@ for (const books of [500, 1000] as const) {
     // A bounded DOM only means something if the shelf was actually drawn.
     expect(measured.renderedTiles, 'rendered tiles').toBeGreaterThan(0);
     const rowCeiling =
-      Math.ceil(measured.books / Math.max(measured.columns, 1)) *
+      // The journey adds one real book after import, and R7 adds one final action
+      // tile. Both occupy grid cells even though only the former is a shelf book.
+      Math.ceil((measured.books + 2) / Math.max(measured.columns, 1)) *
         BUDGETS.documentHeightPixelsPerRow +
       BUDGETS.documentChromePixels;
     expect

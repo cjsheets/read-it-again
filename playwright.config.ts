@@ -14,6 +14,10 @@ writeBarcodeVideo(FIXTURE_ISBN, barcodeVideo);
 export default defineConfig({
   testDir: './tests/browser',
   fullyParallel: false,
+  // Performance claims use Chromium CPU throttling. Concurrent browser workers
+  // contend for the host CPU and turned the same cold-open mark from 360ms into
+  // 643ms, so the suite is serialized to keep those budgets reproducible.
+  workers: 1,
   retries: process.env.CI ? 2 : 0,
   // The HTML report carries the attached performance and axe JSON, so the budget
   // trend stays readable even while those tests are annotated expected-to-fail.
