@@ -201,3 +201,57 @@ human-only evidence is not replaced with a synthetic proxy.
 - Whether parents accept opt-in Open Library lookup.
 - Whether reading logs are the household's job or only duplicate-purchase checking is.
 - iOS Safari verification on a real device.
+
+## R4 — Open Library ISBN-to-title kill gate
+
+### Corpus and method
+
+- The repository contains no real ISBN corpus, and no household corpus was supplied at the
+  checkpoint. With explicit approval, the fallback uses **100 unique ISBNs** deduplicated from eight
+  seasonal Publishers Weekly **Children's Picture Books** bestseller lists spanning 2024–2025.
+- This is an **optimistic upper bound**, not a representative household result. Current bestsellers
+  are more likely to be catalogued than board books, hand-me-downs and older editions, so this
+  overstates real-world coverage.
+- Added `scripts/audit-openlibrary-isbn-coverage.mjs`; it is measurement tooling only and changes no
+  product code. It extracts the displayed title and edition ISBN from the published lists, then
+  queries the specified Open Library `api/books` endpoint.
+- The legacy endpoint accepts multiple `bibkeys`, so the audit used 10 requests of at most 10 ISBNs
+  rather than 100 separate requests. Results remain per ISBN, requests were spaced 1.1 seconds apart,
+  and responses were not stubbed.
+- “Recognizably correct” uses a recorded conservative rule: case/punctuation-insensitive equality,
+  one normalized title containing the other, or at least 70% shared normalized title tokens. All
+  three exceptions were inspected.
+
+### Gate result
+
+- Measured: **2026-08-18T14:09:41.151Z**.
+- Open Library record hits: **98 / 100 (98%)**.
+- Non-empty titles: **98 / 100 (98%)**.
+- Non-empty author lists: **98 / 100 (98%)**.
+- Recognizably correct titles: **97 / 100 (97%)**.
+- Exceptions:
+  - ISBN `9780593811252` returned the placeholder **Untitled RHBFYR 1252** instead of **Ms. Rachel
+    and the Special Surprise**;
+  - ISBN `9780593898642` (**100 First Words (Ms. Rachel)**) returned no record;
+  - ISBN `9798217024902` (**Hide and Seek with Herbie (Ms. Rachel)**) returned no record.
+- Gate threshold: **at least 70% usable titles**. Result: **PASS — proceed to R5**.
+
+### Validation, regressions and blockers
+
+- The corpus-only run produced exactly **100 / 100 unique ISBNs** before any Open Library request.
+- Script formatting, syntax and ESLint checks pass.
+- The literal `pnpm check` rerun passed formatting, ESLint, TypeScript and **86 / 86 unit tests**,
+  then reported **102 / 115 browser tests passing**. Its four production performance checks and all
+  87 pre-existing browser tests pass; exactly the 13 future R5–R7 contracts fail.
+- Because the browser step stops the command, production build and `pnpm check:web-boundary` were
+  rerun separately and pass. The boundary covers 29 source and 19 artifact files.
+- No application source, client boundary, schema, dependency or built artifact changed in R4.
+- The adoption suite remains **15 / 28 passing** by design: R4 is an evidence gate with no browser
+  behavior or adoption test of its own. Therefore the instruction that every release must strictly
+  increase adoption passes cannot apply literally to this required non-product checkpoint.
+- The incremental `pnpm check` contradiction recorded under R1 therefore remains: future R5–R7
+  contracts stay unskipped and red until implemented. No test was changed, skipped or excluded for
+  this gate.
+- This bestseller result does not resolve whether parents accept opt-in lookup, nor does it replace
+  the 100-book, six-device barcode field test. Both remain human-only evidence.
+- R5 has not been started. This is the required post-gate review pause.
