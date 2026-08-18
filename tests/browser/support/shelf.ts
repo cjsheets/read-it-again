@@ -89,7 +89,7 @@ export async function addBookManually(
   // The form clears and re-enables only once the worker round-trip resolves.
   // Without waiting, a following fill() is wiped by the previous add's reset.
   await expect(page.getByLabel('Book title')).toHaveValue('', options);
-  await expect(submit).toBeEnabled(options);
+  await expect(page.getByTestId('add-confirmation')).toBeVisible(options);
 }
 
 /** Imports an encrypted archive from Settings. */

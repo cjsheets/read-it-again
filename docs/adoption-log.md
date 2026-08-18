@@ -286,3 +286,30 @@ human-only evidence is not replaced with a synthetic proxy.
   literal green `pnpm check` remain pending until those releases land.
 - Human-only evidence remains unchanged: the six-device barcode field test, moderated parent
   sessions, acceptance of opt-in lookup and real-device iOS Safari verification.
+
+## R6 — camera to the front
+
+### What changed
+
+- Made **Scan a barcode** a normal action at the top of Add on camera-capable devices, removed the
+  Settings experiment and clears its retired local preference on existing installs.
+- Camera permission and the lazy decoder still begin only on the scan tap. Refused, absent and
+  already-shelved outcomes keep their named typed fallback and duplicate-safe shelf path.
+- A disclosure beside the scan action grants only the scanned ISBN's metadata request. It neither
+  enables standing Open Library permission nor starts cover traffic; ADR 0017 records the scope.
+- A successful scan produces the R5 confirmation card and offers **Scan another** after adding.
+
+### Acceptance result
+
+- Adoption suite before: **19 / 28 passing**.
+- Adoption suite after: **23 / 28 passing**. A cold scan reaches a correctly titled book in three
+  taps and zero keystrokes; camera refusal, camera absence and duplicate scans all pass.
+
+### Validation and blockers
+
+- Formatting, ESLint and TypeScript pass.
+- The combined metadata, scanner and camera acceptance run passes **15 / 15** using the real EAN-13
+  decoder. The production barcode payload budget also passes.
+- The synthetic head-on video proves wiring and reachability, not field reliability. The 100-book,
+  six-device test remains outstanding, as do moderated parent sessions and real-device iOS Safari.
+- Five R7 adoption contracts and the final first-run budget harness remain.

@@ -48,7 +48,14 @@ export type WorkerRequest =
   /** Grants or withdraws permission to ask Open Library for covers and book
    *  details. The worker starts false and fails closed. */
   | { readonly id: string; readonly type: 'setCatalogLookup'; readonly enabled: boolean }
-  | { readonly id: string; readonly type: 'lookupIsbnMetadata'; readonly isbn: string }
+  | {
+      readonly id: string;
+      readonly type: 'lookupIsbnMetadata';
+      readonly isbn: string;
+      /** The scan button discloses its one lookup beside the gesture without
+       *  changing the device-wide setting or starting cover requests. */
+      readonly oneTimeConsent?: boolean;
+    }
   // ── Mutations ────────────────────────────────────────────────────────────
   | {
       readonly id: string;

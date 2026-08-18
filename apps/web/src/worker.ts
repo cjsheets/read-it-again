@@ -132,7 +132,8 @@ async function handle(request: WorkerRequest): Promise<void> {
         await setCatalogLookup(database, request.enabled);
         return await reply(request.id, database, {});
       case 'lookupIsbnMetadata': {
-        if (!catalogLookupEnabled) throw new Error('Open Library lookup permission is off.');
+        if (!catalogLookupEnabled && !request.oneTimeConsent)
+          throw new Error('Open Library lookup permission is off.');
         worker.postMessage({ type: 'catalogFetchActive', active: true } satisfies WorkerEvent);
         try {
           return await reply(request.id, database, {
