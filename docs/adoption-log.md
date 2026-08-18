@@ -255,3 +255,34 @@ human-only evidence is not replaced with a synthetic proxy.
 - This bestseller result does not resolve whether parents accept opt-in lookup, nor does it replace
   the 100-book, six-device barcode field test. Both remain human-only evidence.
 - R5 has not been started. This is the required post-gate review pause.
+
+## R5 — consented ISBN metadata proposals
+
+### What changed
+
+- Expanded the device-local Open Library permission to cover both book details and covers, using a
+  new storage key so an earlier cover-only grant is not silently broadened.
+- Added a worker metadata lookup that shares the cover queue's 3.1-second courtesy clock, durable
+  HTTP cache and live network indicator. Hits, misses and temporary failures are cached.
+- Lookup results are proposals with **Use these details** and **Edit them first**; no result writes a
+  book until confirmed. Valid ISBNs can still be added offline without a title.
+- Consolidated the production CSP exception in `_headers` and recorded the decision in ADR 0017.
+- Corrected the real barcode fixture to ISBN `9780198513933`. Open Library identifies the former
+  fixture (`9780306406157`) as an unrelated communications textbook.
+
+### Acceptance result
+
+- Adoption suite before: **15 / 28 passing**.
+- Adoption suite after: **19 / 28 passing**. All four R5 contracts pass against production preview:
+  permission off produces zero metadata requests, permission on yields a confirmable proposal,
+  offline use retains the typed path, and an ISBN-only book remains identifiable.
+
+### Validation and blockers
+
+- Formatting, ESLint and TypeScript pass.
+- The focused R1/R5 production-browser suite passes **8 / 8**, including a real Open Library request
+  and real CSP enforcement. No network interception is used to prove permission or policy.
+- The remaining nine adoption contracts belong to R6 and R7. The full final budget harness and
+  literal green `pnpm check` remain pending until those releases land.
+- Human-only evidence remains unchanged: the six-device barcode field test, moderated parent
+  sessions, acceptance of opt-in lookup and real-device iOS Safari verification.

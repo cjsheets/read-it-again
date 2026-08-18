@@ -12,9 +12,9 @@ import { dirname } from 'node:path';
  * still needs a real-device field trial.
  */
 
-/** The ISBN the fake camera shows. 978-0-306-40615-7, whose check digit was
- *  worked out by hand in `packages/domain/src/isbn.test.ts`. */
-export const FIXTURE_ISBN = '9780306406157';
+/** The ISBN the fake camera shows. Open Library currently identifies
+ *  978-0-19-851393-3 as “The Theory of critical phenomena”. */
+export const FIXTURE_ISBN = '9780198513933';
 
 /** Where the generated video lands. Gitignored: it is a build product of the test
  *  suite, and a megabyte of pixels does not belong in source control. */

@@ -7,12 +7,11 @@ import {
   type Database,
 } from '@read-it-again/storage-schema';
 import { downscaleCoverBlob } from './components/downscale.js';
+import { waitForCatalogRequest } from './catalog-request.js';
 
 export type CatalogCoverResult = 'saved' | 'not_found' | 'no_isbn';
 
-const REQUEST_GAP_MS = 3_100;
 const FAILED_RETRY_MS = 24 * 60 * 60 * 1_000;
-let lastRequestAt = 0;
 
 /**
  * Fetches a queued cover once, then stores only the bounded local bytes. The
@@ -33,14 +32,12 @@ export async function fetchCatalogCover(
   const fetchImage = options.fetch ?? globalThis.fetch;
 
   for (const isbn of isbns) {
-    const wait = REQUEST_GAP_MS - (Date.now() - lastRequestAt);
-    if (wait > 0) await delay(wait);
+    await waitForCatalogRequest();
     const url = `https://covers.openlibrary.org/b/isbn/${encodeURIComponent(isbn)}-M.jpg?default=false`;
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 10_000);
     let response: Response;
     try {
-      lastRequestAt = Date.now();
       response = await fetchImage(url, {
         credentials: 'omit',
         mode: 'cors',
@@ -106,8 +103,4 @@ export async function drainCatalogCoverQueue(
       await finishCatalogCoverFetch(database, job.workId, 'failed', now().toISOString());
     }
   }
-}
-
-function delay(milliseconds: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, milliseconds));
 }

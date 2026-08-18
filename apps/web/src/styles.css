@@ -536,6 +536,21 @@ h3 {
   min-height: var(--tap);
   padding: 10px 12px;
 }
+.isbn-confirm-card {
+  background: #fffdf8;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+}
+.isbn-confirm-card h4,
+.isbn-confirm-card p {
+  margin-block: 0 8px;
+}
+.manual-form .isbn-confirm-card .decision-actions button:not(.primary) {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--brand);
+}
 .archive-actions {
   margin-top: 9px;
 }

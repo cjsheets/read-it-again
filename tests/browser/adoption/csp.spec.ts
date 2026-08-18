@@ -8,7 +8,7 @@ test.describe('R1 — one enforceable content security policy', () => {
     const response = await page.goto(PRODUCTION_URL);
 
     expect(response?.headers()['content-security-policy']).toContain(
-      "connect-src 'self' https://covers.openlibrary.org",
+      "connect-src 'self' https://covers.openlibrary.org https://openlibrary.org",
     );
   });
 

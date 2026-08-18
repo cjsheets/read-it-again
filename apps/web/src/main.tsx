@@ -8,13 +8,13 @@ import { Shell } from './components/shell.js';
 import {
   clearWipeMarker,
   looksWiped,
-  readCatalogCoversEnabled,
+  readCatalogLookupEnabled,
   readPersistence,
   readScanningEnabled,
   readStoredReaderFilter,
   rememberBooksExist,
   requestPersistenceOnce,
-  storeCatalogCoversEnabled,
+  storeCatalogLookupEnabled,
   storeReaderFilter,
   storeScanningEnabled,
   type PersistenceState,
@@ -58,8 +58,8 @@ function App() {
   );
   const [shelfQuery, setShelfQuery] = useState('');
   const [scanningEnabled, setScanningEnabledState] = useState(() => readScanningEnabled());
-  const [catalogCoversEnabled, setCatalogCoversEnabledState] = useState(() =>
-    readCatalogCoversEnabled(),
+  const [catalogLookupEnabled, setCatalogLookupEnabledState] = useState(() =>
+    readCatalogLookupEnabled(),
   );
   const [catalogFetchActive, setCatalogFetchActive] = useState(false);
   const [route, go] = useRoute();
@@ -74,7 +74,7 @@ function App() {
     // The worker fetches nothing until it is told it may, so tell it what this
     // device decided. Sent unconditionally, including `false`, so the answer is
     // always explicit rather than inferred from silence.
-    void requestWorker({ type: 'setCatalogCovers', enabled: readCatalogCoversEnabled() });
+    void requestWorker({ type: 'setCatalogLookup', enabled: readCatalogLookupEnabled() });
     return onWorkerEvent((event) => {
       if (event.type === 'catalogCoverStored') setRevision((current) => current + 1);
       if (event.type === 'catalogFetchActive') setCatalogFetchActive(event.active);
@@ -106,15 +106,16 @@ function App() {
       storeScanningEnabled(enabled);
       setScanningEnabledState(enabled);
     },
-    catalogCoversEnabled,
-    setCatalogCoversEnabled: (enabled: boolean) => {
-      storeCatalogCoversEnabled(enabled);
-      setCatalogCoversEnabledState(enabled);
+    catalogLookupEnabled,
+    setCatalogLookupEnabled: (enabled: boolean) => {
+      storeCatalogLookupEnabled(enabled);
+      setCatalogLookupEnabledState(enabled);
       if (!enabled) setCatalogFetchActive(false);
-      void requestWorker({ type: 'setCatalogCovers', enabled });
+      void requestWorker({ type: 'setCatalogLookup', enabled });
     },
     catalogFetchActive,
     lookupIsbn,
+    lookupIsbnMetadata,
     dismissWipeNotice: () => {
       clearWipeMarker();
       setWiped(false);
@@ -386,6 +387,11 @@ function App() {
   async function lookupIsbn(isbn: string): Promise<IsbnMatch | null> {
     const response = await requestWorker({ type: 'findByIsbn', isbn });
     return response.ok ? (response.isbnMatch ?? null) : null;
+  }
+
+  async function lookupIsbnMetadata(isbn: string) {
+    const response = await requestWorker({ type: 'lookupIsbnMetadata', isbn });
+    return response.ok ? (response.isbnMetadata ?? null) : null;
   }
 
   async function importCsvFile(file: File) {

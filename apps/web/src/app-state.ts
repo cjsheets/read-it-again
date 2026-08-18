@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useState } from 'react';
 import type { AttributionTriageItem, IsbnMatch } from '@read-it-again/storage-schema';
 import { requestWorker } from './client.js';
 import type { PersistenceState } from './durability.js';
+import type { IsbnMetadata } from './catalog-metadata.js';
 import type { Summary, WorkerRequestInput, WorkerResponse } from './protocol.js';
 
 /** Identifies the operation that produced an error message. */
@@ -78,15 +79,17 @@ export interface AppState {
   /** Camera scanning is experimental and off by default; see `readScanningEnabled`. */
   readonly scanningEnabled: boolean;
   readonly setScanningEnabled: (enabled: boolean) => void;
-  /** Whether cover lookups against openlibrary.org are permitted (ADR 0016). */
-  readonly catalogCoversEnabled: boolean;
-  readonly setCatalogCoversEnabled: (enabled: boolean) => void;
+  /** Whether cover and metadata lookups against Open Library are permitted. */
+  readonly catalogLookupEnabled: boolean;
+  readonly setCatalogLookupEnabled: (enabled: boolean) => void;
   /** True while the app is actually talking to openlibrary.org, so the indicator
    *  reflects live network activity rather than merely the setting. */
   readonly catalogFetchActive: boolean;
   /** Asks whether an ISBN is already on this shelf. One-shot rather than
    *  `useWorkerData` because it answers a gesture, not a render. */
   readonly lookupIsbn: (isbn: string) => Promise<IsbnMatch | null>;
+  /** Returns a proposal only; adding it remains a separate confirmation. */
+  readonly lookupIsbnMetadata: (isbn: string) => Promise<IsbnMetadata | null>;
   /** Bumped whenever a mutation lands, so destinations know to re-read. */
   readonly revision: number;
   readonly setArchivePassphrase: (value: string) => void;

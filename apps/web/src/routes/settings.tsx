@@ -105,6 +105,32 @@ export function Settings() {
   );
 }
 
+/** Opt-in features that still need field testing. */
+function Experiments() {
+  const { scanningEnabled, setScanningEnabled } = useApp();
+  if (!cameraSupported()) return null;
+  return (
+    <article className="settings-card" aria-labelledby="experiments-title">
+      <h3 id="experiments-title">Experiments</h3>
+      <label className="toggle">
+        <input
+          type="checkbox"
+          data-testid="scanning-toggle"
+          checked={scanningEnabled}
+          onChange={(event) => setScanningEnabled(event.target.checked)}
+        />
+        <span>Scan barcodes with the camera</span>
+      </label>
+      <p className="model-note">
+        Adds a scan button to Add a book. It reads the ISBN off the barcode and checks it against
+        the books you already have. It cannot look up a title, because this app has no catalog — you
+        still type that in. The camera image never leaves this device, and typing the ISBN in works
+        just as well.
+      </p>
+    </article>
+  );
+}
+
 function BringInBooks() {
   const { busy, importCsvFile, importLibbyFile } = useApp();
   return (
@@ -159,52 +185,27 @@ function BringInBooks() {
  * the two should not be answered by the same shrug.
  */
 function CoverLookup() {
-  const { catalogCoversEnabled, setCatalogCoversEnabled } = useApp();
+  const { catalogLookupEnabled, setCatalogLookupEnabled } = useApp();
   return (
     <article className="settings-card" aria-labelledby="covers-title">
-      <h3 id="covers-title">Cover art from the internet</h3>
+      <h3 id="covers-title">Book details and covers from the internet</h3>
       <label className="toggle">
         <input
           type="checkbox"
           data-testid="catalog-covers-toggle"
-          checked={catalogCoversEnabled}
-          onChange={(event) => setCatalogCoversEnabled(event.target.checked)}
+          checked={catalogLookupEnabled}
+          onChange={(event) => setCatalogLookupEnabled(event.target.checked)}
         />
-        <span>Look up covers on openlibrary.org</span>
+        <span>Look things up on openlibrary.org</span>
       </label>
       <p className="model-note">
         Off by default, and the only thing this app ever sends anywhere. When it is on, this device
-        asks <strong>covers.openlibrary.org</strong> for one book at a time, by ISBN — so that
-        service learns which books are on this shelf, and when you added them. No account, no name,
-        and no reading history is sent. Covers are downloaded once and kept on this device, so a
-        book is only ever asked about once. Turn it off and every request stops, including one
-        already part-way through the shelf; the covers already downloaded stay.
-      </p>
-    </article>
-  );
-}
-
-/** Opt-in features that still need field testing. */
-function Experiments() {
-  const { scanningEnabled, setScanningEnabled } = useApp();
-  if (!cameraSupported()) return null;
-  return (
-    <article className="settings-card" aria-labelledby="experiments-title">
-      <h3 id="experiments-title">Experiments</h3>
-      <label className="toggle">
-        <input
-          type="checkbox"
-          data-testid="scanning-toggle"
-          checked={scanningEnabled}
-          onChange={(event) => setScanningEnabled(event.target.checked)}
-        />
-        <span>Scan barcodes with the camera</span>
-      </label>
-      <p className="model-note">
-        Adds a scan button to Add a book. It reads the ISBN off the barcode and checks it against
-        the books you already have. It cannot look up a title, because this app has no catalog — you
-        still type that in. The camera image never leaves this device, and typing the ISBN in works
-        just as well.
+        asks <strong>openlibrary.org</strong> for a title and author when you choose lookup, and
+        asks <strong>covers.openlibrary.org</strong> for cover art. Both requests identify one book
+        by ISBN, so those services learn which book you asked about and when. No account, name, or
+        reading history is sent. Results are kept on this device so the same question is not sent
+        repeatedly. Turn it off and requests stop; details are still typed and covers already
+        downloaded stay.
       </p>
     </article>
   );
