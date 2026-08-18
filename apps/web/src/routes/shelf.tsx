@@ -64,7 +64,7 @@ export function Shelf({ go }: { readonly go: (route: Route) => void }) {
   // Only a genuinely empty household gets the first-run screen. A filter or a
   // search that matches nothing is a different situation and must say which.
   if (summary.bookCount === 0 && !searching && !filtered) {
-    return <FirstRun go={go} hasRecords={summary.recordCount > 0} />;
+    return <FirstRun go={go} hasTasks={summary.taskCount > 0} />;
   }
 
   return (
@@ -365,10 +365,10 @@ function ShelfTile({
 /** Empty-state copy for a household that has not added its first book. */
 function FirstRun({
   go,
-  hasRecords,
+  hasTasks,
 }: {
   readonly go: (route: Route) => void;
-  readonly hasRecords: boolean;
+  readonly hasTasks: boolean;
 }) {
   const [explaining, setExplaining] = useState(false);
   const explanationTrigger = useRef<HTMLButtonElement>(null);
@@ -381,7 +381,7 @@ function FirstRun({
     <>
       <section className="first-run" aria-labelledby="first-run-title" data-testid="first-run">
         <h2 id="first-run-title">Your shelf is empty</h2>
-        {hasRecords ? (
+        {hasTasks ? (
           <p>Some books came in but none are on the shelf yet. Check what needs a decision.</p>
         ) : (
           <p>
@@ -390,12 +390,8 @@ function FirstRun({
           </p>
         )}
         <div className="first-run-actions">
-          <button
-            type="button"
-            className="primary"
-            onClick={() => go(hasRecords ? 'tasks' : 'add')}
-          >
-            {hasRecords ? 'See what needs a decision' : 'Add your first book'}
+          <button type="button" className="primary" onClick={() => go(hasTasks ? 'tasks' : 'add')}>
+            {hasTasks ? 'See what needs a decision' : 'Add your first book'}
           </button>
         </div>
         <p className="first-run-privacy">

@@ -11,6 +11,7 @@ import type {
   ResolutionQueueItem,
   ShelfPage,
   ShelfSort,
+  BookDetailVersion,
 } from '@read-it-again/storage-schema';
 
 /**
@@ -38,6 +39,7 @@ export type WorkerRequest =
   | { readonly id: string; readonly type: 'getRecommendations' }
   | { readonly id: string; readonly type: 'getImportHistory' }
   | { readonly id: string; readonly type: 'getCover'; readonly workId: string }
+  | { readonly id: string; readonly type: 'getBookEdits'; readonly workId: string }
   | { readonly id: string; readonly type: 'listReaders' }
   /** Whether a scanned or typed ISBN is already on the shelf. A read, because a
    *  scan must be able to say "you have this" without writing anything. */
@@ -87,6 +89,19 @@ export type WorkerRequest =
       readonly height: number;
     }
   | { readonly id: string; readonly type: 'removeCover'; readonly workId: string }
+  | {
+      readonly id: string;
+      readonly type: 'saveBookDetails';
+      readonly workId: string;
+      readonly title: string;
+      readonly author: string;
+    }
+  | {
+      readonly id: string;
+      readonly type: 'setBookShelfState';
+      readonly workId: string;
+      readonly state: 'removed' | 'present';
+    }
   | { readonly id: string; readonly type: 'createReader'; readonly displayName: string }
   | {
       readonly id: string;
@@ -211,6 +226,7 @@ export type WorkerResponse =
         readonly runs: readonly ImportRun[];
       };
       readonly readers?: readonly Reader[];
+      readonly bookEdits?: readonly BookDetailVersion[];
       /** null means the ISBN resolved to nothing on this device. Absent means the
        *  request was not a lookup at all. */
       readonly isbnMatch?: IsbnMatch | null;

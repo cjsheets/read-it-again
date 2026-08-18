@@ -131,3 +131,73 @@ human-only evidence is not replaced with a synthetic proxy.
 - Whether parents accept opt-in Open Library lookup.
 - Whether reading logs are the household's job or only duplicate-purchase checking is.
 - iOS Safari verification on a real device.
+
+## R3 — correctable and recoverable books
+
+### What changed
+
+- Added **Edit details** for title and author in the book drawer. Saving appends a complete display
+  snapshot to `work_detail_edits`; it does not update the imported `works` or `editions` evidence.
+- Shelf, detail and the normalized search projection adopt the latest correction without a reload.
+  **Show edit history** keeps the original value and every later snapshot inspectable.
+- Added **Remove from shelf** without a confirm dialog. Removal appends a `removed` event, closes the
+  drawer and offers **Undo** in the existing live status region; Undo appends a `present` event.
+- The work ID never changes, so generated-cover color, stored covers, readings, ratings and source
+  history remain attached to the same book.
+- Shelf queries, summary counts and per-reader counts now omit a work whose latest shelf event is
+  `removed`. Removing the last book no longer points at Tasks unless a task actually exists.
+- Encrypted backups round-trip both new append-only tables. ADR 0018 records the overlay and soft-
+  removal decision; ADR 0017 remains reserved for R5's metadata lookup decision.
+- Updated the shared SQLite conformance assertion from 11 to 12 migrations. The first literal
+  `pnpm check` run caught that stale expectation; it was a real R3 miss, not classified as a future
+  test.
+
+### Acceptance result
+
+- Adoption suite before: **12 / 28 passing**.
+- Adoption suite after: **15 / 28 passing**. All three R3 checks pass:
+  - a correction updates drawer, shelf and search with no reload;
+  - the original value remains visible in edit history;
+  - removal disappears immediately and Undo restores the same work.
+- The remaining 13 failures are the unchanged R5, R6 and R7 contracts.
+
+### Validation and measurements
+
+- Formatting, ESLint and TypeScript: pass.
+- Unit tests: **86 / 86 pass**, including source preservation, edit history, shelf-event history and
+  encrypted-backup round trips.
+- Pre-existing browser tests: **87 / 87 pass**. The SQLite-WASM/OPFS conformance test reports all 12
+  migrations and persistent data.
+- Production build and `pnpm check:web-boundary`: pass; the boundary scan covers 29 source and 19
+  artifact files.
+- Existing production performance suite: **4 / 4 pass**.
+  - 1,000-book import: **2,366 ms** (R2: 2,359 ms).
+  - Add one book after that import: **217 ms** (R2: 229 ms).
+  - 1,000-book search: **189 ms** (R2 and AGENTS baseline: 189 ms and 187 ms respectively).
+  - DOM nodes: **773** (R2: 773; AGENTS baseline: 833).
+  - Barcode payload: **473,621 bytes gzip**, unchanged.
+- The main CSS artifact grew from 17.81 kB to 17.98 kB raw and from 4.25 kB to 4.31 kB gzip. The
+  main JavaScript artifact grew from 254.10 kB to 256.87 kB raw and from 78.03 kB to 78.59 kB gzip.
+  This is the measured cost of edit/history/removal UI and protocol handling; existing budgets pass.
+- The final first-run budget harness still has not landed, so cold-open, first-book, tap/keystroke
+  and log-a-reading timings remain unmeasured for this release.
+
+### Regressions and blockers
+
+- No behavior or scale regression appeared in the pre-existing automated suite. The overlay join
+  added 7 ms to this 1,000-row import sample and no measurable search change; these single-run
+  differences are too small to claim as either a regression or improvement.
+- The literal `pnpm check` command is red at the browser step with **102 / 115 passing** and therefore
+  does not reach build or boundary checks. Exactly the 13 deliberately unimplemented R5–R7 adoption
+  tests fail. Build and boundary were run separately and pass. The Phase 0/incremental-check
+  contradiction recorded under R1 remains unresolved; no future test was hidden, skipped or
+  excluded.
+- External deployment-header verification remains outstanding for the reason recorded under R1.
+
+### Human-only evidence still outstanding
+
+- 100-book, six-device barcode field test.
+- Moderated first-run sessions with real parents.
+- Whether parents accept opt-in Open Library lookup.
+- Whether reading logs are the household's job or only duplicate-purchase checking is.
+- iOS Safari verification on a real device.

@@ -47,6 +47,7 @@ function App() {
   const [summaryReady, setSummaryReady] = useState(false);
   const [revision, setRevision] = useState(0);
   const [status, setStatus] = useState('Opening your private bookshelf…');
+  const [undoAction, setUndoAction] = useState<{ readonly run: () => void } | null>(null);
   const [error, setError] = useState<ErrorState | null>(null);
   const [busy, setBusy] = useState(true);
   const [persistence, setPersistence] = useState<PersistenceState>('unsupported');
@@ -62,7 +63,10 @@ function App() {
   );
   const [catalogFetchActive, setCatalogFetchActive] = useState(false);
   const [route, go] = useRoute();
-  const clearStatus = useCallback(() => setStatus(''), []);
+  const clearStatus = useCallback(() => {
+    setStatus('');
+    setUndoAction(null);
+  }, []);
 
   useEffect(() => {
     void refreshBookshelf();
@@ -83,6 +87,7 @@ function App() {
     revision,
     status,
     clearStatus,
+    undoAction,
     error,
     busy,
     persistence,
@@ -126,6 +131,8 @@ function App() {
     reviseSession,
     assignReaders,
     reassignWork,
+    saveBookDetails: applyBookDetails,
+    removeBook,
     manageReaders,
   };
 
@@ -265,6 +272,56 @@ function App() {
       setStatus('Attribution correction saved.');
     } else setError({ operation: 'decision', issues: response.issues ?? [response.message] });
     setBusy(false);
+  }
+
+  async function applyBookDetails(input: {
+    readonly workId: string;
+    readonly title: string;
+    readonly author: string;
+  }): Promise<boolean> {
+    setBusy(true);
+    const response = await requestWorker({ type: 'saveBookDetails', ...input });
+    if (response.ok) {
+      adopt(response);
+      setUndoAction(null);
+      setStatus('Book details saved.');
+    } else setError({ operation: 'decision', issues: response.issues ?? [response.message] });
+    setBusy(false);
+    return response.ok;
+  }
+
+  async function removeBook(workId: string, title: string): Promise<boolean> {
+    setBusy(true);
+    const response = await requestWorker({ type: 'setBookShelfState', workId, state: 'removed' });
+    if (!response.ok) {
+      setError({ operation: 'decision', issues: response.issues ?? [response.message] });
+      setBusy(false);
+      return false;
+    }
+    adopt(response);
+    setStatus(`${title} removed from your shelf.`);
+    setUndoAction({
+      run: () => {
+        void (async () => {
+          setBusy(true);
+          const restored = await requestWorker({
+            type: 'setBookShelfState',
+            workId,
+            state: 'present',
+          });
+          if (restored.ok) {
+            adopt(restored);
+            setUndoAction(null);
+            setStatus(`${title} is back on your shelf.`);
+          } else {
+            setError({ operation: 'decision', issues: restored.issues ?? [restored.message] });
+          }
+          setBusy(false);
+        })();
+      },
+    });
+    setBusy(false);
+    return true;
   }
 
   async function manageReaders(
