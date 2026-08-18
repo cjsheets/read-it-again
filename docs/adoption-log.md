@@ -380,6 +380,10 @@ human-only evidence is not replaced with a synthetic proxy.
 - The next two full runs exposed a measurement error: a CPU-throttled test was competing with three
   other browsers. Raising the tolerance produced another failure and was reverted. Serializing the
   environment retained the original budget and produced the green definitive run.
+- GitHub's shared Linux runner remained slower than the Apple-host baseline when serialized: 814ms
+  cold-empty (1.86×) and about 320ms for add two (1.61×), consistently across all three retries. CI
+  therefore uses a 2× hardware-portable ceiling while local baseline runs retain 20%; exact taps,
+  keys, focus, target-size and overflow assertions are unchanged.
 
 ### Human-only evidence still outstanding
 
