@@ -49,9 +49,9 @@ test.describe('reader management', () => {
     await page.getByLabel('Name for Ada').blur();
     await expect(page.getByTestId('import-status')).toHaveText('Reader renamed.');
 
-    await readerRow(page, 'Ada B').getByRole('button', { name: 'Archive' }).click();
+    await readerRow(page, 'Ada B').getByRole('button', { name: 'Hide this reader' }).click();
     await expect(page.getByTestId('import-status')).toHaveText(
-      'Reader archived. Their history is kept.',
+      'Reader hidden. Their history is kept.',
     );
     await expect(page.getByTestId('reader-list').getByRole('listitem')).toHaveCount(1);
     // Archived, not deleted: the history that names them is still there.
@@ -66,20 +66,20 @@ test.describe('reader management', () => {
       .getByTestId('reader-list')
       .getByRole('listitem')
       .first()
-      .getByRole('button', { name: 'Archive' });
+      .getByRole('button', { name: 'Hide this reader' });
     await expect(archive).toBeDisabled();
   });
 
   test('an archived reader can be restored', async ({ page }) => {
     await openApp(page);
     await addReader(page, 'Kai');
-    const archive = readerRow(page, 'Kai').getByRole('button', { name: 'Archive' });
+    const archive = readerRow(page, 'Kai').getByRole('button', { name: 'Hide this reader' });
     await expect(archive).toBeEnabled();
     await archive.click();
     await expect(page.getByTestId('archived-readers')).toContainText('Kai');
 
-    await page.getByRole('button', { name: 'Restore' }).click();
-    await expect(page.getByTestId('import-status')).toHaveText('Reader restored.');
+    await page.getByRole('button', { name: 'Show again' }).click();
+    await expect(page.getByTestId('import-status')).toHaveText('Reader shown again.');
     // Back in the active list. Located by its labelled field, since the name is an
     // input value rather than text.
     await expect(readerRow(page, 'Kai')).toHaveCount(1);
@@ -195,9 +195,9 @@ test.describe('attribution with more than one reader', () => {
     await expect(page.getByRole('button', { name: 'For Ada', exact: true }).first()).toBeVisible();
 
     await goTo(page, 'settings');
-    await readerRow(page, 'Ada').getByRole('button', { name: 'Archive' }).click();
+    await readerRow(page, 'Ada').getByRole('button', { name: 'Hide this reader' }).click();
     await expect(page.getByTestId('import-status')).toHaveText(
-      'Reader archived. Their history is kept.',
+      'Reader hidden. Their history is kept.',
     );
 
     // One reader again, so there is nothing left to ask and no empty daily tab.

@@ -1,4 +1,4 @@
-import { StrictMode, useEffect, useState } from 'react';
+import { StrictMode, useCallback, useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import type { AttributionTriageItem, IsbnMatch } from '@read-it-again/storage-schema';
 import { AppProvider, EMPTY_SUMMARY, type AppState, type ErrorState } from './app-state.js';
@@ -32,8 +32,8 @@ import './styles.css';
 const READER_STATUS = {
   createReader: 'Reader added.',
   renameReader: 'Reader renamed.',
-  archiveReader: 'Reader archived. Their history is kept.',
-  restoreReader: 'Reader restored.',
+  archiveReader: 'Reader hidden. Their history is kept.',
+  restoreReader: 'Reader shown again.',
 } as const;
 
 const BROWSER_OPERATION_ERRORS = {
@@ -44,6 +44,7 @@ const BROWSER_OPERATION_ERRORS = {
 
 function App() {
   const [summary, setSummary] = useState<Summary>(EMPTY_SUMMARY);
+  const [summaryReady, setSummaryReady] = useState(false);
   const [revision, setRevision] = useState(0);
   const [status, setStatus] = useState('Opening your private bookshelf…');
   const [error, setError] = useState<ErrorState | null>(null);
@@ -61,6 +62,7 @@ function App() {
   );
   const [catalogFetchActive, setCatalogFetchActive] = useState(false);
   const [route, go] = useRoute();
+  const clearStatus = useCallback(() => setStatus(''), []);
 
   useEffect(() => {
     void refreshBookshelf();
@@ -77,8 +79,10 @@ function App() {
 
   const state: AppState = {
     summary,
+    summaryReady,
     revision,
     status,
+    clearStatus,
     error,
     busy,
     persistence,
@@ -142,6 +146,7 @@ function App() {
    *  when the change could have altered what they render. */
   function adopt(response: Extract<WorkerResponse, { ok: true }>, mutated = true): void {
     setSummary(response.summary);
+    setSummaryReady(true);
     if (mutated) setRevision((current) => current + 1);
   }
 
@@ -158,6 +163,7 @@ function App() {
       setError({ operation: 'inbox', issues: response.issues ?? [response.message] });
       setStatus('Could not open your bookshelf.');
     }
+    setSummaryReady(true);
     setBusy(false);
   }
 
@@ -170,9 +176,9 @@ function App() {
       if (isEncryptedArchive(rawText)) {
         setError({
           operation: 'wrongSlot',
-          issues: ['This file is an encrypted bookshelf archive, not a Libby timeline.'],
+          issues: ['This file is an encrypted bookshelf backup, not a Libby timeline.'],
         });
-        setStatus('Use Import archive under Settings.');
+        setStatus('Use Restore from a backup under Settings.');
         return;
       }
       const response = await requestWorker({ type: 'importLibby', rawText, fileName: file.name });
@@ -291,7 +297,7 @@ function App() {
     if (response.ok) {
       adopt(response);
       sessionId = response.sessionId ?? null;
-      setStatus(request.type === 'assessWork' ? 'Assessment saved.' : 'Confirmed session saved.');
+      setStatus(request.type === 'assessWork' ? 'Saved.' : 'Confirmed session saved.');
     } else setError({ operation: 'decision', issues: response.issues ?? [response.message] });
     setBusy(false);
     return sessionId;
@@ -348,7 +354,7 @@ function App() {
   async function importArchiveFile(file: File) {
     await applyBrowserOperation(
       { type: 'importArchive', encryptedText: await file.text(), passphrase: archivePassphrase },
-      'Encrypted archive restored.',
+      'Encrypted backup restored.',
     );
   }
 
@@ -364,10 +370,10 @@ function App() {
         response.archiveText,
         `read-it-again-${new Date().toISOString().slice(0, 10)}.ria-archive`,
       );
-      setStatus('Encrypted archive downloaded. Keep its passphrase separately.');
+      setStatus('Encrypted backup downloaded. Keep its password separately.');
     } else if (!response.ok) {
       setError({ operation: 'archiveExport', issues: response.issues ?? [response.message] });
-      setStatus('Archive export failed.');
+      setStatus('Backup export failed.');
     }
     setBusy(false);
   }

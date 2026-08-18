@@ -31,7 +31,9 @@ test.describe('every input path reaches the bookshelf', () => {
 
     await goTo(page, 'shelf');
     await expect(shelfCards(page)).toHaveCount(1);
-    await expect(shelfCards(page).filter({ hasText: 'The Paper Moon' })).toHaveCount(1);
+    await expect(
+      shelfCards(page).filter({ has: page.getByRole('button', { name: 'Open The Paper Moon' }) }),
+    ).toHaveCount(1);
     expect(await pendingDecisions(page)).toBe(0);
   });
 
@@ -128,12 +130,16 @@ test.describe('every input path reaches the bookshelf', () => {
 
     await importArchive(restoredPage, archive, PASSPHRASE);
     await expect(restoredPage.getByTestId('import-status')).toHaveText(
-      'Encrypted archive restored.',
+      'Encrypted backup restored.',
     );
 
     await goTo(restoredPage, 'shelf');
     await expect(shelfCards(restoredPage)).toHaveCount(3);
-    await expect(shelfCards(restoredPage).filter({ hasText: 'Cloud Boat' })).toHaveCount(1);
+    await expect(
+      shelfCards(restoredPage).filter({
+        has: restoredPage.getByRole('button', { name: 'Open Cloud Boat' }),
+      }),
+    ).toHaveCount(1);
     await restored.close();
   });
 });

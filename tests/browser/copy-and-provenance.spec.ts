@@ -15,7 +15,7 @@ test.describe('errors name the artefact they are about', () => {
   test('a bad passphrase does not blame the Libby file', async ({ page }) => {
     await openApp(page);
     await goTo(page, 'settings');
-    await page.getByLabel('Archive passphrase').fill('short');
+    await page.getByLabel('Backup password').fill('short');
     await page.getByRole('button', { name: 'Export encrypted backup' }).click();
 
     await expect(page.getByTestId('error-title')).toHaveText('That backup could not be created');
@@ -50,7 +50,7 @@ test.describe('errors name the artefact they are about', () => {
     // returns. Reading immediately can capture the *previous* error, which made
     // this pass locally and go flaky on slower CI hardware.
     await goTo(page, 'settings');
-    await page.getByLabel('Archive passphrase').fill('short');
+    await page.getByLabel('Backup password').fill('short');
     await page.getByRole('button', { name: 'Export encrypted backup' }).click();
     await expect(title).toHaveText('That backup could not be created');
 
@@ -78,7 +78,7 @@ test.describe('ratings distinguish unrated from middling', () => {
     // Scoped to the rating dials: the reader buttons legitimately use aria-pressed
     // to show which reader a book is filed under.
     await expect(detail.locator('.rating-buttons button[aria-pressed="true"]')).toHaveCount(0);
-    await expect(detail.getByRole('button', { name: 'Save assessment' })).toBeDisabled();
+    await expect(detail.getByRole('button', { name: 'Save', exact: true })).toBeDisabled();
   });
 
   test('saving becomes available once a rating is chosen, and persists', async ({ page }) => {
@@ -86,21 +86,21 @@ test.describe('ratings distinguish unrated from middling', () => {
     await addBookManually(page, { title: 'The Gruffalo', author: 'Julia Donaldson' });
 
     const detail = await openBook(page);
-    await detail.getByRole('button', { name: 'Child engagement: 3 of 3 — loved it' }).click();
-    const save = detail.getByRole('button', { name: 'Save assessment' });
+    await detail.getByRole('button', { name: 'Kid liked it: 3 of 3 — loved it' }).click();
+    const save = detail.getByRole('button', { name: 'Save', exact: true });
     await expect(save).toBeEnabled();
     await save.click();
-    await expect(page.getByTestId('import-status')).toHaveText('Assessment saved.');
+    await expect(page.getByTestId('import-status')).toHaveText('Saved.');
 
     await page.reload();
     const reloaded = await openBook(page);
     await expect(reloaded.getByTestId('rating-unset')).toHaveCount(0);
     await expect(
-      reloaded.getByRole('button', { name: 'Child engagement: 3 of 3 — loved it' }),
+      reloaded.getByRole('button', { name: 'Kid liked it: 3 of 3 — loved it' }),
     ).toHaveAttribute('aria-pressed', 'true');
     // Grown-up enjoyment was never touched, so it must still read as unset.
     await expect(
-      reloaded.getByRole('button', { name: 'Grown-up enjoyment: 2 of 3 — a lot' }),
+      reloaded.getByRole('button', { name: 'I liked it: 2 of 3 — a lot' }),
     ).toHaveAttribute('aria-pressed', 'false');
   });
 });

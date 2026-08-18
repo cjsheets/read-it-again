@@ -7,7 +7,6 @@ import { cameraSupported } from '../scanner.js';
 
 /** Entry points for manual books, barcode scans, and file imports. */
 export function Add({ go }: { readonly go: (route: Route) => void }) {
-  const { busy, importCsvFile, importLibbyFile } = useApp();
   return (
     <section aria-labelledby="add-title">
       <div className="section-heading">
@@ -18,43 +17,14 @@ export function Add({ go }: { readonly go: (route: Route) => void }) {
       </div>
       <div className="tool-grid">
         <TypeItIn go={go} />
-        <article>
-          <h3>Import a spreadsheet</h3>
-          <p>A CSV with title, author, ISBN, date, and format columns.</p>
-          <label className={busy ? 'file-button disabled' : 'file-button'}>
-            <span>Choose CSV file</span>
-            <input
-              data-testid="csv-file"
-              type="file"
-              accept="text/csv,.csv"
-              disabled={busy}
-              onChange={(event) => {
-                const file = event.currentTarget.files?.[0];
-                if (file) void importCsvFile(file);
-                event.currentTarget.value = '';
-              }}
-            />
-          </label>
-        </article>
-        <article>
-          <h3>Import a Libby timeline</h3>
-          <p>In Libby, choose Timeline → Export Timeline → Data (JSON).</p>
-          <label className={busy ? 'file-button disabled' : 'file-button'}>
-            <span>{busy ? 'Working…' : 'Choose JSON file'}</span>
-            <input
-              data-testid="libby-file"
-              type="file"
-              accept="application/json,.json"
-              disabled={busy}
-              onChange={(event) => {
-                const file = event.currentTarget.files?.[0];
-                if (file) void importLibbyFile(file);
-                event.currentTarget.value = '';
-              }}
-            />
-          </label>
-        </article>
       </div>
+      <p className="add-elsewhere model-note">
+        Have a list already?{' '}
+        <button type="button" className="link-button" onClick={() => go('settings')}>
+          Bring in books from elsewhere
+        </button>
+        .
+      </p>
     </section>
   );
 }

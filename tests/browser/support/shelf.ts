@@ -59,9 +59,9 @@ export function shelfCards(page: Page): Locator {
   return page.getByTestId('shelf-card');
 }
 
-/** Opens Add before selecting an import file. */
+/** Opens Settings before selecting a bulk-import file. */
 export async function importCsv(page: Page, contents: Buffer, name = 'books.csv'): Promise<void> {
-  await goTo(page, 'add');
+  await goTo(page, 'settings');
   await page
     .getByTestId('csv-file')
     .setInputFiles({ name, mimeType: 'text/csv', buffer: contents });
@@ -71,7 +71,7 @@ export async function importLibby(
   page: Page,
   file: string | { name: string; mimeType: string; buffer: Buffer },
 ): Promise<void> {
-  await goTo(page, 'add');
+  await goTo(page, 'settings');
   await page.getByTestId('libby-file').setInputFiles(file);
 }
 
@@ -95,7 +95,7 @@ export async function addBookManually(
 /** Imports an encrypted archive from Settings. */
 export async function exportArchive(page: Page, passphrase: string): Promise<Buffer> {
   await goTo(page, 'settings');
-  await page.getByLabel('Archive passphrase').fill(passphrase);
+  await page.getByLabel('Backup password').fill(passphrase);
   const downloadPromise = page.waitForEvent('download');
   await page.getByRole('button', { name: 'Export encrypted backup' }).click();
   const path = await (await downloadPromise).path();
@@ -109,7 +109,7 @@ export async function importArchive(
   passphrase: string,
 ): Promise<void> {
   await goTo(page, 'settings');
-  await page.getByLabel('Archive passphrase').fill(passphrase);
+  await page.getByLabel('Backup password').fill(passphrase);
   await page.getByTestId('archive-file').setInputFiles({
     name: 'backup.ria-archive',
     mimeType: 'application/json',

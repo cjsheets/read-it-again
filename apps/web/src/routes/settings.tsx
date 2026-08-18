@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useApp, useWorkerData } from '../app-state.js';
+import { PrivacyCopy } from '../components/privacy-copy.js';
 import type { PersistenceState } from '../durability.js';
 import { cameraSupported } from '../scanner.js';
 
@@ -30,11 +31,11 @@ export function Settings() {
       <article className="settings-card" aria-labelledby="backup-title">
         <h3 id="backup-title">Backup and restore</h3>
         <p>
-          A backup is an encrypted file you keep yourself. Use a memorable passphrase of at least 12
+          A backup is an encrypted file you keep yourself. Use a memorable password of at least 12
           characters; it is never stored, and without it the file cannot be read.
         </p>
         <input
-          aria-label="Archive passphrase"
+          aria-label="Backup password"
           type="password"
           minLength={12}
           autoComplete="new-password"
@@ -46,7 +47,7 @@ export function Settings() {
             Export encrypted backup
           </button>
           <label className={busy ? 'file-button disabled' : 'file-button'}>
-            <span>Import archive</span>
+            <span>Restore from a backup</span>
             <input
               data-testid="archive-file"
               type="file"
@@ -66,6 +67,8 @@ export function Settings() {
           bookCount={summary.recordCount}
         />
       </article>
+
+      <BringInBooks />
 
       <Readers />
 
@@ -96,25 +99,56 @@ export function Settings() {
 
       <article className="settings-card" aria-labelledby="privacy-title">
         <h3 id="privacy-title">Privacy</h3>
-        <p>
-          <strong>Your library stays in this browser.</strong> Your books, readers, ratings and
-          reading history are stored on this device and are never uploaded. There is no account and
-          no server holding them, which also means they cannot be recovered from one if this browser
-          loses them — hence the backup above.
-        </p>
-        <p>
-          One feature can reach the network, and only if you switch it on: cover lookup sends an
-          ISBN to <strong>covers.openlibrary.org</strong> to fetch a picture. That is described in
-          full under <em>Cover art from the internet</em>, it is off unless you turn it on, and
-          while it is running the app says so at the top of the screen.
-        </p>
-        <p className="model-note">
-          It cannot sign in to a library or read your borrowing history directly, because library
-          systems do not permit browser access. The local runtime does that work and hands the
-          results over in a backup.
-        </p>
+        <PrivacyCopy />
       </article>
     </section>
+  );
+}
+
+function BringInBooks() {
+  const { busy, importCsvFile, importLibbyFile } = useApp();
+  return (
+    <article className="settings-card" aria-labelledby="bring-in-title">
+      <h3 id="bring-in-title">Bring in books from elsewhere</h3>
+      <div className="bring-in-grid">
+        <div>
+          <h4>Spreadsheet</h4>
+          <p className="model-note">A CSV with title, author, ISBN, date, and format columns.</p>
+          <label className={busy ? 'file-button disabled' : 'file-button'}>
+            <span>Choose CSV file</span>
+            <input
+              data-testid="csv-file"
+              type="file"
+              accept="text/csv,.csv"
+              disabled={busy}
+              onChange={(event) => {
+                const file = event.currentTarget.files?.[0];
+                if (file) void importCsvFile(file);
+                event.currentTarget.value = '';
+              }}
+            />
+          </label>
+        </div>
+        <div>
+          <h4>Libby timeline</h4>
+          <p className="model-note">In Libby, choose Timeline → Export Timeline → Data (JSON).</p>
+          <label className={busy ? 'file-button disabled' : 'file-button'}>
+            <span>{busy ? 'Working…' : 'Choose JSON file'}</span>
+            <input
+              data-testid="libby-file"
+              type="file"
+              accept="application/json,.json"
+              disabled={busy}
+              onChange={(event) => {
+                const file = event.currentTarget.files?.[0];
+                if (file) void importLibbyFile(file);
+                event.currentTarget.value = '';
+              }}
+            />
+          </label>
+        </div>
+      </div>
+    </article>
   );
 }
 
@@ -217,7 +251,7 @@ function Readers() {
               title={active.length <= 1 ? 'A household needs at least one reader.' : undefined}
               onClick={() => void manageReaders({ type: 'archiveReader', personId: reader.id })}
             >
-              Archive
+              Hide this reader
             </button>
           </li>
         ))}
@@ -253,7 +287,7 @@ function Readers() {
 
       {archived.length > 0 && (
         <>
-          <h4>Archived</h4>
+          <h4>Hidden readers</h4>
           <p className="model-note">
             Their reading history is kept. Restoring brings them back to the switcher.
           </p>
@@ -269,7 +303,7 @@ function Readers() {
                   disabled={busy}
                   onClick={() => void manageReaders({ type: 'restoreReader', personId: reader.id })}
                 >
-                  Restore
+                  Show again
                 </button>
               </li>
             ))}

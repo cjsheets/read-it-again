@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { useEffect, useRef, type ReactNode } from 'react';
 import { ERROR_ACTIONS, ERROR_TITLES, useApp } from '../app-state.js';
 import { DESTINATIONS, type Route } from '../router.js';
 
@@ -15,6 +15,7 @@ export function Shell({
   const {
     summary,
     status,
+    clearStatus,
     error,
     wiped,
     dismissWipeNotice,
@@ -22,13 +23,26 @@ export function Shell({
     setReaderFilter,
     catalogFetchActive,
   } = useApp();
+  const previousRoute = useRef(route);
   const tasks = summary.taskCount;
   const destinations = DESTINATIONS.filter(
     (destination) =>
       (destination.id !== 'tasks' || tasks > 0) &&
       (destination.id !== 'discover' || summary.recommendationCount > 0),
   );
-  const passiveStatus = status === 'No books imported yet.' || status === 'Bookshelf ready.';
+  const passiveStatus =
+    status === '' || status === 'No books imported yet.' || status === 'Bookshelf ready.';
+
+  useEffect(() => {
+    if (previousRoute.current !== route) clearStatus();
+    previousRoute.current = route;
+  }, [clearStatus, route]);
+
+  useEffect(() => {
+    if (passiveStatus || status === 'Opening your private bookshelf…') return;
+    const timer = window.setTimeout(clearStatus, 6000);
+    return () => window.clearTimeout(timer);
+  }, [clearStatus, passiveStatus, status]);
 
   return (
     <div className="shell">

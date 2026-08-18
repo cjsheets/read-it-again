@@ -28,11 +28,11 @@ export const ERROR_TITLES: Readonly<Record<ErrorOperation, string>> = {
 
 export const ERROR_ACTIONS: Readonly<Partial<Record<ErrorOperation, string>>> = {
   libby: 'In Libby, choose Timeline → Export Timeline → Data (JSON), then try that file.',
-  wrongSlot: 'Use Import archive under Settings → Backup and restore, with its passphrase.',
+  wrongSlot: 'Use Restore from a backup under Settings → Backup and restore, with its password.',
   csv: 'The first row must name the columns, and one of them must be a title.',
-  archiveExport: 'Choose a passphrase of at least 12 characters, then export again.',
+  archiveExport: 'Choose a password of at least 12 characters, then export again.',
   archiveImport:
-    'Enter the passphrase you chose when you exported this backup, then pick the file again.',
+    'Enter the password you chose when you exported this backup, then pick the file again.',
   inbox: 'Reload the page. If it keeps happening, this browser may be blocking local storage.',
 };
 
@@ -57,7 +57,10 @@ export const EMPTY_SUMMARY: Summary = {
  */
 export interface AppState {
   readonly summary: Summary;
+  /** False only until the worker has answered the first summary request. */
+  readonly summaryReady: boolean;
   readonly status: string;
+  readonly clearStatus: () => void;
   readonly error: ErrorState | null;
   readonly busy: boolean;
   readonly persistence: PersistenceState;

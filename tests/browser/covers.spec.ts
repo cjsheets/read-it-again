@@ -78,7 +78,7 @@ test.describe('covers', () => {
     await openApp(restoredPage, PRODUCTION_URL);
     await importArchive(restoredPage, archive, PASSPHRASE);
     await expect(restoredPage.getByTestId('import-status')).toHaveText(
-      'Encrypted archive restored.',
+      'Encrypted backup restored.',
     );
 
     const restoredDetail = await openBook(restoredPage);
@@ -160,14 +160,14 @@ test.describe('book detail', () => {
     await expect(detail.getByTestId('detail-provenance')).toContainText('For Child');
   });
 
-  test('the detail view explains why a book is attributed as it is', async ({ page }) => {
+  test('the detail view hides reader reasoning when there is only one reader', async ({ page }) => {
     await openApp(page);
     await importCsv(page, csvSnapshot(1));
     await expect(page.getByTestId('import-status')).toHaveText('Imported 1 new of 1 rows.');
 
     const detail = await openBook(page);
-    await expect(detail.getByRole('heading', { name: 'Why this reader' })).toBeVisible();
-    await expect(detail.getByTestId('attribution-explanation')).not.toBeEmpty();
+    await expect(detail.getByRole('heading', { name: "Who's this for?" })).toHaveCount(0);
+    await expect(detail.getByTestId('attribution-explanation')).toHaveCount(0);
   });
 
   test('the drawer closes on Escape and returns focus to the page', async ({ page }) => {

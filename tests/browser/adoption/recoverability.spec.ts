@@ -17,7 +17,9 @@ test.describe('R3 — correctable and recoverable books', () => {
     await expect(detail.getByRole('heading', { name: 'Cloud Boat' })).toBeVisible();
     await page.keyboard.press('Escape');
 
-    await expect(shelfCards(page).filter({ hasText: 'Cloud Boat' })).toHaveCount(1);
+    await expect(
+      shelfCards(page).filter({ has: page.getByRole('button', { name: 'Open Cloud Boat' }) }),
+    ).toHaveCount(1);
     await page.getByTestId('shelf-search').fill('Clod Boat');
     await expect(shelfCards(page)).toHaveCount(0);
     await page.getByTestId('shelf-search').fill('Cloud Boat');
@@ -50,6 +52,8 @@ test.describe('R3 — correctable and recoverable books', () => {
     await expect(shelfCards(page)).toHaveCount(0);
     const status = page.getByRole('status').filter({ hasText: 'Cloud Boat' });
     await status.getByRole('button', { name: 'Undo' }).click();
-    await expect(shelfCards(page).filter({ hasText: 'Cloud Boat' })).toHaveCount(1);
+    await expect(
+      shelfCards(page).filter({ has: page.getByRole('button', { name: 'Open Cloud Boat' }) }),
+    ).toHaveCount(1);
   });
 });
