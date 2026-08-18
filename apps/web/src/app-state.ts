@@ -74,6 +74,12 @@ export interface AppState {
   /** Camera scanning is experimental and off by default; see `readScanningEnabled`. */
   readonly scanningEnabled: boolean;
   readonly setScanningEnabled: (enabled: boolean) => void;
+  /** Whether cover lookups against openlibrary.org are permitted (ADR 0016). */
+  readonly catalogCoversEnabled: boolean;
+  readonly setCatalogCoversEnabled: (enabled: boolean) => void;
+  /** True while the app is actually talking to openlibrary.org, so the indicator
+   *  reflects live network activity rather than merely the setting. */
+  readonly catalogFetchActive: boolean;
   /** Asks whether an ISBN is already on this shelf. One-shot rather than
    *  `useWorkerData` because it answers a gesture, not a render. */
   readonly lookupIsbn: (isbn: string) => Promise<IsbnMatch | null>;

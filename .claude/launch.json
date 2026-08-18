@@ -1,0 +1,20 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "web",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": [
+        "--filter",
+        "@read-it-again/web",
+        "exec",
+        "vite",
+        "preview",
+        "--port",
+        "4174",
+        "--strictPort"
+      ],
+      "port": 4174
+    }
+  ]
+}

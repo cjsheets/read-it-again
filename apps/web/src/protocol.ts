@@ -42,6 +42,10 @@ export type WorkerRequest =
   /** Whether a scanned or typed ISBN is already on the shelf. A read, because a
    *  scan must be able to say "you have this" without writing anything. */
   | { readonly id: string; readonly type: 'findByIsbn'; readonly isbn: string }
+  /** Grants or withdraws permission to fetch cover art from openlibrary.org. The
+   *  worker fetches nothing until this arrives with `enabled: true`, and stops
+   *  when it arrives with `false` — including mid-queue. */
+  | { readonly id: string; readonly type: 'setCatalogCovers'; readonly enabled: boolean }
   // ── Mutations ────────────────────────────────────────────────────────────
   | {
       readonly id: string;
@@ -223,4 +227,8 @@ export type WorkerResponse =
       readonly issues?: readonly string[];
     };
 
-export type WorkerEvent = { readonly type: 'catalogCoverStored'; readonly workId: string };
+export type WorkerEvent =
+  | { readonly type: 'catalogCoverStored'; readonly workId: string }
+  /** Raised around a run of network activity so the UI can show, persistently and
+   *  while it is happening, that this device is talking to openlibrary.org. */
+  | { readonly type: 'catalogFetchActive'; readonly active: boolean };

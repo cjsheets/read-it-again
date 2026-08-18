@@ -1,6 +1,13 @@
 import { expect, test, type Page } from '@playwright/test';
 import { FIXTURE_ISBN } from './support/barcode.js';
-import { addBookManually, goTo, openApp, openBook, shelfCards } from './support/shelf.js';
+import {
+  addBookManually,
+  enableCoverLookup,
+  goTo,
+  openApp,
+  openBook,
+  shelfCards,
+} from './support/shelf.js';
 
 /** Turning the experiment on is a deliberate act, so every scanning test starts
  *  by performing it rather than by reaching into storage. */
@@ -71,6 +78,7 @@ test.describe('scanning a barcode', () => {
       });
     });
     await openApp(page);
+    await enableCoverLookup(page);
     await enableScanning(page);
 
     await page.getByTestId('open-scanner').click();

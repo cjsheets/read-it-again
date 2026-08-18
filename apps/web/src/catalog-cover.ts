@@ -76,10 +76,16 @@ export async function fetchCatalogCover(
 export async function drainCatalogCoverQueue(
   database: Database,
   onStored: (workId: string) => void,
-  options: { readonly fetch?: typeof globalThis.fetch; readonly now?: () => Date } = {},
+  options: {
+    readonly fetch?: typeof globalThis.fetch;
+    readonly now?: () => Date;
+    /** Checked before every request so withdrawing consent stops the queue
+     *  immediately rather than after it has worked through the shelf. */
+    readonly shouldContinue?: () => boolean;
+  } = {},
 ): Promise<void> {
   const now = options.now ?? (() => new Date());
-  while (true) {
+  while (options.shouldContinue?.() ?? true) {
     const retryBefore = new Date(now().getTime() - FAILED_RETRY_MS).toISOString();
     const job = await nextCatalogCoverFetch(database, retryBefore);
     if (!job) return;

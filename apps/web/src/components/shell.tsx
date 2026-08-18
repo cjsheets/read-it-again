@@ -12,8 +12,16 @@ export function Shell({
   readonly go: (route: Route) => void;
   readonly children: ReactNode;
 }) {
-  const { summary, status, error, wiped, dismissWipeNotice, readerFilter, setReaderFilter } =
-    useApp();
+  const {
+    summary,
+    status,
+    error,
+    wiped,
+    dismissWipeNotice,
+    readerFilter,
+    setReaderFilter,
+    catalogFetchActive,
+  } = useApp();
   const tasks = summary.taskCount;
   const destinations = DESTINATIONS.filter(
     (destination) =>
@@ -92,6 +100,19 @@ export function Shell({
         )}
 
         {wiped && <WipeNotice go={go} onDismiss={dismissWipeNotice} />}
+
+        {/* Visible for as long as the network activity lasts, not a toast that
+            disappears before anyone reads it. If this app is talking to another
+            service, the person using it should be able to see that while it is
+            happening (ADR 0016). */}
+        {catalogFetchActive && (
+          <p className="network-indicator" role="status" data-testid="catalog-fetch-indicator">
+            Fetching cover art from openlibrary.org…{' '}
+            <button type="button" className="link-button" onClick={() => go('settings')}>
+              Stop
+            </button>
+          </p>
+        )}
 
         <p
           className={passiveStatus ? 'status is-passive' : 'status'}

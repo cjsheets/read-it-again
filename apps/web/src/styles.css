@@ -1140,3 +1140,14 @@ h3 {
   align-items: center;
   gap: 0.5rem;
 }
+
+/* Network activity indicator. Deliberately uses the accent border treatment the
+   error and wipe notices use: it is not an error, but it is something the person
+   should see rather than scan past. */
+.network-indicator {
+  background: var(--brand-tint);
+  border-left: 4px solid var(--brand);
+  padding: 12px 16px;
+  margin: 0 0 20px;
+  line-height: 1.5;
+}

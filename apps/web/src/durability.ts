@@ -15,6 +15,7 @@ const HAD_BOOKS = 'read-it-again:had-books';
 const READER_FILTER = 'read-it-again:reader-filter';
 const PERSIST_REQUESTED = 'read-it-again:persist-requested';
 const SCANNING = 'read-it-again:scanning';
+const CATALOG_COVERS = 'read-it-again:catalog-covers';
 
 export type PersistenceState = 'persistent' | 'evictable' | 'unsupported';
 
@@ -117,4 +118,26 @@ export function readScanningEnabled(): boolean {
 export function storeScanningEnabled(enabled: boolean): void {
   if (enabled) safeSet(SCANNING, 'yes');
   else safeRemove(SCANNING);
+}
+
+/**
+ * Whether this device may ask openlibrary.org for cover art.
+ *
+ * Off until someone turns it on, and stored per device like the other view
+ * preferences. This is the only thing in the app that sends anything anywhere,
+ * and what it sends is an ISBN — which is to say, one book off this household's
+ * shelf, per request. That is a disclosure, however mild, so it is asked for
+ * rather than assumed.
+ *
+ * The worker cannot read this: `localStorage` does not exist in a worker. The
+ * flag is pushed to it instead, and the worker starts every session assuming
+ * the answer is no, so a failure to deliver it fails closed.
+ */
+export function readCatalogCoversEnabled(): boolean {
+  return safeGet(CATALOG_COVERS) === 'yes';
+}
+
+export function storeCatalogCoversEnabled(enabled: boolean): void {
+  if (enabled) safeSet(CATALOG_COVERS, 'yes');
+  else safeRemove(CATALOG_COVERS);
 }
