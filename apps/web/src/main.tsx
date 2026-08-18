@@ -8,11 +8,13 @@ import { Shell } from './components/shell.js';
 import {
   clearWipeMarker,
   looksWiped,
+  readCatalogCoversEnabled,
   readPersistence,
   readScanningEnabled,
   readStoredReaderFilter,
   rememberBooksExist,
   requestPersistenceOnce,
+  storeCatalogCoversEnabled,
   storeReaderFilter,
   storeScanningEnabled,
   type PersistenceState,
@@ -54,13 +56,22 @@ function App() {
   );
   const [shelfQuery, setShelfQuery] = useState('');
   const [scanningEnabled, setScanningEnabledState] = useState(() => readScanningEnabled());
+  const [catalogCoversEnabled, setCatalogCoversEnabledState] = useState(() =>
+    readCatalogCoversEnabled(),
+  );
+  const [catalogFetchActive, setCatalogFetchActive] = useState(false);
   const [route, go] = useRoute();
 
   useEffect(() => {
     void refreshBookshelf();
     void readPersistence().then(setPersistence);
+    // The worker fetches nothing until it is told it may, so tell it what this
+    // device decided. Sent unconditionally, including `false`, so the answer is
+    // always explicit rather than inferred from silence.
+    void requestWorker({ type: 'setCatalogCovers', enabled: readCatalogCoversEnabled() });
     return onWorkerEvent((event) => {
       if (event.type === 'catalogCoverStored') setRevision((current) => current + 1);
+      if (event.type === 'catalogFetchActive') setCatalogFetchActive(event.active);
     });
   }, []);
 
@@ -86,6 +97,14 @@ function App() {
       storeScanningEnabled(enabled);
       setScanningEnabledState(enabled);
     },
+    catalogCoversEnabled,
+    setCatalogCoversEnabled: (enabled: boolean) => {
+      storeCatalogCoversEnabled(enabled);
+      setCatalogCoversEnabledState(enabled);
+      if (!enabled) setCatalogFetchActive(false);
+      void requestWorker({ type: 'setCatalogCovers', enabled });
+    },
+    catalogFetchActive,
     lookupIsbn,
     dismissWipeNotice: () => {
       clearWipeMarker();

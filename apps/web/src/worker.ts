@@ -82,8 +82,9 @@ const databasePromise = openOpfsDatabase('/read-it-again.sqlite3').then(async (d
   );
   // Catches up any works created before migration 9 existed.
   await indexWorksForSearch(database);
-  await enqueueMissingCatalogCovers(database, now);
-  queueMicrotask(() => scheduleCoverDrain(database));
+  // Deliberately no cover queue here. Cover art is the only thing this app
+  // fetches from anyone, and it waits to be asked (ADR 0016). The main thread
+  // pushes the stored answer once it has read it.
   return database;
 });
 
@@ -123,6 +124,9 @@ async function handle(request: WorkerRequest): Promise<void> {
         return await reply(request.id, database, {
           readers: await listReaders(database, { includeArchived: true }),
         });
+      case 'setCatalogCovers':
+        await setCatalogCovers(database, request.enabled);
+        return await reply(request.id, database, {});
       case 'findByIsbn':
         return await reply(request.id, database, {
           isbnMatch: await findWorkByIsbn(database, request.isbn),
@@ -260,11 +264,11 @@ async function handle(request: WorkerRequest): Promise<void> {
       }
     }
 
-    if (mayAddCoverCandidates) {
+    if (mayAddCoverCandidates && catalogCoversEnabled) {
       await enqueueMissingCatalogCovers(database, new Date().toISOString());
     }
     await reply(request.id, database, { result, archiveText, sessionId, manualCreated });
-    if (mayAddCoverCandidates) scheduleCoverDrain(database);
+    if (mayAddCoverCandidates && catalogCoversEnabled) scheduleCoverDrain(database);
   } catch (error) {
     worker.postMessage({
       id: request.id,
@@ -278,17 +282,40 @@ async function handle(request: WorkerRequest): Promise<void> {
   }
 }
 
+/**
+ * Whether this household has agreed to cover lookups. False until the main thread
+ * says otherwise, so a message that never arrives means no requests rather than
+ * silent ones — the failure mode has to be the private one.
+ */
+let catalogCoversEnabled = false;
+
+async function setCatalogCovers(database: Database, enabled: boolean): Promise<void> {
+  if (enabled === catalogCoversEnabled) return;
+  catalogCoversEnabled = enabled;
+  if (!enabled) return;
+  // Consent covers the shelf as it stands, not just books added from here on.
+  await enqueueMissingCatalogCovers(database, new Date().toISOString());
+  scheduleCoverDrain(database);
+}
+
 function scheduleCoverDrain(database: Database): void {
+  if (!catalogCoversEnabled) return;
   if (coverDrain) {
     coverDrainRequested = true;
     return;
   }
   coverDrainRequested = false;
-  coverDrain = drainCatalogCoverQueue(database, (workId) => {
-    worker.postMessage({ type: 'catalogCoverStored', workId } satisfies WorkerEvent);
-  }).finally(() => {
+  worker.postMessage({ type: 'catalogFetchActive', active: true } satisfies WorkerEvent);
+  coverDrain = drainCatalogCoverQueue(
+    database,
+    (workId) => {
+      worker.postMessage({ type: 'catalogCoverStored', workId } satisfies WorkerEvent);
+    },
+    { shouldContinue: () => catalogCoversEnabled },
+  ).finally(() => {
     coverDrain = undefined;
-    if (coverDrainRequested) scheduleCoverDrain(database);
+    if (coverDrainRequested && catalogCoversEnabled) scheduleCoverDrain(database);
+    else worker.postMessage({ type: 'catalogFetchActive', active: false } satisfies WorkerEvent);
   });
 }
 

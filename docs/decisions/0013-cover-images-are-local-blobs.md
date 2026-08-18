@@ -22,7 +22,8 @@ not saved.
 Cover bytes are encoded as tagged base64 objects in `read-it-again-logical-v2` archives. Version 1
 archives contain no binary columns and remain importable.
 
-The browser queues automatic cover lookup after add and resolution operations. ISBNs from CSV,
+The browser queues cover lookup after add and resolution operations. ADR 0016 amends this: the
+queue is not filled and no request is made until the household grants permission. ISBNs from CSV,
 Libby, manual entry, barcode scans, and catalog decisions use the same work-level path. Requests to
 Open Library are spaced by at least 3.1 seconds. Hits, misses, and temporary failures are stored so
 opening the shelf does not repeat the request.
@@ -34,8 +35,9 @@ Remote URLs are never used as image sources.
 Archives can grow by 60 KB per stored cover. Cover bytes are fetched from the worker per visible
 work rather than included in every shelf page.
 
-Automatic lookup discloses one ISBN to Open Library when an uncovered work is first queued. A
-stored image or cached miss prevents that disclosure from recurring on each render.
+Lookup discloses one ISBN to Open Library when an uncovered work is first queued. A stored image or
+cached miss prevents that disclosure from recurring on each render. ADR 0016 makes that disclosure
+conditional on consent.
 
 The app does not store thumbhash placeholders. Cover bytes already come from local storage, and
 the virtualized grid limits the number requested at once.

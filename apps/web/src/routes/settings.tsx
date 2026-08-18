@@ -90,22 +90,63 @@ export function Settings() {
         )}
       </article>
 
+      <CoverLookup />
+
       <Experiments />
 
       <article className="settings-card" aria-labelledby="privacy-title">
         <h3 id="privacy-title">Privacy</h3>
         <p>
-          <strong>Client-only and private by construction.</strong> Your books, readers and reading
-          history stay in this browser. The app does not send that information to a server, so it
-          cannot be recovered from one if this browser loses it — which is why the backup above
-          matters.
+          <strong>Your library stays in this browser.</strong> Your books, readers, ratings and
+          reading history are stored on this device and are never uploaded. There is no account and
+          no server holding them, which also means they cannot be recovered from one if this browser
+          loses them — hence the backup above.
+        </p>
+        <p>
+          One feature can reach the network, and only if you switch it on: cover lookup sends an
+          ISBN to <strong>covers.openlibrary.org</strong> to fetch a picture. That is described in
+          full under <em>Cover art from the internet</em>, it is off unless you turn it on, and
+          while it is running the app says so at the top of the screen.
         </p>
         <p className="model-note">
-          It cannot sign in to a library or query a catalog directly, because catalogs do not permit
-          browser access. The local runtime does that work and hands the results over in a backup.
+          It cannot sign in to a library or read your borrowing history directly, because library
+          systems do not permit browser access. The local runtime does that work and hands the
+          results over in a backup.
         </p>
       </article>
     </section>
+  );
+}
+
+/**
+ * The one place the app can be given permission to talk to anyone. It is a
+ * separate card from Experiments on purpose: scanning is a feature that might not
+ * work well yet, whereas this is a question about who learns what (ADR 0016), and
+ * the two should not be answered by the same shrug.
+ */
+function CoverLookup() {
+  const { catalogCoversEnabled, setCatalogCoversEnabled } = useApp();
+  return (
+    <article className="settings-card" aria-labelledby="covers-title">
+      <h3 id="covers-title">Cover art from the internet</h3>
+      <label className="toggle">
+        <input
+          type="checkbox"
+          data-testid="catalog-covers-toggle"
+          checked={catalogCoversEnabled}
+          onChange={(event) => setCatalogCoversEnabled(event.target.checked)}
+        />
+        <span>Look up covers on openlibrary.org</span>
+      </label>
+      <p className="model-note">
+        Off by default, and the only thing this app ever sends anywhere. When it is on, this device
+        asks <strong>covers.openlibrary.org</strong> for one book at a time, by ISBN — so that
+        service learns which books are on this shelf, and when you added them. No account, no name,
+        and no reading history is sent. Covers are downloaded once and kept on this device, so a
+        book is only ever asked about once. Turn it off and every request stops, including one
+        already part-way through the shelf; the covers already downloaded stay.
+      </p>
+    </article>
   );
 }
 

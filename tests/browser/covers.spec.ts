@@ -1,10 +1,12 @@
 import { expect, test, type Page } from '@playwright/test';
 import {
   addBookManually,
+  BULK_IMPORT_TIMEOUT,
   csvSnapshot,
   exportArchive,
   goTo,
   importArchive,
+  enableCoverLookup,
   importCsv,
   openApp,
   openBook,
@@ -93,6 +95,7 @@ test.describe('covers', () => {
       await route.fulfill({ status: 200, contentType: 'image/png', body: solidPng() });
     });
     await openApp(page);
+    await enableCoverLookup(page);
     await addBookManually(page, {
       title: 'Cloud Boat',
       author: 'Ada Fox',
@@ -117,6 +120,7 @@ test.describe('covers', () => {
       await route.fulfill({ status: 200, contentType: 'image/png', body: solidPng() });
     });
     await openApp(page);
+    await enableCoverLookup(page);
     await importCsv(
       page,
       Buffer.from('Title,Author,ISBN,Date\nCloud Boat,Ada Fox,9780306406157,2026-08-01'),
@@ -200,4 +204,126 @@ function solidPng(): Buffer {
     'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
     'base64',
   );
+}
+
+/**
+ * ADR 0016. Cover lookup is the only thing this app sends anywhere, and what it
+ * sends is an ISBN — one book off the household's shelf per request. These tests
+ * exist because the feature originally shipped ungated: the worker enqueued every
+ * book at startup and drained the queue without anyone being asked.
+ */
+test.describe('permission to fetch cover art', () => {
+  test('no request reaches the catalog until someone says yes', async ({ page }) => {
+    let catalogRequests = 0;
+    await page.route('https://covers.openlibrary.org/**', async (route) => {
+      catalogRequests += 1;
+      await route.fulfill({ status: 200, contentType: 'image/png', body: solidPng() });
+    });
+
+    await openApp(page);
+    await addBookManually(page, { title: 'Cloud Boat', author: 'Ada Fox', isbn: '9780306406157' });
+    await goTo(page, 'settings');
+    await expect(page.getByTestId('catalog-covers-toggle')).not.toBeChecked();
+
+    // A reload is where an ungated version did its damage: the worker swept the
+    // whole shelf on startup. Give it every chance to misbehave.
+    await page.reload();
+    await openApp(page);
+    await goTo(page, 'shelf');
+    await page.waitForTimeout(1_500);
+    expect(catalogRequests).toBe(0);
+
+    // Saying yes covers the books already on the shelf, not merely later ones.
+    await enableCoverLookup(page);
+    await expect.poll(() => catalogRequests, { timeout: 15_000 }).toBeGreaterThan(0);
+  });
+
+  test('the choice is remembered and the shelf is only ever asked about once', async ({ page }) => {
+    let catalogRequests = 0;
+    await page.route('https://covers.openlibrary.org/**', async (route) => {
+      catalogRequests += 1;
+      await route.fulfill({ status: 200, contentType: 'image/png', body: solidPng() });
+    });
+    await openApp(page);
+    await enableCoverLookup(page);
+    await addBookManually(page, { title: 'Cloud Boat', author: 'Ada Fox', isbn: '9780306406157' });
+    await expect.poll(() => catalogRequests, { timeout: 15_000 }).toBe(1);
+
+    await page.reload();
+    await openApp(page);
+    await goTo(page, 'settings');
+    await expect(page.getByTestId('catalog-covers-toggle')).toBeChecked();
+    // The cover is already local, so a new session must not ask again.
+    await page.waitForTimeout(1_500);
+    expect(catalogRequests).toBe(1);
+  });
+
+  test('withdrawing permission stops the queue part-way through the shelf', async ({ page }) => {
+    let catalogRequests = 0;
+    await page.route('https://covers.openlibrary.org/**', async (route) => {
+      catalogRequests += 1;
+      // Slow enough that the queue is still working when consent is withdrawn.
+      await new Promise((done) => setTimeout(done, 400));
+      await route.fulfill({ status: 200, contentType: 'image/png', body: solidPng() });
+    });
+    await openApp(page);
+    // More books than the courtesy rate can clear quickly, so there is a real
+    // queue to interrupt rather than a race.
+    await importCsv(page, catalogCsv(8));
+    await expect(page.getByTestId('import-status')).toHaveText('Imported 8 new of 8 rows.', {
+      timeout: BULK_IMPORT_TIMEOUT,
+    });
+
+    await enableCoverLookup(page);
+    await expect.poll(() => catalogRequests, { timeout: 20_000 }).toBeGreaterThan(0);
+
+    await page.getByTestId('catalog-covers-toggle').uncheck();
+    const atStop = catalogRequests;
+    // The gap between requests is deliberately several seconds; if the queue were
+    // still running this window would contain more of them.
+    await page.waitForTimeout(5_000);
+    expect(catalogRequests).toBeLessThanOrEqual(atStop + 1);
+    expect(catalogRequests).toBeLessThan(8);
+  });
+
+  test('the app says so, visibly, while it is talking to the catalog', async ({ page }) => {
+    await page.route('https://covers.openlibrary.org/**', async (route) => {
+      await new Promise((done) => setTimeout(done, 600));
+      await route.fulfill({ status: 200, contentType: 'image/png', body: solidPng() });
+    });
+    await openApp(page);
+    await importCsv(page, catalogCsv(4));
+    await expect(page.getByTestId('import-status')).toHaveText('Imported 4 new of 4 rows.', {
+      timeout: BULK_IMPORT_TIMEOUT,
+    });
+    await expect(page.getByTestId('catalog-fetch-indicator')).toHaveCount(0);
+
+    await enableCoverLookup(page);
+    await expect(page.getByTestId('catalog-fetch-indicator')).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByTestId('catalog-fetch-indicator')).toContainText('openlibrary.org');
+
+    // And it goes away when the work does, rather than lingering as decoration.
+    await page.getByTestId('catalog-covers-toggle').uncheck();
+    await expect(page.getByTestId('catalog-fetch-indicator')).toHaveCount(0, { timeout: 20_000 });
+  });
+});
+
+/** Rows carrying real, distinct, check-digit-valid ISBNs, so each one is a
+ *  separate catalog request rather than a repeat of the same lookup. */
+function catalogCsv(rowCount: number): Buffer {
+  const rows = ['Title,Author,ISBN,Date'];
+  for (let index = 0; index < rowCount; index += 1) {
+    // Twelve digits before the check digit, which makes thirteen in total.
+    const body = `9780306406${String(index).padStart(2, '0')}`;
+    rows.push(`Catalog Book ${index + 1},Ada Fox,${body}${checkDigit(body)},2026-08-01`);
+  }
+  return Buffer.from(`${rows.join('\n')}\n`);
+}
+
+function checkDigit(body: string): string {
+  const sum = [...body].reduce(
+    (total, character, index) => total + Number(character) * (index % 2 === 0 ? 1 : 3),
+    0,
+  );
+  return String((10 - (sum % 10)) % 10);
 }

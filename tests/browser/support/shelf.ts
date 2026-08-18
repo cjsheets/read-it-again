@@ -133,3 +133,14 @@ export async function openBook(page: Page, index = 0): Promise<Locator> {
   await expect(detail).toBeVisible();
   return detail;
 }
+
+/**
+ * Grants permission for cover lookups. Cover art is the only thing the app
+ * fetches from anyone and it is off by default (ADR 0016), so any test that
+ * expects a catalog cover has to ask for it the way a person would.
+ */
+export async function enableCoverLookup(page: Page): Promise<void> {
+  await goTo(page, 'settings');
+  await page.getByTestId('catalog-covers-toggle').check();
+  await expect(page.getByTestId('catalog-covers-toggle')).toBeChecked();
+}
