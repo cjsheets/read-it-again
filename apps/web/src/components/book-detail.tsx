@@ -38,6 +38,7 @@ export function BookDetail({
       episode.workId === item.workId &&
       checkouts.some((checkout) => isLibrarySource(checkout.sourceKind)),
   );
+  const timesBorrowed = episodes.reduce((total, episode) => total + episode.checkoutCount, 0);
 
   useEffect(() => {
     panel.current?.focus();
@@ -116,8 +117,8 @@ export function BookDetail({
           )}
           {episodes.length > 0 && (
             <p className="model-note">
-              {episodes.length} acquisition {episodes.length === 1 ? 'episode' : 'episodes'} derived
-              from borrowing, which is not proof of reading.
+              Borrowed {timesBorrowed} {timesBorrowed === 1 ? 'time' : 'times'} — which
+              doesn&rsquo;t mean it was read.
             </p>
           )}
         </section>
@@ -141,6 +142,7 @@ function LogReading({ item }: { readonly item: ShelfItem }) {
       <div className="decision-actions detail-actions">
         <button
           type="button"
+          className="primary-action"
           data-testid="log-a-reading"
           onClick={() =>
             void applyReadingChange({
@@ -261,10 +263,10 @@ function Assessment({ item }: { readonly item: ShelfItem }) {
 
   return (
     <section className="detail-section" aria-labelledby={`assess-${item.workId}`}>
-      <h3 id={`assess-${item.workId}`}>Ratings and read-aloud notes</h3>
+      <h3 id={`assess-${item.workId}`}>How did it go?</h3>
       <div className="quick-rating">
-        <RatingButtons label="Child engagement" value={engagement} onChange={setEngagement} />
-        <RatingButtons label="Grown-up enjoyment" value={tolerance} onChange={setTolerance} />
+        <RatingButtons label="Kid liked it" value={engagement} onChange={setEngagement} />
+        <RatingButtons label="I liked it" value={tolerance} onChange={setTolerance} />
       </div>
       {unrated && (
         <p className="rating-unset" data-testid="rating-unset">
@@ -304,7 +306,7 @@ function Assessment({ item }: { readonly item: ShelfItem }) {
             checked={veto}
             onChange={(event) => setVeto(event.target.checked)}
           />{' '}
-          Veto
+          Don&rsquo;t suggest this again
         </label>
         <label>
           Minutes{' '}
@@ -336,7 +338,7 @@ function Assessment({ item }: { readonly item: ShelfItem }) {
             })
           }
         >
-          Save assessment
+          Save
         </button>
       </div>
     </section>
@@ -350,9 +352,11 @@ function WhyThisReader({ item }: { readonly item: ShelfItem }) {
   const triage = tasks?.attributionTriage.find((entry) => entry.workId === item.workId);
   const assigned = new Set(item.readers.map((reader) => reader.id));
 
+  if (summary.readers.length === 1) return null;
+
   return (
     <section className="detail-section" aria-labelledby={`why-${item.workId}`}>
-      <h3 id={`why-${item.workId}`}>Why this reader</h3>
+      <h3 id={`why-${item.workId}`}>Who&rsquo;s this for?</h3>
       <p className="model-note" data-testid="attribution-explanation">
         {triage?.explanation ??
           `Filed under ${item.readers.map((reader) => reader.displayName).join(' and ') || item.readerName}. Change it below and your choice replaces whatever decided it.`}
@@ -409,7 +413,11 @@ function CoverChooser({
 
   return (
     <div className="detail-cover-actions">
-      <label className={busy ? 'file-button disabled' : 'file-button'}>
+      <label
+        className={
+          busy ? 'file-button cover-file-button disabled' : 'file-button cover-file-button'
+        }
+      >
         <span>{hasCover ? 'Replace cover' : 'Choose a cover'}</span>
         <input
           data-testid="cover-file"

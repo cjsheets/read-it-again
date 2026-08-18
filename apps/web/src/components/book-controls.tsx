@@ -57,7 +57,7 @@ export function RatingButtons({
             key={score}
             onClick={() => onChange(score)}
           >
-            {score}
+            {RATING_MEANINGS[score]}
           </button>
         ))}
       </div>

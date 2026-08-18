@@ -4,9 +4,9 @@ import type { Route } from '../router.js';
 
 /**
  * The recommendation card is the strongest UI in the app — availability,
- * per-item plain-language evidence, estimated minutes, a catalog key. Its problem
+ * per-item plain-language evidence and estimated minutes. Its problem
  * was never design; it was that a browser-only household can never produce one,
- * because recommendations arrive with an archive from the local runtime. So the
+ * because recommendations arrive with a backup from the companion app. So the
  * empty state has to explain that rather than look broken.
  */
 export function Discover({ go }: { readonly go: (route: Route) => void }) {
@@ -23,15 +23,12 @@ export function Discover({ go }: { readonly go: (route: Route) => void }) {
         <div>
           <h2 id="discover-title">What to bring home next</h2>
           <p className="model-note">
-            Deterministic suggestions from your household&rsquo;s history. Availability is a cached
-            library observation, not a reservation.
+            Ideas from what your family already reads.{' '}
+            {recommendations.generatedAt
+              ? `Availability was last checked ${new Date(recommendations.generatedAt).toLocaleDateString()}.`
+              : 'Availability has not been checked yet.'}
           </p>
         </div>
-        {recommendations.generatedAt && (
-          <span className="count">
-            Checked {new Date(recommendations.generatedAt).toLocaleDateString()}
-          </span>
-        )}
       </div>
 
       {empty ? (
@@ -83,8 +80,7 @@ function RecommendationList({ items }: { readonly items: RecommendationView['dis
             ))}
           </ul>
           <p className="recommendation-meta">
-            {item.estimatedReadMinutes ? `~${item.estimatedReadMinutes} min · ` : ''}
-            Catalog record {item.catalogKey}
+            {item.estimatedReadMinutes ? `About ${item.estimatedReadMinutes} min` : ''}
           </p>
         </li>
       ))}

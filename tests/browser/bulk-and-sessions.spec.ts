@@ -110,7 +110,7 @@ test.describe('logging a reading', () => {
       .getByTestId('log-a-reading')
       .evaluate((element) => element.getBoundingClientRect().top);
     const ratingsTop = await detail
-      .getByRole('heading', { name: 'Ratings and read-aloud notes' })
+      .getByRole('heading', { name: 'How did it go?' })
       .evaluate((element) => element.getBoundingClientRect().top);
     expect(logTop).toBeLessThan(ratingsTop);
     await detail.getByTestId('log-a-reading').click();

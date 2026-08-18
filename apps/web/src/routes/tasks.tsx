@@ -13,7 +13,7 @@ export function Tasks() {
       <section aria-labelledby="tasks-title">
         <div className="section-heading">
           <div>
-            <h2 id="tasks-title">Nothing needs you</h2>
+            <h2 id="tasks-title">All tidy</h2>
           </div>
         </div>
         <div className="empty" data-testid="tasks-empty">
@@ -27,7 +27,7 @@ export function Tasks() {
     <section aria-labelledby="tasks-title">
       <div className="section-heading">
         <div>
-          <h2 id="tasks-title">Needs a decision</h2>
+          <h2 id="tasks-title">A few to sort out</h2>
         </div>
       </div>
 

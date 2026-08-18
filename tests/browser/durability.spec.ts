@@ -125,7 +125,7 @@ test.describe('storage durability', () => {
     await expect(page.getByRole('heading', { name: 'Backup and restore' })).toBeVisible();
 
     await importArchive(page, archive, PASSPHRASE);
-    await expect(page.getByTestId('import-status')).toHaveText('Encrypted archive restored.');
+    await expect(page.getByTestId('import-status')).toHaveText('Encrypted backup restored.');
     await goTo(page, 'shelf');
     await expect(shelfCards(page)).toHaveCount(1);
     await expect(page.getByTestId('wipe-notice')).toHaveCount(0);

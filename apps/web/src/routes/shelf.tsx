@@ -4,6 +4,7 @@ import { useApp } from '../app-state.js';
 import { requestWorker } from '../client.js';
 import { BookDetail } from '../components/book-detail.js';
 import { Cover } from '../components/cover.js';
+import { PrivacyCopy } from '../components/privacy-copy.js';
 import { useCover } from '../components/use-cover.js';
 import { VirtualGrid, type AriaPosition, type GridWindow } from '../components/virtual-grid.js';
 import type { Route } from '../router.js';
@@ -29,6 +30,7 @@ const SORTS: readonly { readonly value: ShelfSort; readonly label: string }[] = 
 export function Shelf({ go }: { readonly go: (route: Route) => void }) {
   const {
     summary,
+    summaryReady,
     revision,
     readerFilter,
     assignReaders,
@@ -56,6 +58,8 @@ export function Shelf({ go }: { readonly go: (route: Route) => void }) {
   const total = page?.total ?? summary.bookCount;
   const filtered = readerFilter !== null;
   const readerName = summary.readers.find((reader) => reader.id === readerFilter)?.displayName;
+
+  if (!summaryReady && !searching && !filtered) return <ShelfSkeleton />;
 
   // Only a genuinely empty household gets the first-run screen. A filter or a
   // search that matches nothing is a different situation and must say which.
@@ -316,7 +320,12 @@ function ShelfTile({
       )}
       {/* While a selection exists the tile toggles rather than opens, so a
           mis-tap adds a book instead of losing the selection to a drawer. */}
-      <button type="button" className="cover-button" onClick={selecting ? onToggle : onOpen}>
+      <button
+        type="button"
+        className="cover-button"
+        aria-label={`Open ${entry.title}`}
+        onClick={selecting ? onToggle : onOpen}
+      >
         <Cover
           workId={entry.workId}
           title={entry.title}
@@ -325,7 +334,7 @@ function ShelfTile({
           mime={cover?.mime}
         />
         <span className="cover-caption">
-          <span className="cover-title">{entry.title}</span>
+          {!!cover?.bytes?.byteLength && <span className="cover-title">{entry.title}</span>}
           {author && <span className="cover-author">{author}</span>}
           {entry.readers.length > 1 && (
             <span className="cover-readers">
@@ -338,14 +347,14 @@ function ShelfTile({
           )}
           <span className="cover-meta">
             {rated ? (
-              <span aria-label={`Child engagement: ${String(entry.childEngagement)} of 3`}>
+              <span aria-label={`Kid liked it: ${String(entry.childEngagement)} of 3`}>
                 {dots.filled}
                 <span className="cover-meta-dim">{dots.empty}</span>
               </span>
             ) : (
               <span className="cover-meta-dim">Not rated</span>
             )}
-            {entry.veto && <span className="cover-flag">Veto</span>}
+            {entry.veto && <span className="cover-flag">Don&rsquo;t suggest this again</span>}
           </span>
         </span>
       </button>
@@ -361,28 +370,94 @@ function FirstRun({
   readonly go: (route: Route) => void;
   readonly hasRecords: boolean;
 }) {
+  const [explaining, setExplaining] = useState(false);
+  const explanationTrigger = useRef<HTMLButtonElement>(null);
+  const closeExplanation = () => {
+    setExplaining(false);
+    requestAnimationFrame(() => explanationTrigger.current?.focus());
+  };
+
   return (
-    <section className="first-run" aria-labelledby="first-run-title" data-testid="first-run">
-      <h2 id="first-run-title">Your shelf is empty</h2>
-      {hasRecords ? (
-        <p>Some books came in but none are on the shelf yet. Check what needs a decision.</p>
-      ) : (
-        <p>
-          Add the books you already own, and this becomes the place to check before you buy a
-          picture book twice.
+    <>
+      <section className="first-run" aria-labelledby="first-run-title" data-testid="first-run">
+        <h2 id="first-run-title">Your shelf is empty</h2>
+        {hasRecords ? (
+          <p>Some books came in but none are on the shelf yet. Check what needs a decision.</p>
+        ) : (
+          <p>
+            Add the books you already own, and this becomes the place to check before you buy a
+            picture book twice.
+          </p>
+        )}
+        <div className="first-run-actions">
+          <button
+            type="button"
+            className="primary"
+            onClick={() => go(hasRecords ? 'tasks' : 'add')}
+          >
+            {hasRecords ? 'See what needs a decision' : 'Add your first book'}
+          </button>
+        </div>
+        <p className="first-run-privacy">
+          Your books and reading history stay in this browser.{' '}
+          <button
+            type="button"
+            className="link-button"
+            ref={explanationTrigger}
+            onClick={() => setExplaining(true)}
+          >
+            How this works
+          </button>
         </p>
-      )}
-      <div className="first-run-actions">
-        <button type="button" className="primary" onClick={() => go(hasRecords ? 'tasks' : 'add')}>
-          {hasRecords ? 'See what needs a decision' : 'Add your first book'}
-        </button>
+      </section>
+      {explaining && <PrivacyExplanation onClose={closeExplanation} />}
+    </>
+  );
+}
+
+function PrivacyExplanation({ onClose }: { readonly onClose: () => void }) {
+  const panel = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    panel.current?.focus();
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose]);
+
+  return (
+    <div className="detail-scrim" role="presentation" onClick={onClose}>
+      <div
+        className="privacy-dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="privacy-dialog-title"
+        ref={panel}
+        tabIndex={-1}
+        onClick={(event) => event.stopPropagation()}
+      >
+        <div className="privacy-dialog-head">
+          <h2 id="privacy-dialog-title">How this works</h2>
+          <button type="button" onClick={onClose}>
+            Close
+          </button>
+        </div>
+        <PrivacyCopy />
       </div>
-      <p className="first-run-privacy">
-        Your books and reading history stay in this browser.{' '}
-        <button type="button" className="link-button" onClick={() => go('settings')}>
-          How this works
-        </button>
-      </p>
+    </div>
+  );
+}
+
+function ShelfSkeleton() {
+  return (
+    <section className="shelf-loading" data-testid="shelf-loading" aria-label="Loading your shelf">
+      <span className="shelf-loading-heading" />
+      <div aria-hidden="true">
+        <span />
+        <span />
+        <span />
+      </div>
     </section>
   );
 }

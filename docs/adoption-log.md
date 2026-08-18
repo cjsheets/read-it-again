@@ -67,3 +67,67 @@ human-only evidence is not replaced with a synthetic proxy.
 - Whether parents accept opt-in Open Library lookup.
 - Whether reading logs are the household's job or only duplicate-purchase checking is.
 - iOS Safari verification on a real device.
+
+## R2 — plain language and reach
+
+### What changed
+
+- Add now contains only the single-book form and scanner entry point, with a quiet link to Settings.
+  CSV and Libby imports moved to **Bring in books from elsewhere** in Settings.
+- **Log a reading** is the detail drawer's filled primary action; choosing a cover is now outlined.
+- **How this works** opens the existing privacy explanation in place and returns focus to its trigger
+  when closed. The one mandated wording change from F-12 is shared by Settings and the dialog.
+- Status messages remain in a `role="status"` live region, clear on route changes, and expire after
+  six seconds. A message from one destination no longer follows the person into another.
+- The first summary now has an explicit loaded state. The shelf renders a quiet skeleton until the
+  worker answers, so a returning household never receives a false empty-shelf frame.
+- The first-run explainer and skip link now meet the 44×44 px target size at 320 px.
+- Replaced the specified model and workflow terms with parent-facing copy across Settings, readers,
+  ratings, Tasks, Discover, Activity, shelf flags, and book detail. The rating scale now displays
+  **no / a little / a lot / loved it**, and reader reasoning is absent when there is only one reader.
+- Generated-cover tiles no longer repeat the title beneath art that already prints it. Stored-image
+  covers retain their title caption, and every tile now has an explicit accessible **Open {title}**
+  name.
+
+### Acceptance result
+
+- Adoption suite before: **4 / 28 passing**.
+- Adoption suite after: **12 / 28 passing**.
+- All eight R2 checks pass against production preview. The remaining 16 failures are the unchanged
+  R3, R5, R6, and R7 contracts.
+
+### Validation and measurements
+
+- Formatting, ESLint, and TypeScript: pass.
+- Unit tests: **83 / 83 pass**.
+- Pre-existing browser tests: **87 / 87 pass**.
+- Production build and `pnpm check:web-boundary`: pass.
+- Existing production performance suite: **4 / 4 pass**.
+  - 1,000-book import: **2,359 ms** (R1: 2,360 ms).
+  - Add one book after that import: **229 ms** (R1: 215 ms; both below the 500 ms budget).
+  - 1,000-book search: **189 ms** (R1: 188 ms; AGENTS baseline: 187 ms).
+  - DOM nodes: **773** (R1 and AGENTS baseline: 833).
+  - Barcode payload: **473,621 bytes gzip**, unchanged.
+- The final first-run budget harness still has not landed, so cold-open, first-book, tap/keystroke,
+  and log-a-reading timings remain unmeasured for this release.
+
+### Regressions and blockers
+
+- No behavioral regression appeared in the pre-existing automated suite.
+- The production CSS artifact grew from 16.26 kB to 17.81 kB raw (3.98 kB to 4.25 kB gzip), and
+  the main JavaScript artifact grew from 251.86 kB to 254.10 kB raw (77.47 kB to 78.03 kB gzip).
+  This is the cost of the shared privacy dialog, loading skeleton, and new UI states; existing payload
+  budgets still pass.
+- `pnpm check` reaches the browser step and reports **99 / 115 passing**, then stops on the 16
+  deliberately unimplemented future adoption tests. It therefore does not reach its build and
+  boundary commands; those commands were run separately and passed. The incremental-check conflict
+  recorded under R1 remains unresolved, and no tests were hidden or excluded.
+- External deployment-header verification remains outstanding for the reason recorded under R1.
+
+### Human-only evidence still outstanding
+
+- 100-book, six-device barcode field test.
+- Moderated first-run sessions with real parents.
+- Whether parents accept opt-in Open Library lookup.
+- Whether reading logs are the household's job or only duplicate-purchase checking is.
+- iOS Safari verification on a real device.

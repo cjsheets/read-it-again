@@ -40,9 +40,11 @@ test('supports CSV and manual offline inputs and ships an installable shell', as
   await expect(page.getByTestId('error-title')).toHaveText('That is a backup, not a Libby file');
 
   await importArchive(page, archive, PASSPHRASE);
-  await expect(page.getByTestId('import-status')).toHaveText('Encrypted archive restored.');
+  await expect(page.getByTestId('import-status')).toHaveText('Encrypted backup restored.');
   await goTo(page, 'shelf');
-  await expect(shelfCards(page).filter({ hasText: 'The Paper Moon' })).toHaveCount(1);
+  await expect(
+    shelfCards(page).filter({ has: page.getByRole('button', { name: 'Open The Paper Moon' }) }),
+  ).toHaveCount(1);
 
   const manifest = await page.request.get('http://127.0.0.1:4175/manifest.webmanifest');
   expect(manifest.ok()).toBe(true);
@@ -58,5 +60,7 @@ test('supports CSV and manual offline inputs and ships an installable shell', as
   await page.context().setOffline(true);
   await page.reload();
   await expect(shelfCards(page)).toHaveCount(2);
-  await expect(shelfCards(page).filter({ hasText: 'The Paper Moon' })).toHaveCount(1);
+  await expect(
+    shelfCards(page).filter({ has: page.getByRole('button', { name: 'Open The Paper Moon' }) }),
+  ).toHaveCount(1);
 });
