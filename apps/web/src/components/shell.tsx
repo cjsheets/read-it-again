@@ -16,6 +16,7 @@ export function Shell({
     summary,
     status,
     clearStatus,
+    undoAction,
     error,
     wiped,
     dismissWipeNotice,
@@ -134,6 +135,14 @@ export function Shell({
           data-testid="import-status"
         >
           {status}
+          {undoAction && (
+            <>
+              {' '}
+              <button type="button" className="link-button" onClick={undoAction.run}>
+                Undo
+              </button>
+            </>
+          )}
         </p>
 
         {error && (

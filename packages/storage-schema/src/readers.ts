@@ -23,7 +23,13 @@ export async function listReaders(
     book_count: number;
   }>(
     `SELECT p.id, p.display_name, r.kind, r.archived_at,
-            (SELECT count(*) FROM preference_summaries s WHERE s.person_id = p.id) AS book_count
+            (SELECT count(*) FROM preference_summaries s
+             WHERE s.person_id = p.id
+               AND COALESCE(
+                 (SELECT state FROM work_shelf_events event
+                  WHERE event.work_id = s.work_id ORDER BY revision DESC LIMIT 1),
+                 'present'
+               ) = 'present') AS book_count
      FROM people p JOIN reader_profiles r ON r.person_id = p.id
      ${options.includeArchived ? '' : 'WHERE r.archived_at IS NULL'}
      ORDER BY r.archived_at IS NOT NULL, p.created_at, p.id`,

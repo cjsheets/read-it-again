@@ -19,6 +19,8 @@ export {
 export type { CatalogCoverFetch, CoverImage, CoverSource } from './covers.js';
 export { findWorkByIsbn } from './isbn-lookup.js';
 export type { IsbnMatch } from './isbn-lookup.js';
+export { listBookDetailVersions, saveBookDetails, setBookShelfState } from './book-corrections.js';
+export type { BookDetailVersion } from './book-corrections.js';
 export { indexWorksForSearch, listShelf } from './shelf-query.js';
 export {
   archiveReader,

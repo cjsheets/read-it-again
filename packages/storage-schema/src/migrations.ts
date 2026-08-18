@@ -548,6 +548,40 @@ export const migrations: readonly Migration[] = [
         ON catalog_cover_fetches (status, updated_at, work_id);
     `,
   },
+  {
+    version: 12,
+    name: 'auditable_book_edits_and_shelf_presence',
+    sql: `
+      -- ADR 0018. The imported work and edition remain evidence. A parent's
+      -- correction is an ordered overlay, never an UPDATE that erases it.
+      CREATE TABLE work_detail_edits (
+        id TEXT PRIMARY KEY NOT NULL,
+        work_id TEXT NOT NULL REFERENCES works(id) ON DELETE CASCADE,
+        revision INTEGER NOT NULL CHECK (revision > 0),
+        title TEXT NOT NULL CHECK (length(trim(title)) > 0),
+        author TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        UNIQUE (work_id, revision)
+      ) STRICT;
+
+      CREATE INDEX work_detail_edits_latest
+        ON work_detail_edits (work_id, revision DESC);
+
+      -- Removal is also a correction. Restoring appends the contrary event, so
+      -- both the original shelf observation and every change remain portable.
+      CREATE TABLE work_shelf_events (
+        id TEXT PRIMARY KEY NOT NULL,
+        work_id TEXT NOT NULL REFERENCES works(id) ON DELETE CASCADE,
+        revision INTEGER NOT NULL CHECK (revision > 0),
+        state TEXT NOT NULL CHECK (state IN ('removed', 'present')),
+        created_at TEXT NOT NULL,
+        UNIQUE (work_id, revision)
+      ) STRICT;
+
+      CREATE INDEX work_shelf_events_latest
+        ON work_shelf_events (work_id, revision DESC);
+    `,
+  },
 ];
 
 export async function migrate(database: Database): Promise<void> {

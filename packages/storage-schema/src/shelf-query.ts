@@ -55,10 +55,12 @@ export interface ShelfPage {
 }
 
 const ORDER_BY: Readonly<Record<ShelfSort, string>> = {
-  recent: 'w.created_at DESC, w.canonical_title',
-  title: 'w.canonical_title COLLATE NOCASE',
-  author: 'COALESCE(ed.authors_json, char(255)) COLLATE NOCASE, w.canonical_title',
-  rating: 'COALESCE(a.child_engagement, -1) DESC, s.preference_score DESC, w.canonical_title',
+  recent: 'w.created_at DESC, COALESCE(edit.title, w.canonical_title)',
+  title: 'COALESCE(edit.title, w.canonical_title) COLLATE NOCASE',
+  author:
+    "COALESCE(NULLIF(edit.author, ''), ed.authors_json, char(255)) COLLATE NOCASE, COALESCE(edit.title, w.canonical_title)",
+  rating:
+    'COALESCE(a.child_engagement, -1) DESC, s.preference_score DESC, COALESCE(edit.title, w.canonical_title)',
 };
 
 /**
@@ -75,6 +77,11 @@ const FROM = `
     FROM preference_summaries ps
     JOIN reader_profiles rp ON rp.person_id = ps.person_id AND rp.archived_at IS NULL
     WHERE (? IS NULL OR ps.person_id = ?)
+      AND COALESCE(
+        (SELECT state FROM work_shelf_events event
+         WHERE event.work_id = ps.work_id ORDER BY revision DESC LIMIT 1),
+        'present'
+      ) = 'present'
     GROUP BY ps.work_id
   ) pick
   JOIN preference_summaries s ON s.work_id = pick.work_id AND s.person_id = pick.person_id
@@ -84,6 +91,10 @@ const FROM = `
   LEFT JOIN (SELECT work_id, min(id) AS edition_id FROM editions GROUP BY work_id) fe
     ON fe.work_id = s.work_id
   LEFT JOIN editions ed ON ed.id = fe.edition_id
+  LEFT JOIN work_detail_edits edit ON edit.work_id = s.work_id
+    AND edit.revision = (
+      SELECT max(latest.revision) FROM work_detail_edits latest WHERE latest.work_id = s.work_id
+    )
   LEFT JOIN work_search ws ON ws.work_id = s.work_id
 `;
 
@@ -120,13 +131,15 @@ export async function listShelf(database: Database, input: ShelfQuery = {}): Pro
     traits_json: string | null;
     source_kinds: string | null;
     authors_json: string | null;
+    corrected_author: string | null;
     has_cover: number;
     readers: string | null;
   }>(
-    `SELECT p.household_id, s.work_id, w.canonical_title AS title, s.person_id,
+    `SELECT p.household_id, s.work_id, COALESCE(edit.title, w.canonical_title) AS title, s.person_id,
             p.display_name AS reader_name, s.episode_count,
             a.child_engagement, a.adult_tolerance, a.asks_by_name, a.veto,
             a.estimated_read_minutes, a.traits_json, ed.authors_json,
+            CASE WHEN edit.id IS NOT NULL THEN edit.author ELSE NULL END AS corrected_author,
             (SELECT group_concat(DISTINCT sa.kind)
              FROM import_records r
              JOIN source_accounts sa ON sa.id = r.source_account_id
@@ -163,7 +176,12 @@ export async function listShelf(database: Database, input: ShelfQuery = {}): Pro
       estimatedReadMinutes: row.estimated_read_minutes,
       traits: JSON.parse(row.traits_json ?? '[]') as ReadingTrait[],
       sourceKinds: (row.source_kinds ?? '').split(',').filter(Boolean),
-      authors: parseAuthorDisplays(row.authors_json),
+      authors:
+        row.corrected_author === null
+          ? parseAuthorDisplays(row.authors_json)
+          : row.corrected_author
+            ? [row.corrected_author]
+            : [],
       hasCover: row.has_cover > 0,
       readers: parseReaders(row.readers),
     })),

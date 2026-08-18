@@ -42,6 +42,8 @@ const ARCHIVE_TABLES = [
   'recommendation_item_holdings',
   'cover_images',
   'catalog_cover_fetches',
+  'work_detail_edits',
+  'work_shelf_events',
 ] as const;
 
 /**

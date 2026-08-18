@@ -4,8 +4,11 @@ import {
   getAppMetadata,
   getCoverImage,
   LAST_BACKUP_AT,
+  listBookDetailVersions,
   migrate,
+  saveBookDetails,
   saveCoverImage,
+  setBookShelfState,
 } from '@read-it-again/storage-schema';
 import { exportEncryptedArchive, importEncryptedArchive } from './archive.js';
 
@@ -84,6 +87,38 @@ describe('encrypted bookshelf archives', () => {
     expect(restored?.mime).toBe('image/png');
     expect(restored?.width).toBe(400);
     expect(Array.from(restored?.bytes ?? [])).toEqual(Array.from(bytes));
+  });
+
+  it('carries book corrections and reversible shelf events through the round trip', async () => {
+    source = new NodeSqliteDatabase();
+    target = new NodeSqliteDatabase();
+    await migrate(source);
+    await migrate(target);
+    await seedWork(source);
+    await saveBookDetails(source, {
+      id: 'edit',
+      workId: 'work',
+      title: 'The Gruffalo Child',
+      author: 'Julia Donaldson',
+      now: '2026-08-18T00:00:00.000Z',
+    });
+    await setBookShelfState(source, {
+      id: 'remove',
+      workId: 'work',
+      state: 'removed',
+      now: '2026-08-18T00:00:01.000Z',
+    });
+
+    const encrypted = await exportEncryptedArchive(source, 'a sufficiently long passphrase');
+    await importEncryptedArchive(target, encrypted, 'a sufficiently long passphrase');
+
+    await expect(listBookDetailVersions(target, 'work')).resolves.toMatchObject([
+      { title: 'The Gruffalo', original: true },
+      { title: 'The Gruffalo Child', original: false },
+    ]);
+    await expect(target.query('SELECT state FROM work_shelf_events')).resolves.toEqual([
+      { state: 'removed' },
+    ]);
   });
 
   /**

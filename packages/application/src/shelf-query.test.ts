@@ -1,6 +1,13 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { NodeSqliteDatabase } from '@read-it-again/storage-node';
-import { indexWorksForSearch, listShelf, migrate } from '@read-it-again/storage-schema';
+import {
+  indexWorksForSearch,
+  listBookDetailVersions,
+  listShelf,
+  migrate,
+  saveBookDetails,
+  setBookShelfState,
+} from '@read-it-again/storage-schema';
 
 /**
  * The shelf is one card per book, not one per reader-book pair:
@@ -58,6 +65,73 @@ describe('listShelf', () => {
     await expect(listShelf(database, { query: 'the gruff' })).resolves.toMatchObject({ total: 1 });
     await expect(listShelf(database, { query: 'donaldson' })).resolves.toMatchObject({ total: 1 });
     await expect(listShelf(database, { query: 'nothing' })).resolves.toMatchObject({ total: 0 });
+  });
+
+  it('overlays corrected details without changing the source work', async () => {
+    database = new NodeSqliteDatabase();
+    await migrate(database);
+    await seedSharedBook(database);
+    await indexWorksForSearch(database);
+
+    await saveBookDetails(database, {
+      id: 'edit-1',
+      workId: 'work',
+      title: 'The Gruffalo Child',
+      author: 'Julia Donaldson and Axel Scheffler',
+      now: '2026-08-18T00:00:00.000Z',
+    });
+
+    await expect(listShelf(database, { query: 'gruffalo child' })).resolves.toMatchObject({
+      total: 1,
+      entries: [
+        {
+          workId: 'work',
+          title: 'The Gruffalo Child',
+          authors: ['Julia Donaldson and Axel Scheffler'],
+        },
+      ],
+    });
+    await expect(listShelf(database, { query: 'the gruffalo donaldson' })).resolves.toMatchObject({
+      total: 0,
+    });
+    await expect(
+      database.query<{ canonical_title: string }>(
+        'SELECT canonical_title FROM works WHERE id = ?',
+        ['work'],
+      ),
+    ).resolves.toEqual([{ canonical_title: 'The Gruffalo' }]);
+    await expect(listBookDetailVersions(database, 'work')).resolves.toMatchObject([
+      { title: 'The Gruffalo', original: true },
+      { title: 'The Gruffalo Child', original: false },
+    ]);
+  });
+
+  it('removes and restores a work by appending shelf events', async () => {
+    database = new NodeSqliteDatabase();
+    await migrate(database);
+    await seedSharedBook(database);
+
+    await setBookShelfState(database, {
+      id: 'remove',
+      workId: 'work',
+      state: 'removed',
+      now: '2026-08-18T00:00:00.000Z',
+    });
+    await expect(listShelf(database)).resolves.toMatchObject({ total: 0, entries: [] });
+
+    await setBookShelfState(database, {
+      id: 'restore',
+      workId: 'work',
+      state: 'present',
+      now: '2026-08-18T00:00:01.000Z',
+    });
+    await expect(listShelf(database)).resolves.toMatchObject({ total: 1 });
+    await expect(
+      database.query<{ state: string }>(
+        'SELECT state FROM work_shelf_events WHERE work_id = ? ORDER BY revision',
+        ['work'],
+      ),
+    ).resolves.toEqual([{ state: 'removed' }, { state: 'present' }]);
   });
 });
 

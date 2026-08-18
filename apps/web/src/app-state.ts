@@ -61,6 +61,7 @@ export interface AppState {
   readonly summaryReady: boolean;
   readonly status: string;
   readonly clearStatus: () => void;
+  readonly undoAction: { readonly run: () => void } | null;
   readonly error: ErrorState | null;
   readonly busy: boolean;
   readonly persistence: PersistenceState;
@@ -129,6 +130,12 @@ export interface AppState {
    *  automatic or human. This is ADR 0012's promised reversibility, and it has to
    *  work for a book that is already filed, not only one sitting in review. */
   readonly reassignWork: (workId: string, readerIds: readonly string[]) => Promise<void>;
+  readonly saveBookDetails: (input: {
+    readonly workId: string;
+    readonly title: string;
+    readonly author: string;
+  }) => Promise<boolean>;
+  readonly removeBook: (workId: string, title: string) => Promise<boolean>;
   readonly manageReaders: (
     request: Extract<
       WorkerRequestInput,

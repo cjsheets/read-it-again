@@ -27,7 +27,16 @@ export function BookDetail({
   readonly onClose: () => void;
 }) {
   const cover = useCover(item.workId, item.hasCover);
+  const { busy, saveBookDetails, removeBook } = useApp();
   const panel = useRef<HTMLDivElement>(null);
+  const [editing, setEditing] = useState(false);
+  const [title, setTitle] = useState(item.title);
+  const [author, setAuthor] = useState(item.authors[0] ?? '');
+  const [showEdits, setShowEdits] = useState(false);
+  const edits = useWorkerData(
+    { type: 'getBookEdits', workId: item.workId },
+    (response) => response.bookEdits ?? [],
+  );
   // History is per-book and only needed while the drawer is open, so it is fetched
   // here rather than carried by the shelf.
   const model = useWorkerData({ type: 'getActivity' }, (response) => response.activity);
@@ -82,6 +91,86 @@ export function BookDetail({
             ✕
           </button>
         </div>
+
+        {editing ? (
+          <section
+            className="detail-section book-details-edit"
+            aria-labelledby={`edit-${item.workId}`}
+          >
+            <h3 id={`edit-${item.workId}`}>Edit details</h3>
+            <label>
+              Book title
+              <input value={title} onChange={(event) => setTitle(event.target.value)} />
+            </label>
+            <label>
+              Author
+              <input value={author} onChange={(event) => setAuthor(event.target.value)} />
+            </label>
+            <div className="decision-actions">
+              <button
+                type="button"
+                disabled={busy || title.trim().length === 0}
+                onClick={() =>
+                  void saveBookDetails({ workId: item.workId, title, author }).then((saved) => {
+                    if (saved) setEditing(false);
+                  })
+                }
+              >
+                Save details
+              </button>
+              <button type="button" onClick={() => setEditing(false)}>
+                Cancel
+              </button>
+            </div>
+          </section>
+        ) : (
+          <div className="decision-actions detail-book-actions">
+            <button
+              type="button"
+              onClick={() => {
+                setTitle(item.title);
+                setAuthor(item.authors[0] ?? '');
+                setEditing(true);
+              }}
+            >
+              Edit details
+            </button>
+            <button type="button" onClick={() => setShowEdits((current) => !current)}>
+              {showEdits ? 'Hide edit history' : 'Show edit history'}
+            </button>
+            <button
+              type="button"
+              className="danger-action"
+              disabled={busy}
+              onClick={() =>
+                void removeBook(item.workId, item.title).then((removed) => {
+                  if (removed) onClose();
+                })
+              }
+            >
+              Remove from shelf
+            </button>
+          </div>
+        )}
+
+        {showEdits && (
+          <section
+            className="detail-section"
+            data-testid="book-edit-history"
+            aria-labelledby={`edit-history-${item.workId}`}
+          >
+            <h3 id={`edit-history-${item.workId}`}>Edit history</h3>
+            <ol className="detail-history">
+              {(edits ?? []).map((edit, index) => (
+                <li key={`${edit.createdAt}-${String(index)}`}>
+                  <strong>{edit.title}</strong>
+                  {edit.author && <> · {edit.author}</>}
+                  {edit.original && <small> · Original details</small>}
+                </li>
+              ))}
+            </ol>
+          </section>
+        )}
 
         <LogReading item={item} />
         <CoverChooser workId={item.workId} hasCover={item.hasCover} />

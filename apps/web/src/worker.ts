@@ -34,12 +34,15 @@ import {
   indexWorksForSearch,
   LAST_BACKUP_AT,
   listAttributionTriage,
+  listBookDetailVersions,
   listReaders,
   listShelf,
   migrate,
   renameReader,
   restoreReader,
   saveCoverImage,
+  saveBookDetails,
+  setBookShelfState,
 } from '@read-it-again/storage-schema';
 import type { Database } from '@read-it-again/storage-schema';
 import type { Summary, WorkerEvent, WorkerRequest, WorkerResponse } from './protocol.js';
@@ -137,6 +140,10 @@ async function handle(request: WorkerRequest): Promise<void> {
           cover: cover ? { bytes: cover.bytes, mime: cover.mime } : null,
         });
       }
+      case 'getBookEdits':
+        return await reply(request.id, database, {
+          bookEdits: await listBookDetailVersions(database, request.workId),
+        });
       default:
         break;
     }
@@ -210,6 +217,21 @@ async function handle(request: WorkerRequest): Promise<void> {
       });
     } else if (request.type === 'removeCover') {
       await deleteCoverImage(database, request.workId);
+    } else if (request.type === 'saveBookDetails') {
+      await saveBookDetails(database, {
+        id: crypto.randomUUID(),
+        workId: request.workId,
+        title: request.title,
+        author: request.author,
+        now: new Date().toISOString(),
+      });
+    } else if (request.type === 'setBookShelfState') {
+      await setBookShelfState(database, {
+        id: crypto.randomUUID(),
+        workId: request.workId,
+        state: request.state,
+        now: new Date().toISOString(),
+      });
     } else if (request.type === 'createReader') {
       await createReader(database, {
         id: crypto.randomUUID(),
@@ -352,7 +374,12 @@ async function summarize(database: Database): Promise<Summary> {
     recommendations: number;
   }>(
     `SELECT
-       (SELECT count(*) FROM preference_summaries) AS books,
+       (SELECT count(DISTINCT ps.work_id) FROM preference_summaries ps
+        WHERE COALESCE(
+          (SELECT state FROM work_shelf_events event
+           WHERE event.work_id = ps.work_id ORDER BY revision DESC LIMIT 1),
+          'present'
+        ) = 'present') AS books,
        (SELECT count(*) FROM import_records) AS records,
        (SELECT count(*) FROM resolution_cases WHERE status IN ('pending', 'deferred'))
          + (SELECT count(*) FROM attribution_results WHERE current = 1 AND state = 'review')
