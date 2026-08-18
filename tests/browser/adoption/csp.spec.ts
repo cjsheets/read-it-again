@@ -16,7 +16,7 @@ test.describe('R1 — one enforceable content security policy', () => {
     await openApp(page);
     const metaPolicy = await page
       .locator('meta[http-equiv="Content-Security-Policy"]')
-      .getAttribute('content');
+      .evaluateAll((elements) => elements[0]?.getAttribute('content') ?? null);
     const headerPolicy = await page.evaluate(async () =>
       fetch('/_headers').then((body) => body.text()),
     );
@@ -50,9 +50,9 @@ test.describe('R1 — one enforceable content security policy', () => {
     );
 
     const styles = await page.evaluate(() => ({
-      background: getComputedStyle(document.body).backgroundColor,
+      background: getComputedStyle(document.documentElement).backgroundColor,
       minimumWidth: getComputedStyle(document.body).minWidth,
     }));
-    expect(styles).toEqual({ background: 'rgb(250, 247, 240)', minimumWidth: '320px' });
+    expect(styles).toEqual({ background: 'rgb(246, 241, 232)', minimumWidth: '320px' });
   });
 });

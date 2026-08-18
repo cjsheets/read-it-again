@@ -35,7 +35,8 @@ for (const file of artifactFiles) {
 }
 
 const index = await readFile(resolve(root, 'apps/web/dist/index.html'), 'utf8');
-if (!index.includes('Content-Security-Policy')) fail('production index has no CSP');
+if (/http-equiv=["']Content-Security-Policy["']/iu.test(index))
+  fail('production index duplicates the header CSP in a meta policy');
 if (!index.includes('manifest.webmanifest')) fail('production index has no web manifest');
 const serviceWorker = await readFile(resolve(root, 'apps/web/dist/service-worker.js'), 'utf8');
 if (!serviceWorker.includes('caches.open'))
