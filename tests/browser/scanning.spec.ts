@@ -114,8 +114,8 @@ test.describe('scanning a barcode', () => {
     await page.getByTestId('scan-show-on-shelf').click();
     await expect(page.getByTestId('scan-dialog')).toHaveCount(0);
     await expect(page.getByTestId('nav-shelf')).toHaveAttribute('aria-current', 'page');
-    await expect(page.getByTestId('shelf-search')).toHaveValue('The Theory of critical phenomena');
     await expect(shelfCards(page)).toHaveCount(1);
+    await expect(shelfCards(page).first()).toContainText(/The Theory\s*of\s*critical/iu);
   });
 
   /**

@@ -341,3 +341,50 @@ human-only evidence is not replaced with a synthetic proxy.
 - The final first-run performance/accessibility harness and full `pnpm check` are still pending.
 - Human-only evidence remains the six-device barcode field test, moderated parent sessions, lookup
   acceptance and real-device iOS Safari.
+
+## Final — first-run budget harness
+
+### What changed
+
+- Added `tests/browser/first-run-budget.spec.ts`, running against the 375×812 production preview
+  with Chromium CPU throttled 4×. It records cold empty/confirmation marks inside the page, typed
+  taps and keys, five-add focus and timing, two-tap reading, returning-user frames, 44px targets and
+  320px horizontal overflow.
+- Browser tests now use one worker. Four concurrent Chromium processes made the identical throttled
+  cold-empty mark vary from an isolated 360ms to 552ms and 643ms. Serial execution fixes the
+  measurement environment instead of weakening the 20% baseline ceiling.
+- Updated older browser journeys to enter R7's management/search surfaces at 12 books and to enter
+  Activity after a reading. Virtual-grid accessibility still reports the number of books, while
+  layout accounting includes the separate trailing add tile.
+
+### Measurements against AGENTS.md
+
+- Cold open → empty state: **360ms** (baseline **437ms**).
+- Cold open → first book confirmed: **684ms** (baseline **2,099ms**).
+- Typed first book: **2 taps / 10 keystrokes** (baseline **3 / 12**).
+- Five consecutive adds: **202, 203, 200, 193, 202ms**; Title retained focus throughout (baseline
+  **366, 199, 199, 200, 201ms**). Small individual differences remain inside the 20% noise ceiling.
+- Log a reading: **2 taps** (baseline **2 taps**).
+- Returning shelf: no first-run frame. First-run targets: all at least 44×44px. Horizontal overflow
+  at 320px: **0px**.
+
+### Final validation and candid corrections
+
+- `pnpm check` passes end to end: formatting, ESLint, TypeScript, **86 / 86 unit tests**, **120 / 120
+  browser tests**, all workspace production builds and the web-boundary scan across **31 source / 19
+  artifact files**.
+- Adoption passes **28 / 28**, up from Phase 0's **0 / 28**.
+- The first full run exposed older tests that assumed Activity and search were always visible and a
+  performance ceiling that counted books but not the new add tile. Those assertions were updated to
+  preserve their original behavior claims under R7; none were stubbed or removed.
+- The next two full runs exposed a measurement error: a CPU-throttled test was competing with three
+  other browsers. Raising the tolerance produced another failure and was reverted. Serializing the
+  environment retained the original budget and produced the green definitive run.
+
+### Human-only evidence still outstanding
+
+- 100-book, six-device barcode field test.
+- Moderated first-run sessions with real parents.
+- Whether parents accept opt-in Open Library lookup.
+- Whether reading logs are the household's job or the product should focus only on duplicate buying.
+- iOS Safari verification on a real device.

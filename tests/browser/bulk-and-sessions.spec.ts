@@ -54,16 +54,17 @@ test.describe('selecting several books at once', () => {
   test('files a selection of books already on the shelf', async ({ page }) => {
     await openApp(page);
     await addReader(page, 'Ada');
-    await importCsv(page, csvSnapshot(3));
-    await expect(page.getByTestId('import-status')).toHaveText('Imported 3 new of 3 rows.');
+    await importCsv(page, csvSnapshot(12));
+    await expect(page.getByTestId('import-status')).toHaveText('Imported 12 new of 12 rows.');
     await goTo(page, 'tasks');
     const ada = await readerButtonId(page, 'Ada');
     await page.getByTestId(`file-all-${ada}`).click();
-    await expect(page.getByTestId('import-status')).toHaveText('3 books filed.');
+    await expect(page.getByTestId('import-status')).toHaveText('12 books filed.');
 
     await goTo(page, 'shelf');
-    await expect(shelfCards(page)).toHaveCount(3);
-    await page.getByTestId('selection-mode').click();
+    await expect(shelfCards(page)).toHaveCount(12);
+    await page.getByTestId('shelf-more').click();
+    await page.getByRole('button', { name: 'Select books' }).click();
     await shelfCards(page).nth(0).getByRole('checkbox').check();
     await shelfCards(page).nth(1).getByRole('checkbox').check();
     await expect(page.getByTestId('selection-count')).toHaveText('2 books selected');
@@ -75,18 +76,19 @@ test.describe('selecting several books at once', () => {
     await page.getByTestId(`reader-filter-${child}`).click();
     await expect(shelfCards(page)).toHaveCount(2);
     await page.getByTestId(`reader-filter-${ada}`).click();
-    await expect(shelfCards(page)).toHaveCount(1);
+    await expect(shelfCards(page)).toHaveCount(10);
   });
 
   test('selecting turns a tap into a second selection rather than opening a book', async ({
     page,
   }) => {
     await openApp(page);
-    await importCsv(page, csvSnapshot(3));
-    await expect(page.getByTestId('import-status')).toHaveText('Imported 3 new of 3 rows.');
+    await importCsv(page, csvSnapshot(12));
+    await expect(page.getByTestId('import-status')).toHaveText('Imported 12 new of 12 rows.');
     await goTo(page, 'shelf');
 
-    await page.getByTestId('selection-mode').click();
+    await page.getByTestId('shelf-more').click();
+    await page.getByRole('button', { name: 'Select books' }).click();
     await shelfCards(page).nth(0).getByRole('checkbox').check();
     await shelfCards(page).nth(1).getByRole('button').click();
 

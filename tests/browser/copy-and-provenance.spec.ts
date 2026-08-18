@@ -113,6 +113,8 @@ test.describe('provenance is named honestly', () => {
 
     const detail = await openBook(page);
     await expect(detail.getByTestId('detail-provenance')).toContainText('Added by you');
+    await detail.getByRole('button', { name: 'Log a reading' }).click();
+    await expect(detail.getByTestId('session-logged')).toBeVisible();
     await page.getByRole('button', { name: 'Close' }).click();
 
     // Library facts live under Activity, and a typed-in book is not one.
@@ -120,7 +122,9 @@ test.describe('provenance is named honestly', () => {
     await page.getByText('Library borrowing history').click();
     await expect(page.getByText('Nothing borrowed from a library yet.')).toBeVisible();
     await expect(page.getByText('No borrowing history yet.')).toBeVisible();
-    await expect(page.getByRole('listitem').filter({ hasText: 'The Gruffalo' })).toHaveCount(0);
+    await expect(
+      page.locator('.library-activity').getByRole('listitem').filter({ hasText: 'The Gruffalo' }),
+    ).toHaveCount(0);
   });
 
   test('a CSV import is labelled as a file import', async ({ page }) => {

@@ -108,7 +108,7 @@ export function Shelf({ go }: { readonly go: (route: Route) => void }) {
             </select>
           </label>
           <details className="shelf-more">
-            <summary>More</summary>
+            <summary data-testid="shelf-more">More</summary>
             <button
               type="button"
               className="select-mode"
@@ -166,7 +166,7 @@ export function Shelf({ go }: { readonly go: (route: Route) => void }) {
             <ShelfTile
               key={entry.workId}
               entry={entry}
-              aria={aria}
+              aria={{ ...aria, 'aria-setsize': total }}
               selected={selection.includes(entry.workId)}
               selecting={selectionMode}
               onToggle={() =>
