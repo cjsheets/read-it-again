@@ -1,11 +1,23 @@
 import { expect, test } from '@playwright/test';
-import { addBookManually, openApp, openBook, shelfCards } from '../support/shelf.js';
+import {
+  addBookManually,
+  BULK_IMPORT_TIMEOUT,
+  csvSnapshot,
+  importCsv,
+  openApp,
+  openBook,
+  shelfCards,
+} from '../support/shelf.js';
 
 test.describe('R3 — correctable and recoverable books', () => {
   test('a title correction updates shelf, search, and detail without a reload', async ({
     page,
   }) => {
     await openApp(page);
+    await importCsv(page, csvSnapshot(11, 'Filler'));
+    await expect(page.getByTestId('import-status')).toHaveText('Imported 11 new of 11 rows.', {
+      timeout: BULK_IMPORT_TIMEOUT,
+    });
     await addBookManually(page, { title: 'Clod Boat', author: 'Ada Fox' });
     const detail = await openBook(page);
 

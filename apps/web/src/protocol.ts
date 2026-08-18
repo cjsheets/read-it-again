@@ -208,6 +208,7 @@ export interface Summary {
   readonly recordCount: number;
   readonly taskCount: number;
   readonly recommendationCount: number;
+  readonly readingCount: number;
   readonly lastBackupAt: string | null;
   /** Active readers. The shell needs this on every screen for the switcher, and
    *  it is what decides whether attribution has a genuine choice to offer. */

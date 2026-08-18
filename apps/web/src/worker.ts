@@ -385,6 +385,7 @@ async function summarize(database: Database): Promise<Summary> {
     records: number;
     tasks: number;
     recommendations: number;
+    readings: number;
   }>(
     `SELECT
        (SELECT count(DISTINCT ps.work_id) FROM preference_summaries ps
@@ -397,7 +398,8 @@ async function summarize(database: Database): Promise<Summary> {
        (SELECT count(*) FROM resolution_cases WHERE status IN ('pending', 'deferred'))
          + (SELECT count(*) FROM attribution_results WHERE current = 1 AND state = 'review')
          AS tasks,
-       (SELECT count(*) FROM recommendation_items) AS recommendations`,
+       (SELECT count(*) FROM recommendation_items) AS recommendations,
+       (SELECT count(*) FROM reading_sessions) AS readings`,
   );
   const counts = rows[0];
   const readers = await listReaders(database);
@@ -406,6 +408,7 @@ async function summarize(database: Database): Promise<Summary> {
     recordCount: counts?.records ?? 0,
     taskCount: counts?.tasks ?? 0,
     recommendationCount: counts?.recommendations ?? 0,
+    readingCount: counts?.readings ?? 0,
     lastBackupAt: (await getAppMetadata(database, LAST_BACKUP_AT)) ?? null,
     readers: readers.map(({ id, displayName }) => ({ id, displayName })),
   };

@@ -250,6 +250,16 @@ function TypeItIn({ go }: { readonly go: (route: Route) => void }) {
             <button type="button" className="link-button" onClick={() => go('shelf')}>
               View shelf
             </button>
+            <button
+              type="button"
+              className="link-button"
+              onClick={() => {
+                setConfirmation(null);
+                titleField.current?.focus();
+              }}
+            >
+              Add another book
+            </button>
             {confirmation.scanned && cameraSupported() && (
               <button type="button" className="link-button" onClick={() => setScanning(true)}>
                 Scan another

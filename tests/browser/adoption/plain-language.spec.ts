@@ -56,7 +56,7 @@ test.describe('R2 — first-run clarity and reach', () => {
     await addBookManually(page, { title: 'Cloud Boat' });
     await expect(page.getByTestId('import-status')).toHaveText('Book added.');
 
-    await goTo(page, 'activity');
+    await goTo(page, 'settings');
     await expect(page.getByTestId('import-status')).not.toContainText('Book added.');
   });
 

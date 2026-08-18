@@ -676,9 +676,9 @@ h3 {
 .cover-grid {
   display: grid;
   /* Column count is set inline by VirtualGrid so the rendered window matches the
-     laid-out one exactly; the gap here is the 16px it does its arithmetic with. */
-  grid-template-columns: repeat(auto-fill, minmax(min(150px, 100%), 1fr));
-  gap: 20px 16px;
+     laid-out one exactly; the gap here is the 8px it does its arithmetic with. */
+  grid-template-columns: repeat(auto-fill, minmax(min(112px, 100%), 1fr));
+  gap: 20px 8px;
   list-style: none;
   margin: 0;
   padding: 0;
@@ -727,6 +727,50 @@ h3 {
   cursor: pointer;
   min-height: var(--tap);
   padding: 8px 14px;
+}
+.shelf-more {
+  position: relative;
+}
+.shelf-more summary {
+  align-items: center;
+  color: var(--brand);
+  cursor: pointer;
+  display: flex;
+  min-height: var(--tap);
+  padding-inline: 10px;
+}
+.shelf-more[open] .select-mode {
+  background: var(--surface);
+  position: absolute;
+  right: 0;
+  top: calc(100% + 4px);
+  width: max-content;
+  z-index: 2;
+}
+.add-book-tile {
+  align-items: stretch;
+  display: flex;
+}
+.add-book-tile > button {
+  align-items: center;
+  background: var(--brand-tint);
+  border: 2px dashed color-mix(in srgb, var(--brand) 45%, transparent);
+  border-radius: 6px;
+  color: var(--brand);
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  font-weight: 700;
+  gap: 8px;
+  justify-content: center;
+  min-height: 168px;
+  padding: 12px;
+  text-align: center;
+  width: 100%;
+}
+.add-book-tile > button > span {
+  font-size: 2rem;
+  line-height: 1;
 }
 .cover-button {
   background: none;
