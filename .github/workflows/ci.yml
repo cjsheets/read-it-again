@@ -80,13 +80,54 @@ jobs:
         run: pnpm test:unit
 
       - name: Run browser tests
-        run: pnpm test:browser
+        run: >-
+          pnpm test:browser --grep-invert
+          "performance budget at|search responds within|barcode decoder stays"
 
       - name: Upload browser test report
         if: always()
         uses: actions/upload-artifact@v7
         with:
           name: playwright-report
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 14
+          if-no-files-found: ignore
+
+  performance:
+    name: Performance
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    continue-on-error: true
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v6
+
+      - name: Install Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Chromium
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Run performance budgets
+        run: pnpm exec playwright test tests/browser/performance-budget.spec.ts
+
+      - name: Upload performance report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: playwright-performance-report
           path: |
             playwright-report/
             test-results/

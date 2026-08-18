@@ -74,6 +74,13 @@ self.addEventListener('fetch', (event) => {
         void caches.open(CACHE).then((cache) => cache.put(event.request, copy));
         return response;
       })
-      .catch(() => caches.match(event.request).then((response) => response ?? caches.match('/'))),
+      .catch(() =>
+        // Vite's preview server adds `Vary: Origin`. The service worker fetch that
+        // fills the cache has no Origin header, while a later module import does.
+        // They are still the same immutable, same-origin asset.
+        caches
+          .match(event.request, { ignoreVary: true })
+          .then((response) => response ?? caches.match('/')),
+      ),
   );
 });
