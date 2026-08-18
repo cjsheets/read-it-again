@@ -15,7 +15,7 @@ requires a human with physical books.
 
 Argument: `$1`
 
-- *(empty)* — determine the current state, then do the next incomplete release in order.
+- _(empty)_ — determine the current state, then do the next incomplete release in order.
 - `status` — report state only. Change nothing.
 - `R1`…`R7` — do that release only.
 - `F-01`…`F-13` — do that single finding only.
@@ -28,10 +28,10 @@ Argument: `$1`
 These are not negotiable and override anything convenient.
 
 1. **Never stub the network to make a test pass.** The audit's single worst finding existed because
-   six cover tests used `page.route('https://covers.openlibrary.org/**')`, which resolves *before*
+   six cover tests used `page.route('https://covers.openlibrary.org/**')`, which resolves _before_
    CSP is applied. Green tests, dead feature. Any test asserting "we can reach host X" must exercise
-   the real policy. Stubbing is fine for asserting *behaviour after a response*; it is never fine for
-   asserting *that a request is permitted*.
+   the real policy. Stubbing is fine for asserting _behaviour after a response_; it is never fine for
+   asserting _that a request is permitted_.
 2. **The PWA stays fully useful with no server and no library account.** Every change must leave the
    typed path working offline with zero network.
 3. **Credentialed BiblioCommons acquisition never reaches the client bundle.** `pnpm check:web-boundary`
@@ -43,7 +43,7 @@ These are not negotiable and override anything convenient.
 6. **Imported and user-authored data stays auditable and portable.** A user correction is a new
    record, not an `UPDATE` that destroys evidence.
 7. **Adding a book is not reading it. An ISBN does not identify an edition. Cover OCR is not
-   authoritative metadata.** Any lookup result is a *proposal a human confirms*, never a silent write.
+   authoritative metadata.** Any lookup result is a _proposal a human confirms_, never a silent write.
 8. **Do not fake a human test.** Field tests on physical books and moderated parent sessions cannot be
    automated. Say so and stop; do not substitute a synthetic proxy and report it as evidence.
 9. **Audit against the production build, not the dev server.** `vite preview` with real COOP/COEP
@@ -78,18 +78,18 @@ on one item.
 
 Keep these numbers from regressing. Throttled = CDP `setCPUThrottlingRate: 4`, 9 Mbps / 70 ms.
 
-| Measure | Value |
-|---|---|
-| Cold open → empty state (throttled) | 437 ms |
-| Cold open → worker ready (throttled) | 1,743 ms |
-| Cold open → first book confirmed (throttled) | 2,099 ms |
-| Taps / keystrokes to first book | 3 / 12 |
-| Five books in a row | 366, 199, 199, 200, 201 ms — focus stays on Title |
-| Log a reading | 2 taps, 91 ms |
-| 1,200 books | import 3,306 ms · search 187 ms · 833 DOM nodes · 60 tiles |
-| Barcode decode | 792 ms |
-| axe violations (5 screens, WCAG 2.1 AA) | 0 |
-| Returning-user false empty-state flash | 72 ms (41→113 ms) |
+| Measure                                      | Value                                                      |
+| -------------------------------------------- | ---------------------------------------------------------- |
+| Cold open → empty state (throttled)          | 437 ms                                                     |
+| Cold open → worker ready (throttled)         | 1,743 ms                                                   |
+| Cold open → first book confirmed (throttled) | 2,099 ms                                                   |
+| Taps / keystrokes to first book              | 3 / 12                                                     |
+| Five books in a row                          | 366, 199, 199, 200, 201 ms — focus stays on Title          |
+| Log a reading                                | 2 taps, 91 ms                                              |
+| 1,200 books                                  | import 3,306 ms · search 187 ms · 833 DOM nodes · 60 tiles |
+| Barcode decode                               | 792 ms                                                     |
+| axe violations (5 screens, WCAG 2.1 AA)      | 0                                                          |
+| Returning-user false empty-state flash       | 72 ms (41→113 ms)                                          |
 
 ---
 
@@ -99,7 +99,7 @@ Do them in order. The gates are real: **R5 must not ship before R4, and R6 must 
 Promoting the camera while it still returns a bare ISBN points the app's most prominent button at its
 worst path.
 
-### R1 — Unblock covers  *(F-01)*
+### R1 — Unblock covers _(F-01)_
 
 The app ships two Content Security Policies that disagree. `apps/web/index.html` sets
 `connect-src 'self'`. `apps/web/public/_headers` sets `connect-src 'self' https://covers.openlibrary.org`.
@@ -117,11 +117,11 @@ One root cause, three symptoms.
   one shared definition so they cannot drift.
 - **Verify:** confirm the deploy target actually applies `_headers`. A deleted meta tag plus an
   unapplied header file is strictly worse than today.
-- **Accept when:** a test that does *not* use `page.route` asserts a real request to the cover host is
+- **Accept when:** a test that does _not_ use `page.route` asserts a real request to the cover host is
   permitted by CSP; and a test asserts the meta and header policies do not disagree on `connect-src`.
   Also confirm the dev server now renders styled.
 
-### R2 — Plain language and reach  *(F-06, F-07, F-08, F-09, F-11, F-12, F-13)*
+### R2 — Plain language and reach _(F-06, F-07, F-08, F-09, F-11, F-12, F-13)_
 
 Pure UI. No schema, no protocol, no new dependencies. Can be one commit or several.
 
@@ -131,14 +131,14 @@ Pure UI. No schema, no protocol, no new dependencies. Can be one commit or sever
   one quiet line pointing to the import page. In the detail drawer
   (`apps/web/src/components/book-detail.tsx`), "Choose a cover" is the filled primary while "Log a
   reading" is an outline secondary — swap the weights.
-  *Accept when:* the Add screen contains only ways to add one book, and "Log a reading" is the only
+  _Accept when:_ the Add screen contains only ways to add one book, and "Log a reading" is the only
   primary-weight control in the drawer.
 - **F-07 — privacy answer is 1,445 px from the question.** "How this works" on the first-run screen
   (`apps/web/src/routes/shelf.tsx`) routes to `#settings` top-of-page, landing the user on a
   passphrase field; the Privacy card is ~1.8 screens further down. Open the explanation in place — a
   drawer or disclosure on the first-run screen. The existing Privacy copy is excellent; reuse it
   verbatim, don't rewrite it.
-  *Accept when:* activating it puts "Your library stays in this browser" in the viewport with no
+  _Accept when:_ activating it puts "Your library stays in this browser" in the viewport with no
   scrolling, and focus returns to the CTA on close.
 - **F-08 — the global status line is stale and permanent.** `apps/web/src/components/shell.tsx` renders
   one status paragraph above every destination and never clears it on navigation, so "Book added."
@@ -146,7 +146,7 @@ Pure UI. No schema, no protocol, no new dependencies. Can be one commit or sever
   indefinitely. It occupies the top line of every screen on a phone. Make it transient and local —
   announce results next to the control that caused them, keep a `role="status"` live region for screen
   readers, clear on route change.
-  *Accept when:* navigating away from an action clears its message; no destination renders a status
+  _Accept when:_ navigating away from an action clears its message; no destination renders a status
   line about a different destination.
 - **F-09 — a stocked shelf flashes "Your shelf is empty".** `apps/web/src/routes/shelf.tsx` branches on
   `summary.bookCount === 0`, and `EMPTY_SUMMARY` in `apps/web/src/app-state.ts` starts at zero, so the
@@ -154,7 +154,7 @@ Pure UI. No schema, no protocol, no new dependencies. Can be one commit or sever
   books; it scales with device speed and shelf size. For a local-first app this is the most alarming
   sentence available. Distinguish "not loaded" from "genuinely empty" — `useWorkerData`'s `undefined`
   convention already does this elsewhere. Show a quiet skeleton instead.
-  *Accept when:* a returning user with ≥1 book never renders `[data-testid="first-run"]`, asserted by
+  _Accept when:_ a returning user with ≥1 book never renders `[data-testid="first-run"]`, asserted by
   animation-frame sampling rather than a timed screenshot.
 - **F-11 — two sub-44 px targets.** At 320 px everything respects the repo's own `--tap: 44px` token
   except "How this works" (97×16) and the skip link (146×42). The first is the privacy affordance from
@@ -162,38 +162,38 @@ Pure UI. No schema, no protocol, no new dependencies. Can be one commit or sever
   `.link-button` (`apps/web/src/styles.css`) a `min-height: var(--tap)` and padding where it stands
   alone rather than inline in a sentence. Note axe will not catch this; it does not check target size
   at AA.
-  *Accept when:* every standalone interactive control on the first-book flow measures ≥44×44 at 320 px,
+  _Accept when:_ every standalone interactive control on the first-book flow measures ≥44×44 at 320 px,
   asserted in a test.
 - **F-12 — implementation vocabulary on screen.** Apply the rename table below. Most of the app's copy
   is already well translated; these are what remain.
 - **F-13 — duplicate title.** Tiles print the title on the generated cover and again in the caption.
   Suppress the caption title when the tile shows a generated cover that already carries it; keep the
-  author line. Do this *after* R1, since real covers change the calculus.
-  *Accept when:* no tile renders the same title string twice.
+  author line. Do this _after_ R1, since real covers change the calculus.
+  _Accept when:_ no tile renders the same title string twice.
 
 **Rename table** — say the right-hand column instead:
 
-| Says | Where | Should say |
-|---|---|---|
-| Import archive | `routes/settings.tsx` | **Restore from a backup** |
-| Archive *(reader button)* | `routes/settings.tsx` | **Hide this reader** |
-| Archive passphrase | `routes/settings.tsx` | **Backup password** |
-| Save assessment | `components/book-detail.tsx` | **Save** |
-| Ratings and read-aloud notes | `components/book-detail.tsx` | **How did it go?** |
-| Veto | `components/book-detail.tsx` | **Don't suggest this again** |
-| Child engagement / Grown-up enjoyment 0–3 | `components/book-controls.tsx` | **Kid liked it / I liked it**, showing the words already in `RATING_MEANINGS` (*no, a little, a lot, loved it*) — they currently reach only screen readers |
-| Why this reader | `components/book-detail.tsx` | **Who's this for?** — and hide the section entirely with one reader |
-| Nothing needs you / Needs a decision | `routes/tasks.tsx` | **All tidy / A few to sort out** |
-| Deterministic suggestions… cached library observation | `routes/discover.tsx` | **Ideas from what your family already reads. Availability was last checked {date}.** |
-| Catalog record {key} | `routes/discover.tsx` | *delete* |
-| acquisition episodes derived from borrowing | `components/book-detail.tsx` | **Borrowed {n} times — which doesn't mean it was read** |
-| The local runtime does that work | `routes/settings.tsx` | **A companion app on a computer does that** |
+| Says                                                  | Where                          | Should say                                                                                                                                                 |
+| ----------------------------------------------------- | ------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Import archive                                        | `routes/settings.tsx`          | **Restore from a backup**                                                                                                                                  |
+| Archive _(reader button)_                             | `routes/settings.tsx`          | **Hide this reader**                                                                                                                                       |
+| Archive passphrase                                    | `routes/settings.tsx`          | **Backup password**                                                                                                                                        |
+| Save assessment                                       | `components/book-detail.tsx`   | **Save**                                                                                                                                                   |
+| Ratings and read-aloud notes                          | `components/book-detail.tsx`   | **How did it go?**                                                                                                                                         |
+| Veto                                                  | `components/book-detail.tsx`   | **Don't suggest this again**                                                                                                                               |
+| Child engagement / Grown-up enjoyment 0–3             | `components/book-controls.tsx` | **Kid liked it / I liked it**, showing the words already in `RATING_MEANINGS` (_no, a little, a lot, loved it_) — they currently reach only screen readers |
+| Why this reader                                       | `components/book-detail.tsx`   | **Who's this for?** — and hide the section entirely with one reader                                                                                        |
+| Nothing needs you / Needs a decision                  | `routes/tasks.tsx`             | **All tidy / A few to sort out**                                                                                                                           |
+| Deterministic suggestions… cached library observation | `routes/discover.tsx`          | **Ideas from what your family already reads. Availability was last checked {date}.**                                                                       |
+| Catalog record {key}                                  | `routes/discover.tsx`          | _delete_                                                                                                                                                   |
+| acquisition episodes derived from borrowing           | `components/book-detail.tsx`   | **Borrowed {n} times — which doesn't mean it was read**                                                                                                    |
+| The local runtime does that work                      | `routes/settings.tsx`          | **A companion app on a computer does that**                                                                                                                |
 
-*Accept when:* no user-visible string contains *archive* (as a verb for readers), *assessment*,
-*provenance*, *observation*, *deterministic*, or *catalog record*. Assert this with a test that reads
+_Accept when:_ no user-visible string contains _archive_ (as a verb for readers), _assessment_,
+_provenance_, _observation_, _deterministic_, or _catalog record_. Assert this with a test that reads
 rendered text from every destination, not by grepping source.
 
-### R3 — Recoverability  *(F-05)*
+### R3 — Recoverability _(F-05)_
 
 The detail drawer offers ratings, traits, cover choice, reader reassignment — and **no way to edit a
 title, edit an author, or remove a book.** A typo at 8:45pm is permanent. This is the only journey the
@@ -213,16 +213,16 @@ absent.
 - **Accept when:** correcting a title updates shelf, search index and detail with no reload; the prior
   value remains inspectable; removing a book can be undone.
 
-### R4 — Prove the lookup is worth building  *(gate for R5)*
+### R4 — Prove the lookup is worth building _(gate for R5)_
 
 **This is a script, not a feature. It changes no product code.** It is also the cheapest, highest-value
 thing in the whole plan — see § Investigations, probe 1. Do not skip it and do not proceed to R5 until
 it has an answer.
 
-### R5 — ISBN → title  *(F-04, F-02)* — **requires R4**
+### R5 — ISBN → title _(F-04, F-02)_ — **requires R4**
 
-ADR 0016 closes: *"Metadata lookup is not covered by this ADR… adding that would send a different
-question to a different endpoint and require its own decision."* That decision is now the difference
+ADR 0016 closes: _"Metadata lookup is not covered by this ADR… adding that would send a different
+question to a different endpoint and require its own decision."_ That decision is now the difference
 between a working camera and a decorative one.
 
 The endpoint is verified: `https://openlibrary.org/api/books?bibkeys=ISBN:{isbn}&format=json&jscmd=data`
@@ -230,7 +230,7 @@ returns title and authors and sends `access-control-allow-origin: *`. No account
 same consent question, same disclosure shape as the cover lookup ADR 0016 already reasoned through.
 
 - **F-04 — the lookup.** Extend the existing `setCatalogCovers` consent into a single "Look things up
-  on openlibrary.org" permission covering covers *and* titles. Reuse what is already built in
+  on openlibrary.org" permission covering covers _and_ titles. Reuse what is already built in
   `apps/web/src/catalog-cover.ts`: the 3.1 s rate limiter, the durable queue, the cached
   hit/miss/failure states, and the live network indicator that names the host with a Stop link.
   Present the result as a **confirm card**, never a silent write (rule 7).
@@ -245,12 +245,12 @@ same consent question, same disclosure shape as the cover lookup ADR 0016 alread
   consent on → confirm card, one-tap accept, editable reject; offline → degrades to the typed path;
   submitting a valid ISBN with an empty title puts an identifiable book on the shelf.
 
-### R6 — Camera to the front  *(F-03)* — **requires R5**
+### R6 — Camera to the front _(F-03)_ — **requires R5**
 
 Scanning works — 792 ms to a valid EAN-13, correct Bookland handling, native-detector fast path with a
 self-hosted zxing-wasm fallback, precached for offline. It is also off by default, buried under
 Settings → Experiments 1,208 px down the page, four taps from a cold open. And after a successful scan
-the title field is still empty, so the scan path costs *more* than typing.
+the title field is still empty, so the scan path costs _more_ than typing.
 
 R5 fixes the payoff. This release fixes the discovery.
 
@@ -269,13 +269,13 @@ R5 fixes the payoff. This release fixes the discovery.
   0 keystrokes; all three failure paths keep the typed fallback reachable; the payload budget test
   still passes.
 
-### R7 — Browsing polish  *(F-10 and the Next tier)*
+### R7 — Browsing polish _(F-10 and the Next tier)_
 
 - **F-10 — shelf chrome outweighs content at small counts.** With one book the shelf renders a search
   input, a sort `<select>`, a "Select books" toggle and a count. Reveal search and sort above ~12
   books; move "Select books" into a long-press or overflow affordance. Give the reclaimed space to an
   "Add another book" tile as the last cell of the grid.
-  *Accept when:* at ≤11 books the shelf shows covers and one add affordance and nothing else; at 12+
+  _Accept when:_ at ≤11 books the shelf shows covers and one add affordance and nothing else; at 12+
   the controls appear without layout shift.
 - **Add-another momentum loop.** After the first successful add, offer the next add prominently — the
   engine is already fast enough (199 ms per book).
@@ -290,7 +290,7 @@ R5 fixes the payoff. This release fixes the discovery.
 
 Run these with `/adoption investigate`. They change no product code.
 
-**Probe 1 — does Open Library actually know children's picture books?** *(gates R5)*
+**Probe 1 — does Open Library actually know children's picture books?** _(gates R5)_
 Write a script that takes ~100 real children's-book ISBNs and queries
 `https://openlibrary.org/api/books?bibkeys=ISBN:{isbn}&format=json&jscmd=data`. Report: hit rate,
 how often a title comes back, how often an author comes back, and how often the title is
@@ -301,7 +301,7 @@ a synthetic list of bestsellers will overstate the hit rate, so say so if you us
 
 **Probe 2 — CSP and header drift.** Assert the deployed policy matches the intended one. Fetch the
 deploy target if it exists; otherwise serve `apps/web/dist` locally with `_headers` applied and probe
-both hosts from the main thread *and* a worker. This is the regression test for R1's root cause.
+both hosts from the main thread _and_ a worker. This is the regression test for R1's root cause.
 
 **Probe 3 — cover coverage.** Once R1 and R5 land, count what fraction of ISBN-bearing books actually
 have stored cover bytes. This is measurement metric #5 and the single best proxy for whether the whole

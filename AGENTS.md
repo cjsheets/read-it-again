@@ -59,9 +59,9 @@ artifact that ships. Playwright's config starts the preview on port 4175 itself.
 ## Testing rules learned the hard way
 
 **Never stub the network to prove a request is permitted.** Six cover tests used
-`page.route('https://covers.openlibrary.org/**')`, which intercepts *before* CSP is applied. They
+`page.route('https://covers.openlibrary.org/**')`, which intercepts _before_ CSP is applied. They
 passed green over a feature that could not run in production for months. Stubbing is fine for
-asserting behaviour *after* a response; it is never fine for asserting that a request is *allowed*.
+asserting behaviour _after_ a response; it is never fine for asserting that a request is _allowed_.
 Policy assertions must exercise the real policy.
 
 **A fresh Playwright context is a cold install.** Each context has its own OPFS, cache storage,
@@ -85,18 +85,18 @@ fix without a regression test repeats that.
 Production build, Chromium, 375×812. Throttled = CDP `setCPUThrottlingRate: 4`, 9 Mbps / 70 ms.
 Keep these from regressing.
 
-| Measure | Value |
-|---|---|
-| Cold open → empty state (throttled) | 437 ms |
-| Cold open → worker ready (throttled) | 1,743 ms |
-| Cold open → first book confirmed (throttled) | 2,099 ms |
-| Taps / keystrokes to first book | 3 / 12 |
-| Five books in a row | 366, 199, 199, 200, 201 ms — focus stays on Title |
-| Log a reading | 2 taps, 91 ms |
-| 1,200 books | import 3,306 ms · search 187 ms · 833 DOM nodes |
-| Barcode decode | 792 ms |
-| axe violations (5 screens, WCAG 2.1 AA) | 0 |
-| Returning-user false empty-state flash | 72 ms |
+| Measure                                      | Value                                             |
+| -------------------------------------------- | ------------------------------------------------- |
+| Cold open → empty state (throttled)          | 437 ms                                            |
+| Cold open → worker ready (throttled)         | 1,743 ms                                          |
+| Cold open → first book confirmed (throttled) | 2,099 ms                                          |
+| Taps / keystrokes to first book              | 3 / 12                                            |
+| Five books in a row                          | 366, 199, 199, 200, 201 ms — focus stays on Title |
+| Log a reading                                | 2 taps, 91 ms                                     |
+| 1,200 books                                  | import 3,306 ms · search 187 ms · 833 DOM nodes   |
+| Barcode decode                               | 792 ms                                            |
+| axe violations (5 screens, WCAG 2.1 AA)      | 0                                                 |
+| Returning-user false empty-state flash       | 72 ms                                             |
 
 ## Known trap: two CSPs
 
@@ -111,8 +111,8 @@ result). Prefer one policy, delivered as a header.
 - pnpm workspace, Node ≥ 22. `pnpm install` at the root.
 - Commit messages: lowercase imperative, occasionally a conventional prefix (`fix:`, `feat:`, `perf:`,
   `test:`). Do not push unless asked.
-- Copy is design material. Write from the user's side of the screen — a parent manages *books* and
-  *readers*, not *works*, *editions*, *provenance*, *resolution cases* or *attribution triage*. The
+- Copy is design material. Write from the user's side of the screen — a parent manages _books_ and
+  _readers_, not _works_, _editions_, _provenance_, _resolution cases_ or _attribution triage_. The
   model may use those words; the UI may not.
 
 ## What cannot be automated

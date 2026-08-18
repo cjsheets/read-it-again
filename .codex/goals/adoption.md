@@ -7,7 +7,7 @@ Control it with `/goal` (check), `/goal pause`, `/goal resume`, `/goal clear`.
 
 **Why it is shaped this way.** Codex goals need one objective and one verifiable stopping condition,
 and they fail on loose lists of unrelated work. A thirteen-finding audit is exactly that shape — so
-Phase 0 turns the findings into an executable acceptance suite *first*. After that, "the audit is
+Phase 0 turns the findings into an executable acceptance suite _first_. After that, "the audit is
 addressed" stops being an opinion and becomes `tests/browser/adoption/` passing. That is the whole
 trick; don't remove it.
 
